@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Politics Globe · Test Page</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="politics-app" aria-label="Politics election market globe prototype">
+    <header class="app-header">
+      <div class="powered-by-kalshi" aria-label="Powered by Kalshi">
+        <span class="powered-label">Powered by</span>
+        <span class="kalshi-lockup">
+          <svg class="kalshi-mark" viewBox="0 0 34 34" role="img" aria-label="Kalshi">
+            <rect x="1" y="1" width="32" height="32" rx="9" fill="#0ac285"></rect>
+            <path d="M9 8.5h5v6.4l6.15-6.4h6.35l-7.45 7.55L27 25.5h-6.4l-5.05-6.1L14 21v4.5H9z" fill="#07120d"></path>
+          </svg>
+          <span class="kalshi-wordmark">KALSHI</span>
+        </span>
+      </div>
+
+      <nav class="market-tabs" aria-label="Market category">
+        <button class="market-tab" type="button">Sports</button>
+        <button class="market-tab is-active" type="button" aria-current="page">Politics</button>
+        <button class="market-tab" type="button">Culture</button>
+        <button class="market-tab" type="button">Weather</button>
+      </nav>
+
+      <label class="market-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.75"></circle><path d="m16 16 4 4"></path></svg>
+        <span class="sr-only">Search</span>
+        <input type="search" aria-label="Search elections, states, and countries" placeholder="Search politics markets" readonly>
+        <kbd>&#8984; K</kbd>
+      </label>
+    </header>
+
+    <div class="prototype-strip">
+      <span class="prototype-orb" aria-hidden="true"></span>
+      <span class="prototype-label">Connecting live politics markets</span>
+      <span class="prototype-note">Warming cached Kalshi feed</span>
+    </div>
+
+    <div class="politics-layout">
+      <aside class="filter-sidebar orbital-panel" aria-label="Politics map filters">
+        <fieldset>
+          <legend><span class="panel-heading"><span class="panel-orb" aria-hidden="true"></span>Geography</span></legend>
+          <div class="check-list">
+            <label class="check-option"><input type="checkbox" data-geography="US" checked><span>United States</span><small>State capitals</small></label>
+            <label class="check-option"><input type="checkbox" data-geography="Global" checked><span>Global politics</span><small>Capitals & landmarks</small></label>
+          </div>
+        </fieldset>
+
+        <div class="panel-rule"></div>
+
+        <fieldset>
+          <legend><span class="panel-heading"><span class="panel-orb" aria-hidden="true"></span>Office</span></legend>
+          <div class="check-list office-list">
+            <label class="check-option"><input type="checkbox" data-office="President" checked><span>President</span></label>
+            <label class="check-option"><input type="checkbox" data-office="Senate" checked><span>Senate</span></label>
+            <label class="check-option"><input type="checkbox" data-office="Governor" checked><span>Governor</span></label>
+            <label class="check-option"><input type="checkbox" data-office="Congress" checked><span>House / Parliament</span></label>
+            <label class="check-option"><input type="checkbox" data-office="International" checked><span>International</span></label>
+          </div>
+        </fieldset>
+
+        <div class="filter-summary" aria-live="polite">
+          <span class="filter-summary-number">0</span>
+          <span class="filter-summary-copy">jurisdictions visible</span>
+        </div>
+      </aside>
+
+      <section class="globe-stage" aria-label="Election market map">
+        <div class="globe-hud">
+          <span class="hud-summary">Loading election registry</span>
+        </div>
+
+        <svg class="politics-globe" viewBox="0 0 620 560" role="img" aria-labelledby="politics-globe-title politics-globe-description">
+          <title id="politics-globe-title">Election markets at state and national capitals</title>
+          <desc id="politics-globe-description">A draggable globe showing cached live Kalshi election markets in the United States and around the world. Marker size reflects the largest individual market volume at each capital. Red and blue identify the current leading United States party where available.</desc>
+          <defs>
+            <radialGradient id="politics-ocean-gradient" cx="34%" cy="28%" r="72%">
+              <stop class="ocean-light" offset="0%"></stop>
+              <stop class="ocean-dark" offset="100%"></stop>
+            </radialGradient>
+            <clipPath id="politics-sphere-clip"><path class="sphere-clip-path"></path></clipPath>
+          </defs>
+          <path class="globe-shadow"></path>
+          <path class="globe-ocean"></path>
+          <g clip-path="url(#politics-sphere-clip)">
+            <path class="globe-graticule"></path>
+            <g class="countries-layer"></g>
+            <g class="states-layer"></g>
+            <g class="capital-labels-layer"></g>
+          </g>
+          <g class="leaders-layer"></g>
+          <g class="markers-layer"></g>
+        </svg>
+
+        <div class="map-tooltip" role="tooltip" hidden></div>
+        <div class="zoom-controls" aria-label="Globe zoom controls">
+          <button type="button" class="zoom-button zoom-in" aria-label="Zoom in">+</button>
+          <button type="button" class="zoom-button zoom-out" aria-label="Zoom out">−</button>
+        </div>
+        <div class="globe-hint">Drag to rotate · scroll to zoom · hover for prices</div>
+      </section>
+
+      <aside class="election-detail orbital-panel" aria-live="polite">
+        <div class="detail-heading-row">
+          <div>
+            <span class="detail-kicker"><span class="panel-orb" aria-hidden="true"></span>Politics market</span>
+            <h1 class="detail-jurisdiction">Select a capital</h1>
+          </div>
+          <span class="detail-code">—</span>
+        </div>
+        <div class="detail-location">Hover or click a marker to inspect its markets.</div>
+        <div class="detail-meta"></div>
+        <div class="detail-market-list"></div>
+      </aside>
+
+      <section class="timeline-dock orbital-panel" aria-label="Election timeline">
+        <div class="timeline-header">
+          <div class="timeline-kicker"><span class="timeline-orb" aria-hidden="true"></span><span>Election horizon</span></div>
+          <div class="timeline-readout" aria-live="polite">
+            <span class="timeline-eyebrow"></span>
+            <output class="timeline-label"></output>
+          </div>
+          <span class="timeline-activity"></span>
+        </div>
+        <div class="timeline-controls">
+          <button class="timeline-step timeline-prev" type="button" aria-label="Previous election date">&#8249;</button>
+          <div class="timeline-range-wrap">
+            <input class="timeline-range" type="range" min="0" value="0" step="1" aria-label="Election date">
+            <div class="timeline-stops" aria-hidden="true"></div>
+          </div>
+          <button class="timeline-step timeline-next" type="button" aria-label="Next election date">&#8250;</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

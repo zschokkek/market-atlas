@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Kalshi Markets Globe · Integrated Preview</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="integration-body">
+  <main class="integration-shell" data-active-category="sports">
+    <header class="integration-header">
+      <div class="integration-brand" aria-label="Powered by Kalshi">
+        <span class="integration-powered">Powered by</span>
+        <span class="integration-lockup">
+          <svg class="integration-kalshi-mark" viewBox="0 0 34 34" role="img" aria-label="Kalshi">
+            <rect x="1" y="1" width="32" height="32" rx="9" fill="#0ac285"></rect>
+            <path d="M9 8.5h5v6.4l6.15-6.4h6.35l-7.45 7.55L27 25.5h-6.4l-5.05-6.1L14 21v4.5H9z" fill="#07120d"></path>
+          </svg>
+          <span class="integration-wordmark">KALSHI</span>
+        </span>
+      </div>
+
+      <nav class="integration-tabs" role="tablist" aria-label="Market category">
+        <button class="integration-tab is-active" id="category-tab-sports" type="button" role="tab" data-category="sports" aria-selected="true" aria-controls="category-view-sports">Sports</button>
+        <button class="integration-tab" id="category-tab-politics" type="button" role="tab" data-category="politics" aria-selected="false" aria-controls="category-view-politics" tabindex="-1">Politics</button>
+        <button class="integration-tab" type="button" role="tab" aria-selected="false" aria-disabled="true" tabindex="-1">Culture</button>
+        <button class="integration-tab" type="button" role="tab" aria-selected="false" aria-disabled="true" tabindex="-1">Weather</button>
+      </nav>
+
+      <label class="integration-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.75"></circle><path d="m16 16 4 4"></path></svg>
+        <span class="integration-sr-only">Search</span>
+        <input type="search" aria-label="Search markets, teams, and cities" placeholder="Search sports markets" readonly>
+        <kbd>&#8984; K</kbd>
+      </label>
+    </header>
+
+    <section class="integration-stage" aria-label="Markets globe">
+      <section class="category-view is-active" id="category-view-sports" role="tabpanel" aria-labelledby="category-tab-sports" data-category-view="sports">
+        <div class="category-loading" role="status"><span class="category-loading-orb" aria-hidden="true"></span><span>Loading sports globe</span></div>
+      </section>
+      <section class="category-view" id="category-view-politics" role="tabpanel" aria-labelledby="category-tab-politics" data-category-view="politics" aria-hidden="true" inert>
+        <div class="category-loading" role="status"><span class="category-loading-orb" aria-hidden="true"></span><span>Preparing politics globe</span></div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

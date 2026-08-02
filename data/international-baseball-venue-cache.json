@@ -1,0 +1,128 @@
+{
+  "2701": {
+    "venue": "Walmart Park",
+    "city": "Monterrey, Mexico",
+    "lat": 25.7183,
+    "lon": -100.3154
+  },
+  "2869": {
+    "venue": "Estadio Hermanos Serdán",
+    "city": "Puebla, Mexico",
+    "lat": 19.0773,
+    "lon": -98.1647
+  },
+  "2929": {
+    "venue": "Estadio Alberto Romo Chávez",
+    "city": "Aguascalientes, Mexico",
+    "lat": 21.8978,
+    "lon": -102.2848
+  },
+  "2949": {
+    "venue": "Estadio Cruz Azul Nelson Barrera",
+    "city": "Campeche, Mexico",
+    "lat": 19.8448,
+    "lon": -90.5375
+  },
+  "2950": {
+    "venue": "Estadio Kickapoo Lucky Eagle",
+    "city": "Monclova, Mexico",
+    "lat": 26.9064,
+    "lon": -101.4248
+  },
+  "2951": {
+    "venue": "Estadio Yu'Va",
+    "city": "Oaxaca, Mexico",
+    "lat": 17.0828,
+    "lon": -96.7222
+  },
+  "2953": {
+    "venue": "Parque Francisco I. Madero",
+    "city": "Saltillo, Mexico",
+    "lat": 25.438,
+    "lon": -101.006
+  },
+  "2955": {
+    "venue": "Parque Centenario 27 de Febrero",
+    "city": "Villahermosa, Mexico",
+    "lat": 17.9961,
+    "lon": -92.9475
+  },
+  "2956": {
+    "venue": "Estadio de la Revolución",
+    "city": "Torreón, Mexico",
+    "lat": 25.5428,
+    "lon": -103.402
+  },
+  "2957": {
+    "venue": "Toros Mobil Park",
+    "city": "Tijuana, Mexico",
+    "lat": 32.5065,
+    "lon": -116.9934
+  },
+  "2958": {
+    "venue": "Estadio Beto Ávila",
+    "city": "Veracruz, Mexico",
+    "lat": 19.1778,
+    "lon": -96.1233
+  },
+  "2959": {
+    "venue": "Parque de Béisbol Kukulcán",
+    "city": "Mérida, Mexico",
+    "lat": 20.9388,
+    "lon": -89.618
+  },
+  "3210": {
+    "venue": "Estadio Chihuahua",
+    "city": "Chihuahua, Mexico",
+    "lat": 28.6697,
+    "lon": -106.088
+  },
+  "3410": {
+    "venue": "Parque La Junta",
+    "city": "Nuevo Laredo, Mexico",
+    "lat": 27.4909,
+    "lon": -99.5106
+  },
+  "3929": {
+    "venue": "Estadio Beto Ávila Sherwin-Williams",
+    "city": "Cancún, Mexico",
+    "lat": 21.1522,
+    "lon": -86.838
+  },
+  "4710": {
+    "venue": "Estadio Panamericano",
+    "city": "Zapopan, Mexico",
+    "lat": 20.7195,
+    "lon": -103.38
+  },
+  "5320": {
+    "venue": "Estadio Domingo Santana",
+    "city": "León, Mexico",
+    "lat": 21.0975,
+    "lon": -101.641
+  },
+  "5321": {
+    "venue": "Estadio Francisco Villa",
+    "city": "Durango, Mexico",
+    "lat": 24.0307,
+    "lon": -104.653
+  },
+  "5330": {
+    "venue": "Uni-Trade Stadium",
+    "city": "Laredo, TX",
+    "lat": 27.5041,
+    "lon": -99.4487
+  },
+  "5340": {
+    "venue": "Estadio Alfredo Harp Helú",
+    "city": "Mexico City, Mexico",
+    "lat": 19.404,
+    "lon": -99.0858
+  },
+  "6070": {
+    "venue": "Estadio Conspiradores",
+    "city": "Huimilpan, Mexico",
+    "lat": 20.4544,
+    "lon": -100.267
+  }
+}

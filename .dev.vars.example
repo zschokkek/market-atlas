@@ -1,0 +1,8 @@
+# Authentication is optional for Kalshi's public market-data routes.
+# Set both values to use an authenticated read tier.
+KALSHI_API_KEY_ID=""
+KALSHI_PRIVATE_KEY=""
+
+# Optional comma-separated EXTRA series tickers. Built-in globe series are
+# always included, so a stale local or hosted value cannot disable a league.
+# KALSHI_SPORTS_SERIES="KXANOTHERSPORT"

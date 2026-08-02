@@ -1,0 +1,27 @@
+name = "global-sports-globe"
+main = "src/worker.js"
+compatibility_date = "2026-08-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "SPORTS_ODDS_CACHE"
+id = "REPLACE_WITH_PRODUCTION_KV_ID"
+preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+# With credentials, the worker reads /account/limits hourly and reserves most
+# of the tier for other clients. Without credentials, it uses two requests/sec.
+KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND = "20"
+KALSHI_UNAUTHENTICATED_GAME_READ_REQUESTS_PER_SECOND = "1.5"
+KALSHI_FUTURES_READ_REQUESTS_PER_SECOND = "0.5"
+KALSHI_READ_REQUEST_COST = "10"
+KALSHI_RATE_BUDGET_FRACTION = "0.25"
+KALSHI_MAX_READ_REQUESTS_PER_SECOND = "10"
+KALSHI_POLL_CONCURRENCY = "4"
+KALSHI_MAX_EVENT_REFRESHES_PER_RUN = "40"

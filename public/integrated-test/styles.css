@@ -1,0 +1,883 @@
+:root {
+  color-scheme: dark;
+  --integration-background: #111713;
+  --integration-surface: #1b211d;
+  --integration-surface-strong: #232b26;
+  --integration-foreground: #f4f6f3;
+  --integration-muted: #929b95;
+  --integration-border: rgba(255, 255, 255, 0.09);
+  --integration-green-border: rgba(10, 194, 133, 0.2);
+  --integration-green: #0ac285;
+  --integration-green-ink: #07120d;
+  --integration-radius: 13px;
+  --integration-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --shared-globe-background: #111713;
+  --shared-globe-foreground: #f4f6f3;
+  --shared-globe-card: color-mix(in oklab, var(--shared-globe-foreground) 5%, var(--shared-globe-background));
+  --shared-globe-accent: rgb(131 195 255);
+  --shared-globe-muted: color-mix(in srgb, var(--shared-globe-foreground) 10%, transparent);
+  --shared-globe-muted-foreground: #949d97;
+  --shared-globe-border: rgba(255, 255, 255, 0.09);
+  --shared-globe-ocean-light: color-mix(in srgb, var(--shared-globe-accent) 18%, var(--shared-globe-card));
+  --shared-globe-ocean-dark: color-mix(in srgb, var(--shared-globe-accent) 5%, var(--shared-globe-background));
+  --shared-globe-land: color-mix(in srgb, var(--shared-globe-muted) 78%, var(--shared-globe-card));
+  --shared-globe-rim: color-mix(in srgb, var(--shared-globe-accent) 36%, var(--shared-globe-border));
+  --shared-globe-grid: color-mix(in srgb, var(--shared-globe-muted-foreground) 20%, transparent);
+  --shared-globe-state: color-mix(in srgb, var(--shared-globe-muted-foreground) 48%, transparent);
+  --shared-globe-shadow: color-mix(in srgb, var(--shared-globe-foreground) 10%, transparent);
+  background: var(--integration-background);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body.integration-body {
+  width: 100%;
+  min-width: 320px;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0 !important;
+  overflow: hidden;
+  background: var(--integration-background) !important;
+}
+
+body.integration-body {
+  color: var(--integration-foreground);
+  font-family: var(--integration-font);
+}
+
+.integration-shell {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100dvh;
+  min-height: 620px;
+  overflow: hidden;
+  background: var(--integration-background);
+}
+
+.integration-header {
+  position: relative;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto minmax(260px, 1fr);
+  align-items: center;
+  min-height: 62px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--integration-green-border);
+  background: color-mix(in srgb, var(--integration-background) 96%, var(--integration-green) 4%);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+.integration-brand,
+.integration-lockup,
+.integration-tabs,
+.integration-search {
+  display: flex;
+  align-items: center;
+}
+
+.integration-brand {
+  justify-self: start;
+  gap: 9px;
+}
+
+.integration-powered {
+  color: var(--integration-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.integration-lockup {
+  gap: 7px;
+}
+
+.integration-kalshi-mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+
+.integration-wordmark {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+}
+
+.integration-tabs {
+  position: relative;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--integration-border);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--integration-surface-strong) 76%, transparent);
+}
+
+.integration-tab {
+  min-width: 76px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--integration-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.integration-tab:hover:not([aria-disabled="true"]) {
+  color: var(--integration-foreground);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.integration-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--integration-green) 70%, white);
+  outline-offset: 3px;
+}
+
+.integration-tab.is-active {
+  color: var(--integration-green-ink);
+  background: var(--integration-green);
+  box-shadow: 0 0 18px rgba(10, 194, 133, 0.23);
+}
+
+.integration-tab[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.integration-search {
+  justify-self: end;
+  width: min(100%, 288px);
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--integration-border);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--integration-surface-strong) 76%, transparent);
+}
+
+.integration-search > svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: var(--integration-muted);
+  stroke-linecap: round;
+  stroke-width: 1.7;
+}
+
+.integration-search input {
+  min-width: 0;
+  height: 39px;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--integration-foreground);
+  background: transparent;
+  font: inherit;
+}
+
+.integration-search input::placeholder {
+  color: var(--integration-muted);
+  opacity: 1;
+}
+
+.integration-search kbd {
+  padding: 2px 5px;
+  border: 1px solid var(--integration-border);
+  border-radius: 6px;
+  color: var(--integration-muted);
+  background: var(--integration-surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.integration-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.integration-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--integration-background);
+}
+
+.category-view {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(6px) scale(0.998);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
+
+.category-view.is-active {
+  z-index: 2;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+
+.category-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--integration-muted);
+  background: var(--integration-background);
+  font-size: 13px;
+  letter-spacing: 0.025em;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
+}
+
+.category-view.is-ready .category-loading {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.category-loading-orb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(10, 194, 133, 0.26);
+  border-top-color: var(--integration-green);
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(10, 194, 133, 0.24);
+  animation: integration-orbit 800ms linear infinite;
+}
+
+.category-loading.is-error {
+  color: #e5b2ad;
+}
+
+.category-loading.is-error .category-loading-orb {
+  border-color: #a65b57;
+  animation: none;
+}
+
+@keyframes integration-orbit {
+  to { transform: rotate(360deg); }
+}
+
+/* The source Sports page keeps its own strongly scoped visual system. */
+[data-category-view="sports"] > #global-sports-clean-detail-20260801 {
+  height: 100%;
+  padding: 5px;
+  overflow: hidden;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 > .sports-app-header {
+  display: none !important;
+}
+
+/* Politics is loaded without its duplicate header and fills the shared viewport. */
+[data-category-view="politics"] .politics-app {
+  --background: #111713;
+  --surface: #1b211d;
+  --surface-strong: #222a25;
+  --surface-soft: #151b17;
+  --foreground: #f4f6f3;
+  --muted: #949d97;
+  --muted-soft: #6f7972;
+  --muted-foreground: #949d97;
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --sports-map-muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --viz-series-1: rgb(131 195 255);
+  --map-ocean-opacity: 1;
+  --map-rim-opacity: 1;
+  --map-grid-opacity: 1;
+  --politics-party-reveal: 0%;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-green: color-mix(in srgb, #0ac285 24%, var(--border));
+  --green: #0ac285;
+  --green-soft: #5bdeb2;
+  --green-dark: #062e20;
+  --green-ink: #07120d;
+  --warning: #e0b866;
+  --dem-blue: #5b7fa8;
+  --dem-blue-soft: #8da9c7;
+  --rep-red: #a65b57;
+  --rep-red-soft: #cf8b84;
+  --political-neutral: #8e969a;
+  --radius: 15px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 5px;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+[data-category-view="politics"] .politics-layout {
+  width: 100%;
+  height: 100%;
+}
+
+/* Give both categories one shared material and map treatment. */
+[data-category-view="politics"] .politics-app .orbital-panel {
+  border-color: color-mix(in srgb, var(--green) 24%, var(--border));
+  border-radius: calc(var(--radius) * 1.05);
+  background:
+    radial-gradient(circle at 50% -16%, color-mix(in srgb, var(--green) 14%, transparent), transparent 48%),
+    linear-gradient(112deg, color-mix(in srgb, var(--card) 95%, var(--green) 5%), var(--card));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--foreground) 7%, transparent),
+    0 10px 26px color-mix(in srgb, var(--background) 58%, transparent);
+}
+
+[data-category-view="politics"] .politics-app .orbital-panel::before {
+  border-color: color-mix(in srgb, var(--green) 15%, transparent);
+}
+
+[data-category-view="politics"] .politics-app .filter-sidebar {
+  gap: 10px;
+  padding: 12px;
+}
+
+[data-category-view="politics"] .politics-app .check-list {
+  gap: 3px;
+}
+
+[data-category-view="politics"] .politics-app .check-option {
+  gap: 7px;
+  padding: 4px 5px;
+  border-radius: 9px;
+}
+
+[data-category-view="politics"] .politics-app .check-option:hover {
+  background: color-mix(in srgb, var(--green) 6%, transparent);
+}
+
+[data-category-view="politics"] .politics-app .panel-heading,
+[data-category-view="politics"] .politics-app .detail-kicker,
+[data-category-view="politics"] .politics-app .timeline-kicker {
+  color: var(--muted-foreground);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+[data-category-view="politics"] .politics-app .prototype-orb,
+[data-category-view="politics"] .politics-app .panel-orb,
+[data-category-view="politics"] .politics-app .timeline-orb {
+  width: 10px;
+  height: 10px;
+  border: 1px solid color-mix(in srgb, var(--green) 78%, var(--foreground));
+  background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--foreground) 48%, var(--green)), var(--green) 48%, color-mix(in srgb, var(--green) 32%, var(--background)) 100%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 11%, transparent), 0 0 16px color-mix(in srgb, var(--green) 48%, transparent);
+}
+
+[data-category-view="politics"] .politics-app .election-detail {
+  padding: 14px;
+}
+
+[data-category-view="politics"] .politics-app .timeline-dock {
+  padding: 8px 12px 6px;
+  border-radius: calc(var(--radius) * 1.05) calc(var(--radius) * 1.05) 5px 5px;
+}
+
+[data-category-view="politics"] .politics-app .zoom-button,
+[data-category-view="politics"] .politics-app .timeline-step {
+  border-color: color-mix(in srgb, var(--green) 28%, var(--border));
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+[data-category-view="politics"] .politics-app .zoom-button:hover,
+[data-category-view="politics"] .politics-app .timeline-step:hover {
+  border-color: color-mix(in srgb, var(--green) 54%, var(--border));
+  background: color-mix(in srgb, var(--green) 15%, var(--card));
+}
+
+[data-category-view="politics"] .politics-app .ocean-light {
+  stop-color: color-mix(in srgb, var(--viz-series-1) 18%, var(--card));
+}
+
+[data-category-view="politics"] .politics-app .ocean-dark {
+  stop-color: color-mix(in srgb, var(--viz-series-1) 5%, var(--background));
+}
+
+[data-category-view="politics"] .politics-app .globe-shadow {
+  fill: color-mix(in srgb, var(--foreground) 10%, transparent);
+  opacity: var(--map-rim-opacity);
+  transform: translateY(13px) scale(0.98);
+  transform-origin: 310px 280px;
+  filter: blur(10px);
+}
+
+[data-category-view="politics"] .politics-app .globe-ocean {
+  fill: url(#politics-ocean-gradient);
+  fill-opacity: var(--map-ocean-opacity);
+  stroke: color-mix(in srgb, var(--viz-series-1) 36%, var(--border));
+  stroke-opacity: var(--map-rim-opacity);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-category-view="politics"] .politics-app .globe-graticule {
+  opacity: var(--map-grid-opacity);
+  stroke: color-mix(in srgb, var(--muted-foreground) 20%, transparent);
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-category-view="politics"] .politics-app .country {
+  fill: color-mix(in srgb, var(--sports-map-muted) 78%, var(--card));
+  stroke: var(--border);
+  stroke-width: 0.9;
+}
+
+[data-category-view="politics"] .politics-app .country.is-usa {
+  fill: color-mix(in srgb, var(--sports-map-muted) 78%, var(--card));
+}
+
+[data-category-view="politics"] .politics-app .state-boundary {
+  stroke: color-mix(in srgb, var(--muted-foreground) 48%, transparent);
+  stroke-width: 0.65;
+}
+
+[data-category-view="politics"] .politics-app .map-tooltip,
+[data-category-view="politics"] .politics-app .market-card,
+[data-category-view="politics"] .politics-app .tooltip-market {
+  border-color: color-mix(in srgb, var(--green) 17%, var(--border));
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+}
+
+/* Sports detail adopts the calmer, editorial Politics market-card hierarchy. */
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .event-detail {
+  gap: 0;
+  padding: 20px;
+  border-color: color-mix(in srgb, var(--kalshi-green) 30%, var(--border));
+  border-radius: calc(var(--radius) * 1.25);
+  background:
+    radial-gradient(circle at 50% -17%, color-mix(in srgb, var(--kalshi-green) 15%, transparent), transparent 49%),
+    linear-gradient(112deg, color-mix(in srgb, var(--card) 95%, var(--kalshi-green) 5%), var(--card));
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .game-detail-view {
+  gap: 0;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .event-detail > .detail-view > .panel-heading {
+  margin: 0 0 10px;
+  color: var(--muted-foreground);
+  font-size: calc(var(--font-size-base) * 0.78);
+  font-weight: 600;
+  letter-spacing: 0.075em;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .event-detail .form-select {
+  height: 39px;
+  margin: 0 0 14px;
+  padding-inline: 11px 34px;
+  border-color: color-mix(in srgb, var(--kalshi-green) 14%, var(--border));
+  border-radius: 12px;
+  color: var(--foreground);
+  background-color: color-mix(in srgb, var(--foreground) 7%, var(--card));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 4%, transparent);
+  font-weight: 550;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .detail-topline {
+  min-height: 30px;
+  margin-bottom: 4px;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .sport-badge {
+  padding: 4px 9px;
+  font-size: calc(var(--font-size-base) * 0.78);
+  font-weight: 600;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .event-dates {
+  font-size: calc(var(--font-size-base) * 0.82);
+  font-weight: 500;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .event-name {
+  margin: 4px 0 0;
+  font-size: clamp(24px, 2vw, 29px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .event-location {
+  margin-top: 9px;
+  padding: 0;
+  border: 0;
+  color: var(--muted-foreground);
+  font-size: calc(var(--font-size-base) * 0.95);
+  font-weight: 500;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .event-ticker {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 14px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--foreground) 4.5%, transparent);
+  font-size: calc(var(--font-size-base) * 0.73);
+  font-weight: 500;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-header {
+  min-height: 45px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--kalshi-green) 20%, var(--border));
+  border-bottom-color: var(--border);
+  border-radius: 13px 13px 0 0;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--background) 58%, transparent);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-header-label {
+  font-size: calc(var(--font-size-base) * 0.88);
+  font-weight: 600;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .contract-count {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: calc(var(--font-size-base) * 0.72);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-list {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--kalshi-green) 20%, var(--border));
+  border-top: 0;
+  border-radius: 0 0 13px 13px;
+  background: color-mix(in srgb, var(--background) 56%, transparent);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-row {
+  position: relative;
+  min-height: 43px;
+  padding: 9px 12px;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-row:last-child {
+  border-bottom: 0;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-row:hover,
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-row.is-selected {
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--foreground) 2.5%, transparent);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-label {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  font-size: calc(var(--font-size-base) * 0.94);
+  font-weight: 500;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-value {
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-weight: 650;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-track {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .price-fill {
+  height: 100%;
+  border-radius: 0;
+  opacity: 0.12;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .market-meta {
+  margin-top: 13px;
+  padding: 0;
+  border: 0;
+  color: var(--muted-foreground);
+  font-size: calc(var(--font-size-base) * 0.78);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .contract-ticker {
+  margin-top: 7px;
+  padding: 0;
+  color: var(--muted-foreground);
+  background: transparent;
+  font-size: calc(var(--font-size-base) * 0.7);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .market-tools {
+  margin-top: 10px;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .market-link {
+  min-height: 32px;
+  padding-inline: 11px;
+  border-color: color-mix(in srgb, var(--kalshi-green) 18%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--foreground) 7%, var(--card));
+}
+
+/* One authoritative globe palette. Both renderers consume these exact values. */
+.integration-stage,
+[data-category-view="sports"],
+[data-category-view="politics"],
+[data-category-view="sports"] #global-sports-clean-detail-20260801,
+[data-category-view="politics"] .politics-app {
+  background-color: var(--shared-globe-background);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .ocean-light,
+[data-category-view="politics"] .politics-app .ocean-light {
+  stop-color: var(--shared-globe-ocean-light);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .ocean-dark,
+[data-category-view="politics"] .politics-app .ocean-dark {
+  stop-color: var(--shared-globe-ocean-dark);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .globe-shadow,
+[data-category-view="politics"] .politics-app .globe-shadow {
+  fill: var(--shared-globe-shadow);
+  opacity: var(--map-rim-opacity);
+  filter: blur(10px);
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .globe-ocean,
+[data-category-view="politics"] .politics-app .globe-ocean {
+  fill-opacity: var(--map-ocean-opacity);
+  stroke: var(--shared-globe-rim);
+  stroke-opacity: var(--map-rim-opacity);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .globe-graticule,
+[data-category-view="politics"] .politics-app .globe-graticule {
+  opacity: var(--map-grid-opacity);
+  stroke: var(--shared-globe-grid);
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .country,
+[data-category-view="politics"] .politics-app .country,
+[data-category-view="politics"] .politics-app .country.is-usa {
+  fill: var(--shared-globe-land);
+  stroke: var(--shared-globe-border);
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .state,
+[data-category-view="politics"] .politics-app .state-boundary {
+  fill: none;
+  stroke: var(--shared-globe-state);
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-category-view="sports"] #global-sports-clean-detail-20260801 .sports-globe,
+[data-category-view="politics"] .politics-app .politics-globe {
+  background: transparent;
+}
+
+[data-category-view="politics"] .politics-app .politics-globe {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Politics markers use the same dark-core / colored-ring construction as Sports. */
+[data-category-view="politics"] .politics-app .event-marker .marker-halo {
+  fill: none;
+  stroke: color-mix(in srgb, var(--political-neutral) 26%, transparent);
+  stroke-width: 1;
+}
+
+[data-category-view="politics"] .politics-app .event-marker .marker-core,
+[data-category-view="politics"] .politics-app .event-marker.leader-neutral .marker-core {
+  --politics-party-fill: color-mix(in srgb, var(--political-neutral) var(--party-fill-strength, 45%), var(--shared-globe-background));
+  fill: color-mix(in srgb, var(--politics-party-fill) var(--politics-party-reveal), var(--shared-globe-background));
+  stroke: var(--political-neutral);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--political-neutral) 34%, transparent));
+}
+
+[data-category-view="politics"] .politics-app .event-marker.leader-dem .marker-core {
+  --politics-party-fill: color-mix(in srgb, var(--dem-blue) var(--party-fill-strength, 54%), var(--shared-globe-background));
+  fill: color-mix(in srgb, var(--politics-party-fill) var(--politics-party-reveal), var(--shared-globe-background));
+  stroke: var(--dem-blue-soft);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--dem-blue) 42%, transparent));
+}
+
+[data-category-view="politics"] .politics-app .event-marker.leader-rep .marker-core {
+  --politics-party-fill: color-mix(in srgb, var(--rep-red) var(--party-fill-strength, 54%), var(--shared-globe-background));
+  fill: color-mix(in srgb, var(--politics-party-fill) var(--politics-party-reveal), var(--shared-globe-background));
+  stroke: var(--rep-red-soft);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--rep-red) 42%, transparent));
+}
+
+[data-category-view="politics"] .politics-app .event-marker.is-global .marker-core {
+  fill: var(--shared-globe-background);
+  stroke: var(--political-neutral);
+}
+
+[data-category-view="politics"] .politics-app .event-marker.is-selected .marker-halo {
+  fill: none;
+  stroke: var(--green-soft);
+  stroke-width: 1.5;
+}
+
+[data-category-view="politics"] .politics-app .event-marker.is-house-race .marker-core {
+  stroke-width: 1.4;
+}
+
+[data-category-view="politics"] .politics-app .event-marker .market-count {
+  fill: var(--shared-globe-background);
+  stroke: color-mix(in srgb, var(--shared-globe-foreground) 62%, transparent);
+  stroke-width: 1;
+}
+
+[data-category-view="politics"] .politics-app .event-marker .market-count-text {
+  fill: var(--shared-globe-foreground);
+}
+
+@media (max-width: 900px) {
+  .integration-header {
+    grid-template-columns: 1fr minmax(14rem, 0.8fr);
+    row-gap: 7px;
+  }
+
+  .integration-tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+  }
+
+  .integration-stage,
+  .category-view {
+    overflow: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  html,
+  body.integration-body,
+  .integration-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .integration-shell {
+    display: block;
+  }
+
+  .integration-header {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+  }
+
+  .integration-brand {
+    flex: 1;
+  }
+
+  .integration-search {
+    order: 2;
+    width: 100%;
+    max-width: none;
+  }
+
+  .integration-tabs {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .integration-tab {
+    min-width: 70px;
+    flex: 1;
+  }
+
+  .integration-stage {
+    min-height: calc(100dvh - 142px);
+    overflow: visible;
+  }
+
+  .category-view {
+    min-height: calc(100dvh - 142px);
+    overflow: visible;
+  }
+
+  [data-category-view="politics"] .politics-app {
+    height: auto;
+    min-height: calc(100dvh - 142px);
+    overflow: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .integration-tab,
+  .category-view,
+  .category-loading {
+    transition: none;
+  }
+
+  .category-loading-orb {
+    animation-duration: 1.6s;
+  }
+}

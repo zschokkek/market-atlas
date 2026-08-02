@@ -1,0 +1,18 @@
+{
+  "name": "global-sports-globe",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "dev:worker": "npx wrangler dev --port 8766 --test-scheduled",
+    "dev:static": "python3 -m http.server 8766 --directory public",
+    "deploy": "wrangler deploy",
+    "refresh:international-baseball": "node scripts/build-international-baseball-schedules.mjs",
+    "refresh:mlb-futures": "node scripts/build-mlb-futures-cache.mjs",
+    "refresh:soccer-schedules": "node scripts/build-americas-soccer-schedules.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.28.1"
+  }
+}
