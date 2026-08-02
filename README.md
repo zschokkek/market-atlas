@@ -62,18 +62,33 @@ The map stores the official game date, exact UTC start, home stadium, city, and 
 
 Schedule data alone is never sufficient for a near-term event. After the server cache loads, every unelapsed event overlapping today or tomorrow must resolve to a real Kalshi event by exact ticker or the league's verified series/date/team matcher. This applies to every sport on the globe. Distant fixtures may remain unlisted while Kalshi has not posted them.
 
-A missing near-term match raises `MISSING_NEAR_TERM_KALSHI_MARKETS`, lists every offending event, marks its detail as `ERROR · Kalshi market missing`, and puts the globe and timeline summaries into a visible error state. Clicking either error summary opens the complete diagnostic list with sport, matchup, dates, and expected ticker. Never sign off on a newly added sport while that error is present. The regression suite must cover the hard-error case, the distant-event exception, every supported sport code, and the global 48-hour cache window.
+A missing near-term match raises `MISSING_NEAR_TERM_KALSHI_MARKETS` internally with the sport, matchup, dates, and expected ticker. The diagnostic stays in the developer console and test suite instead of replacing the public map with an error panel. Never sign off on a newly added sport while that diagnostic is present. The regression suite must cover the hard-error case, the distant-event exception, every supported sport code, and the global 48-hour cache window.
 
 ## Deploy
 
-1. Install dependencies with `npm install`.
-2. Create KV namespaces:
-   - `npx wrangler kv namespace create MARKET_ATLAS_CACHE`
-   - `npx wrangler kv namespace create MARKET_ATLAS_CACHE --preview`
-3. Put the returned IDs in `wrangler.toml`.
-4. Optionally copy `.dev.vars.example` to `.dev.vars` and add Kalshi credentials. Public market data works without credentials; credentials let the deployment use its assigned authenticated tier.
-5. Run locally at `http://localhost:8766` with `npm run dev`. The dependency-free local server keeps an in-memory odds cache and runs the same adaptive scheduler every minute, so it no longer serves the embedded MLB snapshot indefinitely. Use `npm run dev:worker` to exercise Wrangler's local KV runtime, or `npm run dev:static` only for a deliberately frozen UI-only preview, then deploy with `npm run deploy`.
-6. Trigger the first warm-up immediately in Cloudflare or wait for the next minute cron. `/api/health` reports the last successful scheduler run.
+### Production build
+
+1. Install the locked dependency tree with `npm ci`.
+2. Run `npm run build`. This bundles all globe geometry and projection code into `public/assets/map-runtime.js`, runs the full regression and production-readiness suites, and asks Wrangler for minified staging and production dry-run bundles in `dist/`.
+3. Test the application locally with `npm run dev` at `http://localhost:8766`. Use `npm run dev:worker` when you want Cloudflare Workers and local KV behavior instead of the Node development server.
+
+The browser never needs a third-party JavaScript or map-data CDN at runtime. Static-asset response headers are defined in `public/_headers`, and the generated `dist/` directory is intentionally excluded from Git because Cloudflare rebuilds it during deployment.
+
+### Deployment environments
+
+Staging and production are separate Wrangler environments with distinct Worker names, KV namespaces, secrets, polling budgets, GitHub deployment environments, and concurrency locks. Pull requests run CI only, pushes to `main` deploy staging after verification, and GitHub releases or manual dispatches promote production through its protected environment.
+
+Follow the [deployment runbook](docs/deployment.md) to create the Cloudflare resources, set Worker secrets, configure GitHub environment secrets and approvals, and perform the first release. `npm run check:deploy` fails closed until all four environment-specific KV IDs are real.
+
+For an existing checkout, the complete release loop is:
+
+```bash
+npm ci
+npm run build
+npm run dev
+```
+
+Before the first deployment, the intentionally unresolved settings are the four Cloudflare KV IDs, the environment-scoped Kalshi Worker secrets, and the two GitHub environment credentials documented in the runbook.
 
 Tune `KALSHI_RATE_BUDGET_FRACTION` if this service should use more or less of the authenticated tier. An explicit `KALSHI_READ_TOKENS_PER_SECOND` overrides auto-detection. Keep `KALSHI_MAX_EVENT_REFRESHES_PER_RUN` bounded so a busy Saturday cannot monopolize the worker; overdue events are ordered by age so the cap cannot starve the same games indefinitely.
 

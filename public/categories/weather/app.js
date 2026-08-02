@@ -1,7 +1,4 @@
-import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from "https://esm.sh/d3-geo@3.1.1";
-import { feature } from "https://esm.sh/topojson-client@3.1.0";
-import world from "https://esm.sh/@d3-maps/atlas@1.0.0/world/countries/countries-110m";
-import us from "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json/+esm";
+import { feature, geoDistance, geoGraticule10, geoOrthographic, geoPath, usStates as us, world } from "/assets/map-runtime.js";
 import { weatherBundles, weatherHorizons } from "./data.js";
 
 const app = document.querySelector(".weather-app");
@@ -450,13 +447,13 @@ async function loadWeatherFeed() {
     horizonIndex = Math.max(0, activeWeatherHorizons.indexOf(currentHorizon));
     renderHorizonStops();
     renderHorizon();
-    const note = app.querySelector(".prototype-note");
+    const note = app.querySelector(".feed-status-note");
     if (note) note.textContent = `${payload.marketCount || 0} live Kalshi markets · cached ${snapshotAge(payload.generatedAt)}`;
-    const label = app.querySelector(".prototype-label");
+    const label = app.querySelector(".feed-status-label");
     if (label) label.textContent = "Live cached weather markets";
   } catch (error) {
     hud.textContent = `${error.message} · showing verified fallback`;
-    const note = app.querySelector(".prototype-note");
+    const note = app.querySelector(".feed-status-note");
     if (note) note.textContent = `${error.message} · retrying`;
   }
 }

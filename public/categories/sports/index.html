@@ -2806,10 +2806,7 @@ body{overflow-x:hidden}
 </script>
 
 <script type="module">
-  import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from "https://esm.sh/d3-geo@3.1.1";
-  import { feature } from "https://esm.sh/topojson-client@3.1.0";
-  import world from "https://esm.sh/@d3-maps/atlas@1.0.0/world/countries/countries-110m";
-  import us from "https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json/+esm";
+  import { feature, geoDistance, geoGraticule10, geoOrthographic, geoPath, usCounties as us, world } from "/assets/map-runtime.js";
 
   const MISSING_MARKET_ERROR_CODE = "MISSING_NEAR_TERM_KALSHI_MARKETS";
 
@@ -3691,7 +3688,7 @@ function assertNearTermMarketCoverage(events, {
       });
       return result;
     } catch (error) {
-      console.error("[Sports coverage diagnostic]", error);
+      console.warn("[Sports coverage diagnostic]", error);
       return { error };
     }
   }

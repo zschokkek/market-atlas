@@ -91,6 +91,8 @@ test("Market Atlas app composes the real source views and preserves them while s
   assert.match(source, /lifecycle\.activate\?\.\(\)/);
   assert.match(source, /view\.inert = !selected/);
   assert.match(source, /history\[historyMode === "replace"/);
+  assert.match(source, /new URL\("\/assets\/map-runtime\.js", window\.location\.origin\)\.href/);
+  assert.match(source, /source\.replaceAll\([\s\S]*from "\/assets\/map-runtime\.js"/);
 });
 
 test("Market Atlas app gives hidden views lifecycle-controlled polling", async () => {
@@ -177,6 +179,7 @@ test("category switches preserve one continuous geographic view", async () => {
   assert.match(source, /setMapView\(view\)[\s\S]*projection\.rotate\(view\.rotate\.slice\(0, 3\)\)[\s\S]*projection\.scale\(scale\)/);
   assert.match(source, /departingMapView[\s\S]*sharedMapView = departingMapView/);
   assert.match(source, /lifecycle\.setMapView\?\.\(sharedMapView\)/);
+  assert.match(source, /integrationStage\.scrollTop = 0/);
 });
 
 test("mobile Sports uses the same full-width globe canvas as Politics and Weather", async () => {
@@ -185,6 +188,8 @@ test("mobile Sports uses the same full-width globe canvas as Politics and Weathe
   assert.match(source, /replace\('  const center = \[310, 270\];', '  const center = \[310, 280\];'\)/);
   assert.match(css, /\[data-category-view="sports"\][\s\S]*\.sports-layout \{[\s\S]*grid-template-columns: minmax\(0, 1fr\);[\s\S]*grid-template-areas:\s*"globe"\s*"detail"/);
   assert.match(css, /\[data-category-view="sports"\][\s\S]*\.globe-stage \{[\s\S]*width: 100%;[\s\S]*max-width: none;[\s\S]*margin-inline: 0/);
+  assert.match(css, /\.integration-stage \{[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior-y: contain/);
+  assert.match(css, /\[data-category-view="sports"\] > #market-atlas-sports \{[\s\S]*height: auto;[\s\S]*overflow: visible/);
 });
 
 test("Politics markers match the Sports dark-core construction and retain count badges", async () => {

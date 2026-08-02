@@ -1,29 +1,100 @@
+"$schema" = "./node_modules/wrangler/config-schema.json"
 name = "market-atlas"
 main = "src/worker.js"
 compatibility_date = "2026-08-01"
+workers_dev = true
 
+# The top-level configuration is for local Wrangler development only. Hosted
+# releases must always specify either --env staging or --env production.
 [assets]
 directory = "./public"
 binding = "ASSETS"
 
 [[kv_namespaces]]
 binding = "MARKET_ATLAS_CACHE"
-id = "REPLACE_WITH_PRODUCTION_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+id = "REPLACE_WITH_LOCAL_KV_ID"
+preview_id = "REPLACE_WITH_LOCAL_PREVIEW_KV_ID"
 
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]
 
 [vars]
-# With credentials, the worker reads /account/limits hourly and reserves most
-# of the tier for other clients. Without credentials, it uses two requests/sec.
+ENVIRONMENT = "local"
 KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND = "20"
 KALSHI_UNAUTHENTICATED_GAME_READ_REQUESTS_PER_SECOND = "1.5"
 KALSHI_FUTURES_READ_REQUESTS_PER_SECOND = "0.5"
 KALSHI_WEATHER_READ_REQUESTS_PER_SECOND = "1.25"
+KALSHI_POLITICS_READ_REQUESTS_PER_SECOND = "1.25"
 KALSHI_READ_REQUEST_COST = "10"
 KALSHI_RATE_BUDGET_FRACTION = "0.25"
 KALSHI_MAX_READ_REQUESTS_PER_SECOND = "10"
 KALSHI_POLL_CONCURRENCY = "4"
 KALSHI_MAX_EVENT_REFRESHES_PER_RUN = "40"
 KALSHI_MAX_WEATHER_REFRESHES_PER_RUN = "30"
+KALSHI_MAX_POLITICS_REFRESHES_PER_RUN = "12"
+
+# Staging gets its own Worker, KV namespace, secrets, cache, and reduced polling
+# budget so validation traffic cannot consume the production read allowance.
+[env.staging]
+name = "market-atlas-staging"
+workers_dev = true
+
+[env.staging.assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[env.staging.kv_namespaces]]
+binding = "MARKET_ATLAS_CACHE"
+id = "REPLACE_WITH_STAGING_KV_ID"
+preview_id = "REPLACE_WITH_STAGING_PREVIEW_KV_ID"
+
+[env.staging.triggers]
+crons = ["*/5 * * * *"]
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND = "20"
+KALSHI_UNAUTHENTICATED_GAME_READ_REQUESTS_PER_SECOND = "1.0"
+KALSHI_FUTURES_READ_REQUESTS_PER_SECOND = "0.25"
+KALSHI_WEATHER_READ_REQUESTS_PER_SECOND = "0.5"
+KALSHI_POLITICS_READ_REQUESTS_PER_SECOND = "0.5"
+KALSHI_READ_REQUEST_COST = "10"
+KALSHI_RATE_BUDGET_FRACTION = "0.10"
+KALSHI_MAX_READ_REQUESTS_PER_SECOND = "5"
+KALSHI_POLL_CONCURRENCY = "2"
+KALSHI_MAX_EVENT_REFRESHES_PER_RUN = "20"
+KALSHI_MAX_WEATHER_REFRESHES_PER_RUN = "15"
+KALSHI_MAX_POLITICS_REFRESHES_PER_RUN = "8"
+
+# Production retains the existing adaptive polling policy and is isolated from
+# staging by both its Worker name and KV binding.
+[env.production]
+name = "market-atlas"
+workers_dev = true
+
+[env.production.assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[env.production.kv_namespaces]]
+binding = "MARKET_ATLAS_CACHE"
+id = "REPLACE_WITH_PRODUCTION_KV_ID"
+preview_id = "REPLACE_WITH_PRODUCTION_PREVIEW_KV_ID"
+
+[env.production.triggers]
+crons = ["* * * * *"]
+
+[env.production.vars]
+ENVIRONMENT = "production"
+KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND = "20"
+KALSHI_UNAUTHENTICATED_GAME_READ_REQUESTS_PER_SECOND = "1.5"
+KALSHI_FUTURES_READ_REQUESTS_PER_SECOND = "0.5"
+KALSHI_WEATHER_READ_REQUESTS_PER_SECOND = "1.25"
+KALSHI_POLITICS_READ_REQUESTS_PER_SECOND = "1.25"
+KALSHI_READ_REQUEST_COST = "10"
+KALSHI_RATE_BUDGET_FRACTION = "0.25"
+KALSHI_MAX_READ_REQUESTS_PER_SECOND = "10"
+KALSHI_POLL_CONCURRENCY = "4"
+KALSHI_MAX_EVENT_REFRESHES_PER_RUN = "40"
+KALSHI_MAX_WEATHER_REFRESHES_PER_RUN = "30"
+KALSHI_MAX_POLITICS_REFRESHES_PER_RUN = "12"

@@ -410,10 +410,10 @@ body.integration-body {
   letter-spacing: 0.04em;
 }
 
-[data-category-view="politics"] .politics-app .prototype-orb,
+[data-category-view="politics"] .politics-app .feed-status-orb,
 [data-category-view="politics"] .politics-app .panel-orb,
 [data-category-view="politics"] .politics-app .timeline-orb,
-[data-category-view="weather"] .weather-app .prototype-orb,
+[data-category-view="weather"] .weather-app .feed-status-orb,
 [data-category-view="weather"] .weather-app .panel-orb,
 [data-category-view="weather"] .weather-app .timeline-orb {
   width: 10px;
@@ -980,12 +980,22 @@ body.integration-body {
 
   .integration-stage {
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .category-view {
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
+  }
+
+  [data-category-view="sports"] > #market-atlas-sports {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
   .category-view .sports-layout,

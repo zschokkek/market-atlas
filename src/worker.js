@@ -239,6 +239,9 @@ export function mlbFuturesSeries() {
 function json(value, init = {}) {
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json; charset=utf-8");
+  headers.set("x-content-type-options", "nosniff");
+  headers.set("referrer-policy", "no-referrer");
+  if (!headers.has("cache-control")) headers.set("cache-control", "no-store");
   return new Response(JSON.stringify(value), { ...init, headers });
 }
 
@@ -1482,6 +1485,7 @@ function removeStaleEvents(payload, now = Date.now()) {
 async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204 });
+  if (request.method === "HEAD") return env.ASSETS?.fetch(request) || new Response(null, { status: 404 });
   if (request.method !== "GET") return json({ error: "Method not allowed" }, { status: 405 });
 
   const legacyRoute = new Map([
@@ -1516,6 +1520,7 @@ async function handleRequest(request, env, ctx) {
     });
     const eventTimes = events.map(event => new Date(event.updatedAt || 0).getTime()).filter(Number.isFinite);
     return json({
+      environment: env.ENVIRONMENT || "unknown",
       ok: Boolean(state && publicData) && !state?.lastError,
       lastRunAt: state?.lastRunAt ? new Date(state.lastRunAt).toISOString() : null,
       lastSuccessfulPollAt: state?.lastSuccessfulPollAt ? new Date(state.lastSuccessfulPollAt).toISOString() : null,

@@ -100,6 +100,7 @@ async function assetResponse(request) {
 
 const env = {
   ...process.env,
+  ENVIRONMENT: process.env.ENVIRONMENT || "local",
   MARKET_ATLAS_CACHE: localKv,
   ASSETS: { fetch: assetResponse }
 };

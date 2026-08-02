@@ -1,7 +1,4 @@
-import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from "https://esm.sh/d3-geo@3.1.1";
-import { feature } from "https://esm.sh/topojson-client@3.1.0";
-import world from "https://esm.sh/@d3-maps/atlas@1.0.0/world/countries/countries-110m";
-import us from "https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json/+esm";
+import { feature, geoDistance, geoGraticule10, geoOrthographic, geoPath, usCounties as us, world } from "/assets/map-runtime.js";
 import { majorWorldCapitals, stateCapitals } from "./data.js";
 
 const app = document.querySelector(".politics-app");
@@ -679,14 +676,14 @@ async function loadPoliticsFeed() {
     if (!selectedBundleId && electionBundles.length) selectedBundleId = electionBundles[0].id;
     renderTimelineStops();
     renderTimeline();
-    const note = app.querySelector(".prototype-note");
+    const note = app.querySelector(".feed-status-note");
     if (note) note.textContent = `${payload.marketCount || 0} live Kalshi markets · cached ${snapshotAge(payload.generatedAt)}`;
-    const stripLabel = app.querySelector(".prototype-label");
+    const stripLabel = app.querySelector(".feed-status-label");
     if (stripLabel) stripLabel.textContent = "Live cached politics markets";
   } catch (error) {
     hudSummary.textContent = error.message;
     timelineActivity.textContent = "Retrying live feed";
-    const note = app.querySelector(".prototype-note");
+    const note = app.querySelector(".feed-status-note");
     if (note) note.textContent = `${error.message} · retrying`;
     setTimeout(() => void loadPoliticsFeed(), 5000);
   }

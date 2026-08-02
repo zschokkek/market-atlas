@@ -209,7 +209,7 @@ input:focus-visible,
   font-size: 11px;
 }
 
-.prototype-strip {
+.feed-status-strip {
   position: relative;
   z-index: 10;
   display: flex;
@@ -224,7 +224,7 @@ input:focus-visible,
   text-transform: uppercase;
 }
 
-.prototype-orb,
+.feed-status-orb,
 .panel-orb,
 .timeline-orb {
   display: inline-block;
@@ -236,7 +236,7 @@ input:focus-visible,
   box-shadow: 0 0 12px rgba(10, 194, 133, 0.56);
 }
 
-.prototype-note {
+.feed-status-note {
   margin-left: auto;
   color: var(--muted);
   font-weight: 500;
@@ -1105,7 +1105,7 @@ input:focus-visible,
     padding-inline: 7px;
   }
 
-  .prototype-note {
+  .feed-status-note {
     display: none;
   }
 

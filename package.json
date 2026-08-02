@@ -3,17 +3,39 @@
   "description": "Interactive geographic explorer for Kalshi sports, politics, and weather markets.",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "build:client": "node scripts/build-client.mjs",
+    "check:production": "node scripts/check-production.mjs",
+    "validate": "npm test && npm run check:production",
+    "build:worker:staging": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_LOG_PATH=.wrangler/logs/wrangler.log wrangler deploy --dry-run --env staging --outdir dist/staging --minify",
+    "build:worker:production": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_LOG_PATH=.wrangler/logs/wrangler.log wrangler deploy --dry-run --env production --outdir dist/production --minify",
+    "build:worker": "npm run build:worker:staging && npm run build:worker:production",
+    "build": "npm run build:client && npm run validate && npm run build:worker",
+    "check:deploy": "node scripts/check-deployment.mjs",
+    "predev": "npm run build:client",
     "dev": "node scripts/dev-server.mjs",
-    "dev:worker": "npx wrangler dev --port 8766 --test-scheduled",
+    "predev:worker": "npm run build:client",
+    "dev:worker": "npx wrangler dev --env staging --port 8766 --test-scheduled",
+    "predev:static": "npm run build:client",
     "dev:static": "python3 -m http.server 8766 --directory public",
-    "deploy": "wrangler deploy",
+    "predeploy:staging": "npm run build:client && npm run validate && npm run check:deploy -- staging",
+    "deploy:staging": "wrangler deploy --env staging",
+    "predeploy:production": "npm run build:client && npm run validate && npm run check:deploy -- production",
+    "deploy:production": "wrangler deploy --env production",
     "refresh:international-baseball": "node scripts/build-international-baseball-schedules.mjs",
     "refresh:mlb-futures": "node scripts/build-mlb-futures-cache.mjs",
     "refresh:soccer-schedules": "node scripts/build-americas-soccer-schedules.mjs",
     "test": "node --test test/*.test.js"
   },
   "devDependencies": {
-    "wrangler": "^4.28.1"
+    "d3-geo": "^3.1.1",
+    "esbuild": "^0.28.1",
+    "topojson-client": "^3.1.0",
+    "us-atlas": "^3.0.1",
+    "world-atlas": "^2.0.2",
+    "wrangler": "4.118.0"
   }
 }

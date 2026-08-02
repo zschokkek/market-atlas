@@ -279,7 +279,11 @@ function setLoadingError(view, error) {
 }
 
 async function importSource(source, replacements = []) {
-  let moduleSource = source;
+  const mapRuntimeUrl = new URL("/assets/map-runtime.js", window.location.origin).href;
+  let moduleSource = source.replaceAll(
+    'from "/assets/map-runtime.js"',
+    `from ${JSON.stringify(mapRuntimeUrl)}`
+  );
   replacements.forEach(([pattern, replacement]) => {
     moduleSource = moduleSource.replace(pattern, replacement);
   });
@@ -384,7 +388,7 @@ async function loadPoliticsView(view) {
   if (!app) throw new Error("The Politics view contract could not be found");
 
   app.querySelector(".app-header")?.remove();
-  app.querySelector(".prototype-strip")?.remove();
+  app.querySelector(".feed-status-strip")?.remove();
   appendStyle("integrated-politics-source-styles", `@scope (.politics-app) {\n${css}\n}`);
   view.appendChild(document.importNode(app, true));
   installMobileFilterDropdown(view, { label: "Markets", allLabel: "All politics" });
@@ -412,10 +416,10 @@ async function loadPoliticsView(view) {
   group.dataset.id = bundle.id;`
     )
     .replace(
-      '    renderTimeline();\n    const note = app.querySelector(".prototype-note");',
+      '    renderTimeline();\n    const note = app.querySelector(".feed-status-note");',
       `    renderTimeline();
     if (integratedPendingSearchResult) window.__integratedPoliticsView?.revealMarket?.(integratedPendingSearchResult);
-    const note = app.querySelector(".prototype-note");`
+    const note = app.querySelector(".feed-status-note");`
     )
     .replace(
       'function draw() {\n  const spherePath = path(sphere);',
@@ -528,7 +532,7 @@ async function loadWeatherView(view) {
   if (!app) throw new Error("The Weather view contract could not be found");
 
   app.querySelector(".app-header")?.remove();
-  app.querySelector(".prototype-strip")?.remove();
+  app.querySelector(".feed-status-strip")?.remove();
   appendStyle("integrated-weather-source-styles", `@scope (.weather-app) {\n${baseCss}\n}\n${weatherCss}`);
   view.appendChild(document.importNode(app, true));
   installMobileFilterDropdown(view, { label: "Markets", allLabel: "All weather" });
@@ -611,6 +615,11 @@ async function activateCategory(category, { historyMode = "push" } = {}) {
   const previousLifecycle = previousCategory ? loadedViews.get(previousCategory) : null;
   const departingMapView = previousLifecycle?.getMapView?.();
   if (departingMapView) sharedMapView = departingMapView;
+  const integrationStage = shell.querySelector(".integration-stage");
+  if (integrationStage) {
+    integrationStage.scrollTop = 0;
+    integrationStage.scrollLeft = 0;
+  }
   activeCategory = category;
   updateShell(category);
   previousLifecycle?.deactivate?.();
