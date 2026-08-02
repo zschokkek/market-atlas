@@ -8,8 +8,11 @@ test("Wrangler isolates staging and production resources and polling budgets", a
   const config = await read("wrangler.toml");
   assert.match(config, /\[env\.staging\][\s\S]*name = "market-atlas-staging"/);
   assert.match(config, /\[env\.production\][\s\S]*name = "market-atlas"/);
-  assert.match(config, /\[\[env\.staging\.kv_namespaces\]\][\s\S]*REPLACE_WITH_STAGING_KV_ID/);
-  assert.match(config, /\[\[env\.production\.kv_namespaces\]\][\s\S]*REPLACE_WITH_PRODUCTION_KV_ID/);
+  assert.match(config, /\[\[env\.staging\.kv_namespaces\]\][\s\S]*id = "[a-f0-9]{32}"[\s\S]*preview_id = "[a-f0-9]{32}"/i);
+  assert.match(config, /\[\[env\.production\.kv_namespaces\]\][\s\S]*id = "[a-f0-9]{32}"[\s\S]*preview_id = "[a-f0-9]{32}"/i);
+  const hostedKvIds = [...config.matchAll(/(?:id|preview_id) = "([a-f0-9]{32})"/gi)].map(match => match[1]);
+  assert.equal(hostedKvIds.length, 4);
+  assert.equal(new Set(hostedKvIds).size, 4);
   assert.match(config, /\[env\.staging\.triggers\][\s\S]*"\*\/5 \* \* \* \*"/);
   assert.match(config, /\[env\.production\.triggers\][\s\S]*"\* \* \* \* \*"/);
   assert.doesNotMatch(config, /KALSHI_API_KEY_ID|KALSHI_PRIVATE_KEY|CLOUDFLARE_API_TOKEN/);

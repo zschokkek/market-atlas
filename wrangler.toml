@@ -45,8 +45,8 @@ binding = "ASSETS"
 
 [[env.staging.kv_namespaces]]
 binding = "MARKET_ATLAS_CACHE"
-id = "REPLACE_WITH_STAGING_KV_ID"
-preview_id = "REPLACE_WITH_STAGING_PREVIEW_KV_ID"
+id = "cf35815b663142cfbfe6fadf007b14e2"
+preview_id = "8225b89be2234ffcbbac7bb650e2fd66"
 
 [env.staging.triggers]
 crons = ["*/5 * * * *"]
@@ -78,8 +78,8 @@ binding = "ASSETS"
 
 [[env.production.kv_namespaces]]
 binding = "MARKET_ATLAS_CACHE"
-id = "REPLACE_WITH_PRODUCTION_KV_ID"
-preview_id = "REPLACE_WITH_PRODUCTION_PREVIEW_KV_ID"
+id = "a5421008c7454cb1b68a5efed1f2b5ba"
+preview_id = "666142a649d749938af378143d3ca8d5"
 
 [env.production.triggers]
 crons = ["* * * * *"]

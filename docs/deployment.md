@@ -79,8 +79,8 @@ separate.
 
 ## Validation and manual deployment
 
-The deploy-specific check intentionally fails until real KV IDs replace every
-placeholder:
+The deploy-specific check fails closed if any hosted KV ID is missing, invalid,
+or replaced with a placeholder:
 
 ```bash
 npm ci

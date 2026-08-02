@@ -78,7 +78,7 @@ The browser never needs a third-party JavaScript or map-data CDN at runtime. Sta
 
 Staging and production are separate Wrangler environments with distinct Worker names, KV namespaces, secrets, polling budgets, GitHub deployment environments, and concurrency locks. Pull requests run CI only, pushes to `main` deploy staging after verification, and GitHub releases or manual dispatches promote production through its protected environment.
 
-Follow the [deployment runbook](docs/deployment.md) to create the Cloudflare resources, set Worker secrets, configure GitHub environment secrets and approvals, and perform the first release. `npm run check:deploy` fails closed until all four environment-specific KV IDs are real.
+Follow the [deployment runbook](docs/deployment.md) to set Worker secrets, configure GitHub environment secrets and approvals, and perform the first release. `npm run check:deploy` fails closed if any environment-specific KV ID is missing or invalid.
 
 For an existing checkout, the complete release loop is:
 
@@ -88,7 +88,7 @@ npm run build
 npm run dev
 ```
 
-Before the first deployment, the intentionally unresolved settings are the four Cloudflare KV IDs, the environment-scoped Kalshi Worker secrets, and the two GitHub environment credentials documented in the runbook.
+The Cloudflare KV bindings are configured. Before the first deployment, the remaining account-level settings are the environment-scoped Kalshi Worker secrets and the GitHub environment credentials documented in the runbook.
 
 Tune `KALSHI_RATE_BUDGET_FRACTION` if this service should use more or less of the authenticated tier. An explicit `KALSHI_READ_TOKENS_PER_SECOND` overrides auto-detection. Keep `KALSHI_MAX_EVENT_REFRESHES_PER_RUN` bounded so a busy Saturday cannot monopolize the worker; overdue events are ordered by age so the cap cannot starve the same games indefinitely.
 
