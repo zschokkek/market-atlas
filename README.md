@@ -1,6 +1,8 @@
-# Global Sports Globe
+# Market Atlas
 
-The hosted app uses a single server-side Kalshi poller. Browsers never call Kalshi directly; they read compact snapshots from `/api/odds`, backed by edge cache and Cloudflare KV.
+Market Atlas is an interactive geographic view of Kalshi sports, politics, and weather markets. The canonical app is served at `/`; standalone category maps live under `public/categories/` and shared browser code lives under `public/assets/`.
+
+The hosted app uses a single server-side Kalshi poller. Browsers never call Kalshi directly; they read compact snapshots from cached API routes backed by edge cache and Cloudflare KV.
 
 ## Polling policy
 
@@ -66,8 +68,8 @@ A missing near-term match raises `MISSING_NEAR_TERM_KALSHI_MARKETS`, lists every
 
 1. Install dependencies with `npm install`.
 2. Create KV namespaces:
-   - `npx wrangler kv namespace create SPORTS_ODDS_CACHE`
-   - `npx wrangler kv namespace create SPORTS_ODDS_CACHE --preview`
+   - `npx wrangler kv namespace create MARKET_ATLAS_CACHE`
+   - `npx wrangler kv namespace create MARKET_ATLAS_CACHE --preview`
 3. Put the returned IDs in `wrangler.toml`.
 4. Optionally copy `.dev.vars.example` to `.dev.vars` and add Kalshi credentials. Public market data works without credentials; credentials let the deployment use its assigned authenticated tier.
 5. Run locally at `http://localhost:8766` with `npm run dev`. The dependency-free local server keeps an in-memory odds cache and runs the same adaptive scheduler every minute, so it no longer serves the embedded MLB snapshot indefinitely. Use `npm run dev:worker` to exercise Wrangler's local KV runtime, or `npm run dev:static` only for a deliberately frozen UI-only preview, then deploy with `npm run deploy`.
@@ -77,6 +79,8 @@ Tune `KALSHI_RATE_BUDGET_FRACTION` if this service should use more or less of th
 
 ## Relevant Kalshi behavior
 
+- [Kalshi integration guide: API quirks, heuristics, and hard-won rules](docs/kalshi-integration-guide.md)
+- [Project roadmap](docs/roadmap.md)
 - [Rate limits and token costs](https://docs.kalshi.com/getting_started/rate_limits)
 - [Inspect the authenticated account's API limits](https://docs.kalshi.com/api-reference/account/get-account-api-limits)
 - [Cursor pagination](https://docs.kalshi.com/getting_started/pagination)

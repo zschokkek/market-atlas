@@ -66,7 +66,7 @@ function venueKey(venue) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, { headers: { "user-agent": "sports-globe-schedule-builder/1.0" } });
+  const response = await fetch(url, { headers: { "user-agent": "market-atlas-schedule-builder/1.0" } });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${url}`);
   return response.json();
 }

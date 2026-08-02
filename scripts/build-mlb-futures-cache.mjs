@@ -21,7 +21,7 @@ async function fetchSeries(seriesTicker) {
     const query = new URLSearchParams({ limit: "200", status: "open", series_ticker: seriesTicker });
     if (cursor) query.set("cursor", cursor);
     const response = await fetch(`${API_ORIGIN}/markets?${query}`, {
-      headers: { accept: "application/json", "user-agent": "sports-globe-futures-cache/2.0" }
+      headers: { accept: "application/json", "user-agent": "market-atlas-futures-cache/2.0" }
     });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${seriesTicker}`);
     const payload = await response.json();

@@ -1,0 +1,313 @@
+[data-market-search] {
+  position: relative;
+  justify-self: end;
+  width: min(100%, 18rem);
+  min-width: 0;
+}
+
+[data-market-search] > label {
+  width: 100% !important;
+}
+
+[data-market-search] input::-webkit-search-cancel-button {
+  opacity: 0.7;
+}
+
+.market-search-panel {
+  position: absolute;
+  z-index: 220;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  display: grid;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100vh - 5.5rem));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--kalshi-green, var(--integration-green, #0ac285)) 28%, var(--border, var(--integration-border)));
+  border-radius: calc(var(--radius, var(--integration-radius, 13px)) * 1.05);
+  color: var(--foreground, var(--integration-foreground));
+  background: color-mix(in srgb, var(--card, var(--integration-surface, #1b211d)) 96%, var(--kalshi-green, var(--integration-green, #0ac285)) 4%);
+  box-shadow: 0 1.3rem 4rem color-mix(in srgb, var(--background, var(--integration-background, #111713)) 72%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--foreground, var(--integration-foreground)) 3%, transparent);
+}
+
+.market-search-panel[hidden] {
+  display: none;
+}
+
+.market-search-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.6rem;
+  padding: 0.66rem 0.78rem;
+  border-bottom: 1px solid var(--border, var(--integration-border));
+  color: var(--muted-foreground, var(--integration-muted));
+  font-size: var(--font-size-small, 0.78rem);
+}
+
+.market-search-context strong {
+  color: var(--foreground, var(--integration-foreground));
+  font-weight: 500;
+}
+
+.market-search-results {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 40%, transparent) transparent;
+}
+
+.market-search-result {
+  display: grid;
+  width: 100%;
+  gap: 0.42rem;
+  padding: 0.76rem 0.8rem;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border, var(--integration-border)) 78%, transparent);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.market-search-result:last-child {
+  border-bottom: 0;
+}
+
+.market-search-result:hover,
+.market-search-result:focus-visible,
+.market-search-result.is-active {
+  outline: 0;
+  background: color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 9%, transparent);
+}
+
+.market-search-result:focus-visible {
+  box-shadow: inset 3px 0 0 var(--kalshi-green, var(--integration-green));
+}
+
+.market-search-result.is-location {
+  background:
+    radial-gradient(circle at 8% 50%, color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 11%, transparent), transparent 38%),
+    color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 3%, transparent);
+}
+
+.market-search-result.is-location:hover,
+.market-search-result.is-location:focus-visible,
+.market-search-result.is-location.is-active {
+  background:
+    radial-gradient(circle at 8% 50%, color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 17%, transparent), transparent 42%),
+    color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 7%, transparent);
+}
+
+.market-search-result.is-location .market-search-result-volume {
+  color: color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 76%, var(--foreground, var(--integration-foreground)));
+  letter-spacing: 0.055em;
+}
+
+.market-search-result-heading,
+.market-search-result-meta,
+.market-search-prices,
+.market-search-suggestions {
+  display: flex;
+  align-items: center;
+}
+
+.market-search-result-heading {
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.market-search-result-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground, var(--integration-foreground));
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-search-result-volume {
+  flex: none;
+  color: var(--muted-foreground, var(--integration-muted));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--font-size-small, 0.74rem);
+}
+
+.market-search-result-meta {
+  min-width: 0;
+  gap: 0.45rem;
+  color: var(--muted-foreground, var(--integration-muted));
+  font-size: var(--font-size-small, 0.76rem);
+}
+
+.market-search-result-category {
+  flex: none;
+  padding: 0.12rem 0.34rem;
+  border: 1px solid color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 22%, var(--border, var(--integration-border)));
+  border-radius: 999px;
+  color: var(--foreground, var(--integration-foreground));
+  background: color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 7%, transparent);
+  text-transform: uppercase;
+}
+
+.market-search-result-reason {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-search-prices {
+  gap: 0.42rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.market-search-price {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 12rem;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.24rem 0.42rem;
+  border-radius: calc(var(--radius, var(--integration-radius, 13px)) * 0.55);
+  color: var(--muted-foreground, var(--integration-muted));
+  background: color-mix(in srgb, var(--muted, var(--integration-surface-strong)) 54%, transparent);
+  font-size: var(--font-size-small, 0.75rem);
+}
+
+.market-search-price span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-search-price strong {
+  flex: none;
+  color: var(--foreground, var(--integration-foreground));
+  font-weight: 500;
+}
+
+.market-search-empty {
+  display: grid;
+  place-items: center;
+  min-height: 9rem;
+  padding: 1.5rem;
+  color: var(--muted-foreground, var(--integration-muted));
+  text-align: center;
+}
+
+.market-search-suggestions {
+  flex-wrap: wrap;
+  gap: 0.48rem;
+  padding: 0.78rem;
+}
+
+.market-search-suggestion {
+  min-height: 2.5rem;
+  padding: 0.42rem 0.62rem;
+  border: 1px solid var(--border, var(--integration-border));
+  border-radius: 999px;
+  color: var(--foreground, var(--integration-foreground));
+  background: color-mix(in srgb, var(--card, var(--integration-surface)) 74%, transparent);
+  font: inherit;
+  font-size: var(--font-size-small, 0.78rem);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.market-search-suggestion:hover,
+.market-search-suggestion:focus-visible {
+  border-color: color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 48%, var(--border, var(--integration-border)));
+  outline: 0;
+  background: color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 8%, transparent);
+}
+
+.market-search-loading {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid color-mix(in srgb, var(--kalshi-green, var(--integration-green)) 24%, transparent);
+  border-top-color: var(--kalshi-green, var(--integration-green));
+  border-radius: 50%;
+  animation: market-search-spin 700ms linear infinite;
+}
+
+@keyframes market-search-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  [data-market-search] {
+    width: 100%;
+  }
+
+  .market-search-panel {
+    position: fixed;
+    top: 4.25rem;
+    right: 0.6rem;
+    left: 0.6rem;
+    width: auto;
+    max-height: calc(100dvh - 5rem);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .market-search-context {
+    min-height: 2.45rem;
+    padding: 0.58rem 0.66rem;
+    font-size: 0.72rem;
+  }
+
+  .market-search-result {
+    min-height: 4.15rem;
+    gap: 0.36rem;
+    padding: 0.68rem 0.7rem;
+  }
+
+  .market-search-result-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.55rem;
+  }
+
+  .market-search-result-title {
+    font-size: 0.92rem;
+  }
+
+  .market-search-result-meta {
+    font-size: 0.7rem;
+  }
+
+  .market-search-prices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .market-search-price {
+    width: 100%;
+    max-width: none;
+    justify-content: space-between;
+  }
+
+  .market-search-suggestions {
+    gap: 0.4rem;
+    padding: 0.66rem;
+  }
+
+  .market-search-suggestion {
+    flex: 1 1 calc(50% - 0.4rem);
+    padding-inline: 0.52rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .market-search-result-reason {
+    display: none;
+  }
+}

@@ -2,17 +2,18 @@ import { createServer } from "node:http";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import worker, { runFuturesMaintenance, runPoliticsPoll, runPoll } from "../src/worker.js";
+import worker, { runFuturesMaintenance, runPoliticsPoll, runPoll, runWeatherPoll } from "../src/worker.js";
 
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDirectory = path.join(projectDirectory, "public");
-const listenPort = Number(process.env.SPORTS_GLOBE_PORT || 8766);
+const listenPort = Number(process.env.MARKET_ATLAS_PORT || 8766);
 const cache = new Map();
-const cacheFile = path.resolve(process.env.SPORTS_GLOBE_CACHE_FILE || path.join(projectDirectory, ".local-cache", "kalshi-kv.json"));
+const cacheFile = path.resolve(process.env.MARKET_ATLAS_CACHE_FILE || path.join(projectDirectory, ".local-cache", "kalshi-kv.json"));
 const cacheDirectory = path.dirname(cacheFile);
 let pollPromise = null;
 let futuresPromise = null;
 let politicsPromise = null;
+let weatherPromise = null;
 let persistTimer = null;
 let persistPromise = Promise.resolve();
 
@@ -99,7 +100,7 @@ async function assetResponse(request) {
 
 const env = {
   ...process.env,
-  SPORTS_ODDS_CACHE: localKv,
+  MARKET_ATLAS_CACHE: localKv,
   ASSETS: { fetch: assetResponse }
 };
 
@@ -159,12 +160,31 @@ function updatePoliticsCache() {
   return politicsPromise;
 }
 
+function updateWeatherCache() {
+  if (!weatherPromise) {
+    weatherPromise = runWeatherPoll(env, Date.now())
+      .then(result => {
+        console.log(`Kalshi weather cache ready (${result.seriesCount} series, ${result.bundleCount} locations, ${result.marketCount} markets)`);
+        return result;
+      })
+      .catch(error => {
+        console.warn("Kalshi weather cache update failed", error?.message || error);
+        throw error;
+      })
+      .finally(() => {
+        weatherPromise = null;
+      });
+  }
+  return weatherPromise;
+}
+
 const server = createServer(async (incoming, outgoing) => {
   try {
     if (incoming.url?.startsWith("/api/odds") && !cache.has("kalshi:sports:public:v2")) {
       updateOddsCache().catch(() => null);
     }
-    const requestUrl = new URL(incoming.url || "/", "http://sports-globe.local");
+    const requestHost = incoming.headers.host || `127.0.0.1:${listenPort}`;
+    const requestUrl = new URL(incoming.url || "/", `http://${requestHost}`);
     const request = new Request(requestUrl, { method: incoming.method, headers: incoming.headers });
     const response = await worker.fetch(request, env, {
       waitUntil(promise) {
@@ -181,10 +201,11 @@ const server = createServer(async (incoming, outgoing) => {
 });
 
 server.listen(listenPort, "127.0.0.1", () => {
-  console.log(`Global Sports Globe: http://localhost:${listenPort}`);
+  console.log(`Market Atlas: http://localhost:${listenPort}`);
   console.log("Kalshi cache: hourly baseline · 15m game day · 5m pregame · 1m live");
   updateOddsCache().catch(() => null)
     .finally(() => updatePoliticsCache().catch(() => null))
+    .finally(() => updateWeatherCache().catch(() => null))
     .finally(() => updateFuturesCaches().catch(() => null));
 });
 
@@ -192,6 +213,8 @@ const pollTimer = setInterval(() => updateOddsCache().catch(() => null), 60 * 10
 pollTimer.unref();
 const politicsTimer = setInterval(() => updatePoliticsCache().catch(() => null), 60 * 1000);
 politicsTimer.unref();
+const weatherTimer = setInterval(() => updateWeatherCache().catch(() => null), 60 * 1000);
+weatherTimer.unref();
 const futuresTimer = setInterval(() => {
   updateOddsCache().catch(() => null).finally(() => updateFuturesCaches().catch(() => null));
 }, 60 * 60 * 1000);
@@ -200,6 +223,7 @@ futuresTimer.unref();
 async function stopServer() {
   clearInterval(pollTimer);
   clearInterval(politicsTimer);
+  clearInterval(weatherTimer);
   clearInterval(futuresTimer);
   clearTimeout(persistTimer);
   await persistPromise;

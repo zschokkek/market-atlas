@@ -1,5 +1,6 @@
 {
-  "name": "global-sports-globe",
+  "name": "market-atlas",
+  "description": "Interactive geographic explorer for Kalshi sports, politics, and weather markets.",
   "private": true,
   "type": "module",
   "scripts": {

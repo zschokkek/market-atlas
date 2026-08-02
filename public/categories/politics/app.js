@@ -38,6 +38,7 @@ const HEIGHT = 560;
 const CENTER = [WIDTH / 2, HEIGHT / 2];
 const MIN_SCALE = 235;
 const MAX_SCALE = 7600;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const graticule = geoGraticule10();
 const sphere = { type: "Sphere" };
 const projection = geoOrthographic()
@@ -238,11 +239,35 @@ function positionTooltip(point) {
   const anchorY = svgRect.top - stageRect.top + point[1] / HEIGHT * svgRect.height;
   const tooltipWidth = tooltip.offsetWidth;
   const tooltipHeight = tooltip.offsetHeight;
-  const preferLeft = anchorX + 20 + tooltipWidth > stageRect.width;
-  const left = preferLeft ? anchorX - tooltipWidth - 20 : anchorX + 20;
-  const top = anchorY - tooltipHeight / 2;
-  tooltip.style.left = `${Math.max(7, Math.min(stageRect.width - tooltipWidth - 7, left))}px`;
-  tooltip.style.top = `${Math.max(26, Math.min(stageRect.height - tooltipHeight - 8, top))}px`;
+  const leftInset = 7;
+  const rightInset = 7;
+  const topInset = 26;
+  const bottomInset = 8;
+  const markerClearance = 18;
+  const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+  const maxLeft = Math.max(leftInset, stageRect.width - tooltipWidth - rightInset);
+  const maxTop = Math.max(topInset, stageRect.height - tooltipHeight - bottomInset);
+  const centeredLeft = clamp(anchorX - tooltipWidth / 2, leftInset, maxLeft);
+  const centeredTop = clamp(anchorY - tooltipHeight / 2, topInset, maxTop);
+  const edgeCandidates = [
+    { edge: "left", distance: anchorX, left: leftInset, top: centeredTop },
+    { edge: "right", distance: stageRect.width - anchorX, left: maxLeft, top: centeredTop },
+    { edge: "top", distance: anchorY, left: centeredLeft, top: topInset },
+    { edge: "bottom", distance: stageRect.height - anchorY, left: centeredLeft, top: maxTop }
+  ];
+  const obstructionPenalty = Math.max(stageRect.width, stageRect.height) * 4;
+  edgeCandidates.forEach(candidate => {
+    const coversMarker = anchorX >= candidate.left - markerClearance &&
+      anchorX <= candidate.left + tooltipWidth + markerClearance &&
+      anchorY >= candidate.top - markerClearance &&
+      anchorY <= candidate.top + tooltipHeight + markerClearance;
+    candidate.score = candidate.distance + (coversMarker ? obstructionPenalty : 0);
+  });
+  edgeCandidates.sort((left, right) => left.score - right.score);
+  const placement = edgeCandidates[0];
+  tooltip.dataset.edge = placement.edge;
+  tooltip.style.left = `${placement.left}px`;
+  tooltip.style.top = `${placement.top}px`;
 }
 
 function showTooltip(bundle, point) {
@@ -596,6 +621,38 @@ function animateZoom(multiplier) {
     else zoomFrame = null;
   };
   zoomFrame = requestAnimationFrame(frame);
+}
+
+function animateToLocation(lon, lat, targetScale = 1050, duration = 380) {
+  const boundedLon = Number(lon);
+  const boundedLat = Math.max(-84, Math.min(84, Number(lat)));
+  if (!Number.isFinite(boundedLon) || !Number.isFinite(boundedLat)) return false;
+  cancelAnimationFrame(zoomFrame);
+  hideTooltip();
+  const startRotation = projection.rotate();
+  const targetRotation = [-boundedLon, -boundedLat, 0];
+  const longitudeDelta = ((targetRotation[0] - startRotation[0] + 540) % 360) - 180;
+  const latitudeDelta = targetRotation[1] - startRotation[1];
+  const startScale = projection.scale();
+  const boundedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Number(targetScale) || 1050));
+  if (reduceMotion) {
+    projection.rotate([startRotation[0] + longitudeDelta, targetRotation[1], 0]);
+    projection.scale(boundedScale);
+    draw();
+    return true;
+  }
+  const startedAt = performance.now();
+  const frame = now => {
+    const progress = Math.min(1, (now - startedAt) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    projection.rotate([startRotation[0] + longitudeDelta * eased, startRotation[1] + latitudeDelta * eased, 0]);
+    projection.scale(startScale + (boundedScale - startScale) * eased);
+    draw();
+    if (progress < 1) zoomFrame = requestAnimationFrame(frame);
+    else zoomFrame = null;
+  };
+  zoomFrame = requestAnimationFrame(frame);
+  return true;
 }
 
 app.querySelector(".zoom-in").addEventListener("click", () => animateZoom(projection.scale() >= 3000 ? 1.3 : 1.55));

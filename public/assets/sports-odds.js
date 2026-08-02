@@ -6,7 +6,7 @@ let futuresController = null;
 const futuresCache = new Map();
 
 function bridge() {
-  return Object.values(window.__sportsGlobeOddsBridges || {})[0] || null;
+  return Object.values(window.__marketAtlasOddsBridges || {})[0] || null;
 }
 
 function validTeamPayload(sport, teamCode, payload) {
@@ -52,12 +52,12 @@ function schedule(delay = POLL_INTERVAL_MS) {
   }, delay);
 }
 
-document.addEventListener("sports-globe:date", event => {
+document.addEventListener("market-atlas:date", event => {
   if (event.detail?.date === lastDate) return;
   refresh();
 });
 
-document.addEventListener("sports-globe:team", async event => {
+document.addEventListener("market-atlas:team", async event => {
   const sport = String(event.detail?.sport || "").toUpperCase();
   const teamCode = String(event.detail?.teamCode || "").toUpperCase();
   const teamName = String(event.detail?.teamName || "");

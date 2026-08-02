@@ -1,0 +1,485 @@
+import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from "https://esm.sh/d3-geo@3.1.1";
+import { feature } from "https://esm.sh/topojson-client@3.1.0";
+import world from "https://esm.sh/@d3-maps/atlas@1.0.0/world/countries/countries-110m";
+import us from "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json/+esm";
+import { weatherBundles, weatherHorizons } from "./data.js";
+
+const app = document.querySelector(".weather-app");
+const svg = app.querySelector(".weather-globe");
+const stage = app.querySelector(".globe-stage");
+const tooltip = app.querySelector(".map-tooltip");
+const markerLayer = app.querySelector(".markers-layer");
+const countryLayer = app.querySelector(".countries-layer");
+const stateLayer = app.querySelector(".states-layer");
+const labelLayer = app.querySelector(".capital-labels-layer");
+const detailName = app.querySelector(".detail-jurisdiction");
+const detailCode = app.querySelector(".detail-code");
+const detailLocation = app.querySelector(".detail-location");
+const detailMeta = app.querySelector(".detail-meta");
+const detailList = app.querySelector(".detail-market-list");
+const hud = app.querySelector(".hud-summary");
+const filterCount = app.querySelector(".filter-summary-number");
+const range = app.querySelector(".timeline-range");
+const stopsLayer = app.querySelector(".timeline-stops");
+const horizonLabel = app.querySelector(".timeline-label");
+const activity = app.querySelector(".timeline-activity");
+
+const NS = "http://www.w3.org/2000/svg";
+const WIDTH = 620;
+const HEIGHT = 560;
+const CENTER = [WIDTH / 2, HEIGHT / 2];
+const MIN_SCALE = 235;
+const MAX_SCALE = 7600;
+const GLOBAL_ANCHOR_SCALE = 620;
+const GLOBAL_ANCHOR_POINT = [WIDTH - 38, 48];
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sphere = { type: "Sphere" };
+const projection = geoOrthographic().translate(CENTER).scale(MIN_SCALE).clipAngle(90).precision(.35).rotate([92, -31, 0]);
+const path = geoPath(projection);
+const countries = feature(world, world.objects.features).features;
+const states = feature(us, us.objects.states).features;
+const countryNodes = countries.map(item => ({ item, node: appendSvg(countryLayer, "path", `country${item.properties?.id === "USA" ? " is-usa" : ""}`) }));
+const stateNodes = states.map(item => ({ item, node: appendSvg(stateLayer, "path", "state-boundary") }));
+const accents = { "Temperature": "#f0a15f", "Rain & Snow": "#74b9dc", "Hurricanes": "#b7a4e4", "Natural Disasters": "#dc7a70", "Climate Change": "#79c6a1" };
+
+let horizonIndex = 0;
+let selectedId = "los-angeles";
+let pinnedSearchId = null;
+let activeWeatherBundles = [...weatherBundles];
+let activeWeatherHorizons = [...weatherHorizons];
+let markerNodes = [];
+let tooltipId = null;
+let tooltipTimer = null;
+let drag = null;
+let drawFrame = null;
+let zoomFrame = null;
+let integratedActive = !app.closest("[data-category-view]");
+let feedEtag = "";
+let feedTimer = null;
+
+function appendSvg(parent, name, className = "") {
+  const node = document.createElementNS(NS, name);
+  if (className) node.setAttribute("class", className);
+  parent.appendChild(node);
+  return node;
+}
+
+function slug(value) {
+  return String(value).toLowerCase().replace(/&/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+}
+
+function compactVolume(value) {
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(value >= 100000 ? 0 : 1)}K`;
+  return String(value);
+}
+
+function bundleVolume(bundle) {
+  return Math.max(0, ...bundle.markets.map(market => market.volume));
+}
+
+function volumeRadius(volume) {
+  return Math.max(7, Math.min(15, 6.5 + (Math.log10(Math.max(1000, volume)) - 3) * 2.75));
+}
+
+function activeKinds() {
+  return new Set([...app.querySelectorAll("[data-kind]:checked")].map(input => input.dataset.kind));
+}
+
+function marketCode(market, fallback) {
+  if (market?.markerCode) return market.markerCode;
+  const outcomes = (market?.outcomes || []).filter(outcome => Number.isFinite(Number(outcome.price))).sort((left, right) => right.price - left.price);
+  if (!outcomes.length) return fallback;
+  if (market.kind === "Temperature") return String(outcomes[0].name).match(/-?\d{1,3}°/)?.[0] || fallback;
+  const yes = outcomes.find(outcome => /^yes$/i.test(outcome.name));
+  return `${Math.round(yes?.price ?? outcomes[0].price)}%`;
+}
+
+function visibleBundles() {
+  const horizon = activeWeatherHorizons[horizonIndex];
+  const kinds = activeKinds();
+  return activeWeatherBundles.map(bundle => {
+    const markets = bundle.markets.filter(market => {
+      const marketKind = market.kind || bundle.kind;
+      const marketHorizon = market.horizon || bundle.horizon;
+      return kinds.has(marketKind) && (horizon === "All" || marketHorizon === horizon);
+    });
+    const representative = markets.slice().sort((left, right) => right.volume - left.volume)[0];
+    return {
+      ...bundle,
+      markets,
+      kind: representative?.kind || bundle.kind,
+      horizon: representative?.horizon || bundle.horizon,
+      code: marketCode(representative, bundle.code)
+    };
+  }).filter(bundle => bundle.markets.length);
+}
+
+function uniqueMarketCount(bundles) {
+  return new Set(bundles.flatMap(bundle => bundle.markets.map(market => market.id))).size;
+}
+
+function outcomeMarkup(outcome, tooltipMode = false) {
+  if (tooltipMode) return `<div class="tooltip-price"><span>${escapeHtml(outcome.name)}</span><strong>${Math.round(outcome.price)}¢</strong></div>`;
+  return `<div class="market-outcome weather-outcome"><span class="outcome-fill" style="width:${outcome.price}%"></span><span class="outcome-name">${escapeHtml(outcome.name)}</span><strong class="outcome-price">${Math.round(outcome.price)}¢</strong></div>`;
+}
+
+function marketMarkup(market, kind, tooltipMode = false) {
+  const color = accents[kind];
+  if (tooltipMode) return `<section class="tooltip-market" style="--weather-accent:${color}"><a class="tooltip-market-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a>${market.outcomes.slice(0, 6).map(item => outcomeMarkup(item, true)).join("")}<div class="tooltip-stamp">${compactVolume(market.volume)} contracts · ${escapeHtml(market.eventTicker)}</div></section>`;
+  return `<article class="market-card" style="--weather-accent:${color}"><div class="market-card-heading"><a class="market-card-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a><span class="market-volume">${compactVolume(market.volume)} vol</span></div><div class="market-outcomes">${market.outcomes.map(item => outcomeMarkup(item)).join("")}</div><div class="market-footer"><span>${escapeHtml(market.eventTicker)}</span><span>Kalshi · ${market.updatedAt ? `cached ${snapshotAge(market.updatedAt)}` : "verified fallback"}</span></div></article>`;
+}
+
+function renderDetail(bundle) {
+  if (!bundle) {
+    detailName.textContent = "No weather markets";
+    detailCode.textContent = "—";
+    detailLocation.textContent = "Change the market type or horizon filters.";
+    detailMeta.replaceChildren();
+    detailList.innerHTML = '<div class="empty-detail">No markets match this view.</div>';
+    return;
+  }
+  detailName.textContent = bundle.name;
+  detailCode.textContent = bundle.code;
+  detailLocation.textContent = bundle.location;
+  detailMeta.innerHTML = `<span class="meta-badge weather-category-badge" style="--weather-accent:${accents[bundle.kind]}">${bundle.kind}</span><span class="meta-badge">${bundle.horizon}</span><span class="meta-badge">${bundle.markets.length} market${bundle.markets.length === 1 ? "" : "s"}</span>`;
+  detailList.innerHTML = bundle.markets.map(market => marketMarkup(market, market.kind || bundle.kind)).join("");
+}
+
+function cancelTooltipHide() { clearTimeout(tooltipTimer); tooltipTimer = null; }
+function hideTooltip() { cancelTooltipHide(); tooltipId = null; tooltip.hidden = true; }
+function scheduleTooltipHide() { cancelTooltipHide(); tooltipTimer = setTimeout(hideTooltip, 150); }
+
+function positionTooltip(point) {
+  const svgRect = svg.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
+  const anchorX = svgRect.left - stageRect.left + point[0] / WIDTH * svgRect.width;
+  const anchorY = svgRect.top - stageRect.top + point[1] / HEIGHT * svgRect.height;
+  const width = tooltip.offsetWidth;
+  const height = tooltip.offsetHeight;
+  const inset = 7;
+  const topInset = 26;
+  const maxLeft = Math.max(inset, stageRect.width - width - inset);
+  const maxTop = Math.max(topInset, stageRect.height - height - inset);
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const centerLeft = clamp(anchorX - width / 2, inset, maxLeft);
+  const centerTop = clamp(anchorY - height / 2, topInset, maxTop);
+  const candidates = [
+    { edge: "left", distance: anchorX, left: inset, top: centerTop },
+    { edge: "right", distance: stageRect.width - anchorX, left: maxLeft, top: centerTop },
+    { edge: "top", distance: anchorY, left: centerLeft, top: topInset },
+    { edge: "bottom", distance: stageRect.height - anchorY, left: centerLeft, top: maxTop }
+  ];
+  const penalty = Math.max(stageRect.width, stageRect.height) * 4;
+  candidates.forEach(candidate => {
+    const covers = anchorX >= candidate.left - 18 && anchorX <= candidate.left + width + 18 && anchorY >= candidate.top - 18 && anchorY <= candidate.top + height + 18;
+    candidate.score = candidate.distance + (covers ? penalty : 0);
+  });
+  const placement = candidates.sort((a, b) => a.score - b.score)[0];
+  tooltip.dataset.edge = placement.edge;
+  tooltip.style.left = `${placement.left}px`;
+  tooltip.style.top = `${placement.top}px`;
+}
+
+function showTooltip(bundle, point) {
+  cancelTooltipHide();
+  tooltipId = bundle.id;
+  tooltip.innerHTML = `<div class="tooltip-heading"><div><div class="tooltip-title">${escapeHtml(bundle.name)}</div><div class="tooltip-subtitle">${escapeHtml(bundle.location)} · ${bundle.horizon}</div></div><span class="weather-category-badge" style="--weather-accent:${accents[bundle.kind]}">${escapeHtml(bundle.kind)}</span></div><div class="tooltip-market-list">${bundle.markets.map(market => marketMarkup(market, market.kind || bundle.kind, true)).join("")}</div>`;
+  tooltip.hidden = false;
+  positionTooltip(point);
+}
+
+tooltip.addEventListener("mouseenter", cancelTooltipHide);
+tooltip.addEventListener("mouseleave", scheduleTooltipHide);
+
+function makeMarker(bundle) {
+  const radius = volumeRadius(bundleVolume(bundle));
+  const group = appendSvg(markerLayer, "g", `event-marker kind-${slug(bundle.kind)}`);
+  group.dataset.id = bundle.id;
+  group.setAttribute("role", "button");
+  group.setAttribute("tabindex", "0");
+  group.setAttribute("aria-label", `${bundle.name}: ${bundle.markets.length} ${bundle.kind} market${bundle.markets.length === 1 ? "" : "s"}`);
+  const viewportTag = appendSvg(group, "g", "viewport-anchor-tag");
+  const viewportTagBackground = appendSvg(viewportTag, "rect");
+  viewportTagBackground.setAttribute("x", "-124"); viewportTagBackground.setAttribute("y", "-18"); viewportTagBackground.setAttribute("width", "142"); viewportTagBackground.setAttribute("height", "36"); viewportTagBackground.setAttribute("rx", "18");
+  const viewportTagLabel = appendSvg(viewportTag, "text");
+  viewportTagLabel.setAttribute("x", "-19"); viewportTagLabel.setAttribute("y", "3.5"); viewportTagLabel.setAttribute("text-anchor", "end"); viewportTagLabel.textContent = "Global climate";
+  const hit = appendSvg(group, "circle", "marker-hit"); hit.setAttribute("r", String(radius + 9));
+  const halo = appendSvg(group, "circle", "marker-halo"); halo.setAttribute("r", String(radius + 3));
+  const core = appendSvg(group, "circle", "marker-core"); core.setAttribute("r", String(radius));
+  const label = appendSvg(group, "text"); label.textContent = bundle.code;
+  if (bundle.markets.length > 1) {
+    const count = appendSvg(group, "circle", "market-count"); count.setAttribute("cx", String(radius)); count.setAttribute("cy", String(-radius)); count.setAttribute("r", "5.3");
+    const countText = appendSvg(group, "text", "market-count-text"); countText.setAttribute("x", String(radius)); countText.setAttribute("y", String(-radius)); countText.textContent = String(bundle.markets.length);
+  }
+  const select = () => { pinnedSearchId = null; delete app.dataset.searchSelectedId; selectedId = bundle.id; renderDetail(bundle); draw(); };
+  group.addEventListener("pointerdown", event => event.stopPropagation());
+  group.addEventListener("mouseenter", () => { const point = markerPoint(bundle); if (point) showTooltip(bundle, point); });
+  group.addEventListener("mouseleave", scheduleTooltipHide);
+  group.addEventListener("click", select);
+  group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
+  return { bundle, group, radius };
+}
+
+function isGlobalClimate(bundle) {
+  return bundle?.id === "global-climate" || bundle?.id === "global-temperature";
+}
+
+function markerPoint(bundle) {
+  if (isGlobalClimate(bundle) && projection.scale() >= GLOBAL_ANCHOR_SCALE) return GLOBAL_ANCHOR_POINT;
+  return projection([bundle.lon, bundle.lat]);
+}
+
+function markerSpacing() {
+  const scale = projection.scale();
+  if (scale < 320) return 30;
+  if (scale < 520) return 24;
+  if (scale < 900) return 18;
+  return 10;
+}
+
+function placeMarkers() {
+  const center = projection.invert(CENTER);
+  const candidates = markerNodes.map(node => {
+    const anchored = isGlobalClimate(node.bundle) && projection.scale() >= GLOBAL_ANCHOR_SCALE;
+    return { ...node, anchored, point: markerPoint(node.bundle), distance: anchored ? 0 : geoDistance(center, [node.bundle.lon, node.bundle.lat]), volume: bundleVolume(node.bundle) };
+  })
+    .filter(node => node.point && (node.anchored || node.distance < Math.PI / 2 - .012))
+    .sort((a, b) => Number(b.anchored) - Number(a.anchored) || Number(b.bundle.id === selectedId) - Number(a.bundle.id === selectedId) || b.volume - a.volume);
+  markerNodes.forEach(node => {
+    node.group.setAttribute("display", "none");
+    node.group.classList.toggle("is-selected", node.bundle.id === selectedId);
+    node.group.classList.toggle("is-viewport-anchor", isGlobalClimate(node.bundle) && projection.scale() >= GLOBAL_ANCHOR_SCALE);
+  });
+  const accepted = [];
+  for (const node of candidates) {
+    const [x, y] = node.point;
+    const collision = accepted.some(other => (
+      other.anchored
+        ? x > other.x - 136 && x < other.x + 26 && Math.abs(y - other.y) < 25
+        : Math.hypot(x - other.x, y - other.y) < markerSpacing() + Math.min(node.radius, other.radius) * .45
+    ));
+    if (collision && node.bundle.id !== selectedId) continue;
+    const horizonRoom = Math.PI / 2 - node.distance;
+    const opacity = node.anchored ? 1 : Math.max(0, Math.min(1, horizonRoom / .08));
+    node.group.removeAttribute("display");
+    node.group.setAttribute("transform", `translate(${x},${y})`);
+    node.group.style.opacity = String(opacity);
+    node.group.style.pointerEvents = opacity < .12 ? "none" : "auto";
+    accepted.push({ x, y, radius: node.radius, anchored: node.anchored });
+  }
+  hud.textContent = `${accepted.length} locations in frame · ${uniqueMarketCount(candidates.map(node => node.bundle))} individual markets`;
+}
+
+function placeLabels() {
+  labelLayer.replaceChildren();
+  if (projection.scale() < 760) return;
+  const center = projection.invert(CENTER);
+  const accepted = [];
+  for (const bundle of visibleBundles().filter(item => !(isGlobalClimate(item) && projection.scale() >= GLOBAL_ANCHOR_SCALE) && geoDistance(center, [item.lon, item.lat]) < Math.PI / 2 - .035).sort((a, b) => bundleVolume(b) - bundleVolume(a))) {
+    const point = projection([bundle.lon, bundle.lat]);
+    const width = bundle.name.length * 5.5;
+    const box = { x: point[0] + 6, y: point[1] - 13, width, height: 14 };
+    if (box.x < 4 || box.y < 4 || box.x + width > WIDTH - 4 || accepted.some(other => box.x < other.x + other.width + 4 && box.x + width + 4 > other.x && box.y < other.y + other.height + 4 && box.y + 18 > other.y)) continue;
+    const group = appendSvg(labelLayer, "g", "capital-label");
+    const dot = appendSvg(group, "circle"); dot.setAttribute("cx", point[0]); dot.setAttribute("cy", point[1]); dot.setAttribute("r", "1.5");
+    const text = appendSvg(group, "text"); text.setAttribute("x", point[0] + 6); text.setAttribute("y", point[1] - 3); text.textContent = bundle.name;
+    accepted.push(box);
+  }
+}
+
+function draw() {
+  const zoomProgress = Math.max(0, Math.min(1, (projection.scale() - 300) / (700 - 300)));
+  const mapBlend = zoomProgress * zoomProgress * (3 - 2 * zoomProgress);
+  const markerZoomProgress = Math.max(0, Math.min(1, (projection.scale() - 380) / (950 - 380)));
+  const markerReveal = markerZoomProgress * markerZoomProgress * (3 - 2 * markerZoomProgress);
+  app.style.setProperty("--map-ocean-opacity", String(1 - mapBlend));
+  app.style.setProperty("--map-rim-opacity", String(1 - mapBlend));
+  app.style.setProperty("--map-grid-opacity", String(1 - mapBlend * 0.28));
+  app.style.setProperty("--weather-marker-reveal", `${(markerReveal * 48).toFixed(1)}%`);
+  const spherePath = path(sphere);
+  app.querySelector(".sphere-clip-path").setAttribute("d", spherePath);
+  app.querySelector(".globe-shadow").setAttribute("d", spherePath);
+  app.querySelector(".globe-ocean").setAttribute("d", spherePath);
+  app.querySelector(".globe-graticule").setAttribute("d", path(geoGraticule10()));
+  countryNodes.forEach(({ item, node }) => node.setAttribute("d", path(item) || ""));
+  stateNodes.forEach(({ item, node }) => node.setAttribute("d", path(item) || ""));
+  placeMarkers();
+  placeLabels();
+  if (!tooltip.hidden && tooltipId) {
+    const bundle = visibleBundles().find(item => item.id === tooltipId);
+    const point = bundle && markerPoint(bundle);
+    if (point) positionTooltip(point); else hideTooltip();
+  }
+}
+
+function scheduleDraw() {
+  if (drawFrame || !integratedActive) return;
+  drawFrame = requestAnimationFrame(() => { drawFrame = null; draw(); });
+}
+
+function rebuild() {
+  hideTooltip();
+  const bundles = visibleBundles();
+  markerLayer.replaceChildren();
+  markerNodes = bundles.map(makeMarker);
+  filterCount.textContent = String(bundles.length);
+  activity.textContent = `${bundles.length} locations · ${uniqueMarketCount(bundles)} markets`;
+  const searchSelectedId = app.dataset.searchSelectedId || pinnedSearchId;
+  let selected = bundles.find(bundle => bundle.id === searchSelectedId) || bundles.find(bundle => bundle.id === selectedId);
+  if (pinnedSearchId && !selected) pinnedSearchId = null;
+  if (searchSelectedId && !selected) delete app.dataset.searchSelectedId;
+  if (!selected) selected = [...bundles].sort((a, b) => bundleVolume(b) - bundleVolume(a))[0] || null;
+  selectedId = selected?.id || null;
+  renderDetail(selected);
+  draw();
+}
+
+function renderHorizon() {
+  range.value = String(horizonIndex);
+  horizonLabel.textContent = activeWeatherHorizons[horizonIndex];
+  app.querySelector(".timeline-prev").disabled = horizonIndex === 0;
+  app.querySelector(".timeline-next").disabled = horizonIndex === activeWeatherHorizons.length - 1;
+  rebuild();
+}
+
+function renderHorizonStops() {
+  stopsLayer.replaceChildren();
+  range.max = String(activeWeatherHorizons.length - 1);
+  activeWeatherHorizons.forEach((horizon, index) => {
+    const stop = document.createElement("span");
+    stop.className = "timeline-stop";
+    stop.style.left = `${activeWeatherHorizons.length === 1 ? 0 : index / (activeWeatherHorizons.length - 1) * 100}%`;
+    stop.textContent = horizon;
+    stopsLayer.appendChild(stop);
+  });
+}
+renderHorizonStops();
+app.querySelectorAll("[data-kind]").forEach(input => input.addEventListener("change", rebuild));
+range.addEventListener("input", () => { horizonIndex = Number(range.value); renderHorizon(); });
+app.querySelector(".timeline-prev").addEventListener("click", () => { horizonIndex = Math.max(0, horizonIndex - 1); renderHorizon(); });
+app.querySelector(".timeline-next").addEventListener("click", () => { horizonIndex = Math.min(activeWeatherHorizons.length - 1, horizonIndex + 1); renderHorizon(); });
+
+svg.addEventListener("pointerdown", event => {
+  if (event.button !== 0) return;
+  event.preventDefault(); hideTooltip(); cancelAnimationFrame(zoomFrame); zoomFrame = null;
+  drag = { id: event.pointerId, x: event.clientX, y: event.clientY, rotation: projection.rotate() };
+  svg.setPointerCapture(event.pointerId);
+});
+svg.addEventListener("pointermove", event => {
+  if (!drag || drag.id !== event.pointerId) return;
+  const sensitivity = .22 * Math.pow(MIN_SCALE / projection.scale(), .76);
+  projection.rotate([drag.rotation[0] + (event.clientX - drag.x) * sensitivity, Math.max(-84, Math.min(84, drag.rotation[1] - (event.clientY - drag.y) * sensitivity)), drag.rotation[2]]);
+  scheduleDraw();
+});
+const endDrag = event => { if (drag?.id === event.pointerId) { drag = null; if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId); } };
+svg.addEventListener("pointerup", endDrag); svg.addEventListener("pointercancel", endDrag);
+
+function localPoint(event) { const rect = svg.getBoundingClientRect(); return [(event.clientX - rect.left) / rect.width * WIDTH, (event.clientY - rect.top) / rect.height * HEIGHT]; }
+function zoomAt(nextScale, anchor = CENTER) {
+  const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
+  const anchorGeo = projection.invert(anchor); projection.scale(scale);
+  if (anchorGeo) for (let i = 0; i < 3; i += 1) { const point = projection(anchorGeo); if (!point) break; const rotation = projection.rotate(); projection.rotate([rotation[0] + (anchor[0] - point[0]) / scale * 180 / Math.PI, Math.max(-84, Math.min(84, rotation[1] - (anchor[1] - point[1]) / scale * 180 / Math.PI)), rotation[2]]); }
+  draw();
+}
+svg.addEventListener("wheel", event => { event.preventDefault(); hideTooltip(); const scale = projection.scale(); const damping = Math.max(.18, Math.min(1, 520 / scale)); zoomAt(scale * Math.exp(-event.deltaY * .00135 * damping), localPoint(event)); }, { passive: false });
+function animateZoom(multiplier) {
+  cancelAnimationFrame(zoomFrame); const start = projection.scale(); const target = Math.max(MIN_SCALE, Math.min(MAX_SCALE, start * multiplier)); const began = performance.now();
+  const frame = now => { const p = Math.min(1, (now - began) / 180); zoomAt(start + (target - start) * (1 - Math.pow(1 - p, 3))); if (p < 1) zoomFrame = requestAnimationFrame(frame); else zoomFrame = null; };
+  zoomFrame = requestAnimationFrame(frame);
+}
+function animateToLocation(lon, lat, targetScale = 1050, duration = 380) {
+  const boundedLon = Number(lon);
+  const boundedLat = Math.max(-84, Math.min(84, Number(lat)));
+  if (!Number.isFinite(boundedLon) || !Number.isFinite(boundedLat)) return false;
+  cancelAnimationFrame(zoomFrame);
+  hideTooltip();
+  const startRotation = projection.rotate();
+  const targetRotation = [-boundedLon, -boundedLat, 0];
+  const longitudeDelta = ((targetRotation[0] - startRotation[0] + 540) % 360) - 180;
+  const latitudeDelta = targetRotation[1] - startRotation[1];
+  const startScale = projection.scale();
+  const boundedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Number(targetScale) || 1050));
+  if (reduceMotion) {
+    projection.rotate([startRotation[0] + longitudeDelta, targetRotation[1], 0]);
+    projection.scale(boundedScale);
+    draw();
+    return true;
+  }
+  const startedAt = performance.now();
+  const frame = now => {
+    const progress = Math.min(1, (now - startedAt) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    projection.rotate([startRotation[0] + longitudeDelta * eased, startRotation[1] + latitudeDelta * eased, 0]);
+    projection.scale(startScale + (boundedScale - startScale) * eased);
+    draw();
+    if (progress < 1) zoomFrame = requestAnimationFrame(frame);
+    else zoomFrame = null;
+  };
+  zoomFrame = requestAnimationFrame(frame);
+  return true;
+}
+app.querySelector(".zoom-in").addEventListener("click", () => animateZoom(projection.scale() >= 3000 ? 1.3 : 1.55));
+app.querySelector(".zoom-out").addEventListener("click", () => animateZoom(projection.scale() > 3000 ? 1 / 1.3 : 1 / 1.55));
+window.addEventListener("resize", scheduleDraw);
+
+function snapshotAge(value) {
+  const elapsed = Math.max(0, Date.now() - new Date(value || 0).getTime());
+  if (!Number.isFinite(elapsed)) return "cached";
+  if (elapsed < 60_000) return "just now";
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
+  return `${Math.floor(elapsed / 3_600_000)}h ago`;
+}
+
+async function loadWeatherFeed() {
+  try {
+    const headers = { Accept: "application/json" };
+    if (feedEtag) headers["If-None-Match"] = feedEtag;
+    const response = await fetch("/api/weather", { headers, cache: "no-cache" });
+    if (response.status === 304) return;
+    if (!response.ok) throw new Error(response.status === 503 ? "Weather cache is warming" : `Weather feed returned ${response.status}`);
+    const payload = await response.json();
+    const currentHorizon = activeWeatherHorizons[horizonIndex] || "All";
+    feedEtag = response.headers.get("etag") || feedEtag;
+    if (Array.isArray(payload.bundles) && payload.bundles.length) activeWeatherBundles = payload.bundles;
+    if (Array.isArray(payload.horizons) && payload.horizons.length) activeWeatherHorizons = payload.horizons;
+    horizonIndex = Math.max(0, activeWeatherHorizons.indexOf(currentHorizon));
+    renderHorizonStops();
+    renderHorizon();
+    const note = app.querySelector(".prototype-note");
+    if (note) note.textContent = `${payload.marketCount || 0} live Kalshi markets · cached ${snapshotAge(payload.generatedAt)}`;
+    const label = app.querySelector(".prototype-label");
+    if (label) label.textContent = "Live cached weather markets";
+  } catch (error) {
+    hud.textContent = `${error.message} · showing verified fallback`;
+    const note = app.querySelector(".prototype-note");
+    if (note) note.textContent = `${error.message} · retrying`;
+  }
+}
+
+renderHorizon();
+if (integratedActive) {
+  void loadWeatherFeed();
+  feedTimer = setInterval(() => { if (!document.hidden) void loadWeatherFeed(); }, 60_000);
+}
+
+window.__integratedWeatherView = {
+  activate() { integratedActive = true; clearInterval(feedTimer); scheduleDraw(); void loadWeatherFeed(); feedTimer = setInterval(() => { if (integratedActive && !document.hidden) void loadWeatherFeed(); }, 60_000); },
+  deactivate() { integratedActive = false; clearInterval(feedTimer); hideTooltip(); if (drawFrame) cancelAnimationFrame(drawFrame); if (zoomFrame) cancelAnimationFrame(zoomFrame); drawFrame = null; zoomFrame = null; },
+  getMapView() { return { rotate: [...projection.rotate()], scale: projection.scale() }; },
+  setMapView(view) { if (!view || !Array.isArray(view.rotate)) return; projection.rotate(view.rotate.slice(0, 3)); projection.scale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, Number(view.scale) || projection.scale()))); hideTooltip(); draw(); },
+  getTimelineOptions() { return activeWeatherHorizons.map((label, index) => ({ value: index, label })); },
+  getTimelineIndex() { return horizonIndex; },
+  setTimelineIndex(index) { horizonIndex = Math.max(0, Math.min(activeWeatherHorizons.length - 1, Number(index) || 0)); renderHorizon(); },
+  revealLocation(result) { return animateToLocation(result?.lon, result?.lat, result?.scale || 1050, 380); },
+  revealMarket(result) {
+    const bundle = activeWeatherBundles.find(item => item.id === result?.bundleId)
+      || activeWeatherBundles.find(item => item.markets.some(market => market.eventTicker === result?.eventTicker));
+    if (!bundle) return false;
+    app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); projection.rotate([-bundle.lon, -bundle.lat, 0]); projection.scale(Math.max(420, Math.min(900, projection.scale()))); draw(); return true;
+  }
+};

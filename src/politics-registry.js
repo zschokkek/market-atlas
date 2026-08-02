@@ -1,15 +1,15 @@
 import { HOUSE_DISTRICT_CENTROIDS } from "./congressional-district-centroids.js";
 
 const US_ELECTION_DATE = "2026-11-03";
-export const HOUSE_RACE_PREVIEW_MIN_SCALE = 1800;
-export const HOUSE_RACE_MIN_SCALE = 5400;
+export const HOUSE_RACE_PREVIEW_MIN_SCALE = 1600;
+export const HOUSE_RACE_MIN_SCALE = 4000;
 export const MAJOR_SENATE_PRIMARY_VOLUME = 40_000;
 
 export function houseRaceRevealScale(rank, total) {
   const percentile = Math.max(0, Number(rank) || 0) / Math.max(1, Number(total) || 1);
-  if (percentile < 0.10) return HOUSE_RACE_PREVIEW_MIN_SCALE;
-  if (percentile < 0.30) return 2800;
-  if (percentile < 0.55) return 4000;
+  if (percentile < 0.20) return HOUSE_RACE_PREVIEW_MIN_SCALE;
+  if (percentile < 0.50) return 2200;
+  if (percentile < 0.80) return 3000;
   return HOUSE_RACE_MIN_SCALE;
 }
 

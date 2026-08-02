@@ -1,4 +1,0 @@
-house markets
-weather
-search
-deploy

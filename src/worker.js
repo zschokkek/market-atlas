@@ -1,4 +1,6 @@
 import { classifyPoliticsLocations, houseRaceRevealScale, MAJOR_SENATE_PRIMARY_VOLUME, politicsMarketUrl, politicsParty, politicsTimeline } from "./politics-registry.js";
+import { searchMarkets } from "./market-search.js";
+import { buildWeatherPublicSnapshot, resolveWeatherLocations } from "./weather-registry.js";
 
 const API_ORIGIN = "https://external-api.kalshi.com/trade-api/v2";
 const STATE_KEY = "kalshi:sports:state:v2";
@@ -9,6 +11,8 @@ const FUTURES_PIPELINE_STATE_KEY = "kalshi:team-futures:pipeline:v1";
 const TEAM_FUTURES_KEY_PREFIX = "kalshi:team-futures:v2";
 const POLITICS_STATE_KEY = "kalshi:politics:state:v1";
 const POLITICS_PUBLIC_KEY = "kalshi:politics:public:v1";
+const WEATHER_STATE_KEY = "kalshi:weather:state:v1";
+const WEATHER_PUBLIC_KEY = "kalshi:weather:public:v1";
 
 export const DEFAULT_SERIES = [
   "KXMLBGAME", "KXMLBKS", "KXMLBHRR", "KXNFLGAME", "KXNCAAFGAME", "KXNBAGAME", "KXWNBAGAME", "KXNHLGAME", "KXAFLGAME",
@@ -34,6 +38,7 @@ const LOCAL_SCHEDULER_INTERVAL_MS = 60 * 1000;
 const NEAR_TERM_RESPONSE_WINDOW_MS = 48 * 60 * 60 * 1000;
 let localPollPromise = null;
 let localPoliticsPollPromise = null;
+let localWeatherPollPromise = null;
 
 export const MLB_TEAMS = {
   AZ: ["Arizona Diamondbacks", "Arizona", "Diamondbacks"], ATL: ["Atlanta Braves", "Atlanta", "Braves"],
@@ -240,6 +245,15 @@ function json(value, init = {}) {
 function number(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function stableHash(value) {
+  let hash = 2166136261;
+  for (const character of String(value || "")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function centsFromDollars(value) {
@@ -483,6 +497,121 @@ async function discoverPoliticsEvents(env, gate, now) {
   return { events, unmapped: unmapped.slice(0, 80), requestCount };
 }
 
+async function discoverWeatherEvents(env, gate, now) {
+  const seriesQuery = new URLSearchParams({ category: "Climate and Weather", include_volume: "true" });
+  const seriesPayload = await kalshiFetch(env, `/series?${seriesQuery}`, gate);
+  const climateSeries = new Map((seriesPayload.series || []).map(series => [String(series.ticker || "").toUpperCase(), series]));
+  const events = {};
+  let cursor = "";
+  let requestCount = 1;
+  do {
+    const query = new URLSearchParams({ limit: "200", status: "open", with_nested_markets: "true" });
+    if (cursor) query.set("cursor", cursor);
+    const payload = await kalshiFetch(env, `/events?${query}`, gate);
+    requestCount += 1;
+    for (const event of payload.events || []) {
+      const series = climateSeries.get(String(event.series_ticker || "").toUpperCase());
+      if (!series) continue;
+      const snapshot = normalizeEvent(event, event.markets || [], now);
+      if (!snapshot.eventTicker) continue;
+      events[snapshot.eventTicker] = {
+        ...snapshot,
+        seriesTitle: series.title || "",
+        seriesTags: series.tags || [],
+        seriesFrequency: series.frequency || ""
+      };
+    }
+    cursor = payload.cursor || "";
+    if (requestCount >= 100) throw new Error("Weather discovery exceeded the pagination safety limit");
+  } while (cursor);
+  return { events, seriesCount: climateSeries.size, requestCount };
+}
+
+export function weatherPollInterval(snapshot, now = Date.now()) {
+  const frequency = String(snapshot.seriesFrequency || "").toLowerCase();
+  const endsAt = new Date(snapshot.endsAt || 0).getTime();
+  const remaining = endsAt - now;
+  if (Number.isFinite(remaining) && remaining >= -60 * 60 * 1000 && remaining <= 6 * 60 * 60 * 1000) return 60 * 1000;
+  if (frequency === "hourly") return 60 * 1000;
+  if (frequency === "daily") return 2 * 60 * 1000;
+  if (frequency === "weekly" || frequency === "monthly" || frequency === "custom") return 15 * 60 * 1000;
+  return 60 * 60 * 1000;
+}
+
+export async function runWeatherPoll(env, now = Date.now()) {
+  const prior = await env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
+  prior.events ||= {};
+  const discoveryDue = now - number(prior.lastDiscoveryAt, 0) >= 60 * 60 * 1000 || !Object.keys(prior.events).length;
+  const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
+  const tokenBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
+  const requestsPerSecond = Math.min(
+    number(env.KALSHI_MAX_READ_REQUESTS_PER_SECOND, 10),
+    number(env.KALSHI_WEATHER_READ_REQUESTS_PER_SECOND, Math.min(1.25, tokenBudget / requestCost))
+  );
+  const gate = createRateGate(requestsPerSecond);
+  let requestCount = 0;
+  let successCount = 0;
+  try {
+    if (discoveryDue) {
+      const discovery = await discoverWeatherEvents(env, gate, now);
+      prior.events = discovery.events;
+      prior.seriesCount = discovery.seriesCount;
+      prior.lastDiscoveryAt = now;
+      requestCount = discovery.requestCount;
+      successCount = discovery.requestCount;
+    } else {
+      const due = Object.values(prior.events)
+        .filter(snapshot => now - new Date(snapshot.updatedAt || 0).getTime() >= weatherPollInterval(snapshot, now))
+        .sort((left, right) => weatherPollInterval(left, now) - weatherPollInterval(right, now)
+          || new Date(left.updatedAt || 0).getTime() - new Date(right.updatedAt || 0).getTime())
+        .slice(0, Math.max(1, number(env.KALSHI_MAX_WEATHER_REFRESHES_PER_RUN, 30)));
+      requestCount = due.length;
+      const refreshed = await mapWithConcurrency(due, Math.min(3, number(env.KALSHI_POLL_CONCURRENCY, 3)), async snapshot => ({
+        ...(await refreshEvent(env, snapshot.eventTicker, gate, now)),
+        seriesTitle: snapshot.seriesTitle || "",
+        seriesTags: snapshot.seriesTags || [],
+        seriesFrequency: snapshot.seriesFrequency || ""
+      }));
+      for (const snapshot of refreshed) prior.events[snapshot.eventTicker] = snapshot;
+      successCount = refreshed.length;
+    }
+    const unmapped = Object.values(prior.events).filter(snapshot => !resolveWeatherLocations(
+      `${snapshot.seriesTitle || ""} ${snapshot.title || ""} ${snapshot.subtitle || ""} ${(snapshot.markets || []).map(market => `${market.label || ""} ${market.title || ""}`).join(" ")}`
+    ).length).sort((left, right) => right.volume - left.volume).slice(0, 80).map(snapshot => ({
+      eventTicker: snapshot.eventTicker,
+      seriesTicker: snapshot.seriesTicker,
+      title: snapshot.title,
+      seriesTitle: snapshot.seriesTitle,
+      volume: snapshot.volume
+    }));
+    prior.lastRunAt = now;
+    prior.lastSuccessfulPollAt = now;
+    prior.lastRequestCount = requestCount;
+    prior.lastRequestSuccessCount = successCount;
+    prior.lastError = null;
+    const publicData = buildWeatherPublicSnapshot(Object.values(prior.events), now, {
+      lastPollAt: new Date(now).toISOString(),
+      lastDiscoveryAt: prior.lastDiscoveryAt ? new Date(prior.lastDiscoveryAt).toISOString() : null,
+      discoveryIntervalMinutes: 60,
+      hourlyRefreshSeconds: 60,
+      dailyRefreshSeconds: 120,
+      seasonalRefreshMinutes: 15,
+      source: "Kalshi public trade API"
+    }, unmapped);
+    await Promise.all([
+      env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(prior)),
+      env.MARKET_ATLAS_CACHE.put(WEATHER_PUBLIC_KEY, JSON.stringify(publicData))
+    ]);
+    return { discoveryDue, requestCount, seriesCount: prior.seriesCount || 0, bundleCount: publicData.bundleCount, marketCount: publicData.marketCount };
+  } catch (error) {
+    prior.lastRunAt = now;
+    prior.lastErrorAt = now;
+    prior.lastError = error?.message || String(error);
+    await env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(prior));
+    throw error;
+  }
+}
+
 function politicsPrice(market) {
   if (market.lastPrice != null) return market.lastPrice;
   if (market.yesBid != null && market.yesAsk != null) return (market.yesBid + market.yesAsk) / 2;
@@ -601,10 +730,7 @@ export function buildPoliticsPublicSnapshot(snapshots, now = Date.now(), cache =
     bundle.leaderPrice = bundle.leaderParty === "D" ? dem : bundle.leaderParty === "R" ? rep : Math.max(dem || 0, rep || 0) || null;
     return bundle;
   }).sort((left, right) => Math.max(...right.markets.map(market => market.volume)) - Math.max(...left.markets.map(market => market.volume)));
-  const houseBundles = bundles.filter(bundle => bundle.scope === "Congressional district");
-  houseBundles.forEach((bundle, rank) => {
-    bundle.minZoomScale = houseRaceRevealScale(rank, houseBundles.length);
-  });
+  applyHouseRaceRevealScales(bundles);
   return {
     schemaVersion: 1,
     generatedAt: new Date(now).toISOString(),
@@ -618,8 +744,16 @@ export function buildPoliticsPublicSnapshot(snapshots, now = Date.now(), cache =
   };
 }
 
+export function applyHouseRaceRevealScales(bundles = []) {
+  const houseBundles = bundles.filter(bundle => bundle.scope === "Congressional district");
+  houseBundles.forEach((bundle, rank) => {
+    bundle.minZoomScale = houseRaceRevealScale(rank, houseBundles.length);
+  });
+  return bundles;
+}
+
 export async function runPoliticsPoll(env, now = Date.now()) {
-  const prior = await env.SPORTS_ODDS_CACHE.get(POLITICS_STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
+  const prior = await env.MARKET_ATLAS_CACHE.get(POLITICS_STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
   prior.events ||= {};
   const discoveryDue = now - number(prior.lastDiscoveryAt, 0) >= 60 * 60 * 1000;
   const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
@@ -671,15 +805,15 @@ export async function runPoliticsPoll(env, now = Date.now()) {
       source: "Kalshi public trade API"
     }, prior.unmapped || []);
     await Promise.all([
-      env.SPORTS_ODDS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(prior)),
-      env.SPORTS_ODDS_CACHE.put(POLITICS_PUBLIC_KEY, JSON.stringify(publicData))
+      env.MARKET_ATLAS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(prior)),
+      env.MARKET_ATLAS_CACHE.put(POLITICS_PUBLIC_KEY, JSON.stringify(publicData))
     ]);
     return { discoveryDue, requestCount, bundleCount: publicData.bundleCount, marketCount: publicData.marketCount };
   } catch (error) {
     prior.lastRunAt = now;
     prior.lastErrorAt = now;
     prior.lastError = error?.message || String(error);
-    await env.SPORTS_ODDS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(prior));
+    await env.MARKET_ATLAS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(prior));
     throw error;
   }
 }
@@ -876,10 +1010,10 @@ export function buildMlbPlayerProps(payload, teamCode, gameEventTicker = "") {
 }
 
 export async function runMlbFuturesPoll(env, now = Date.now(), preloadedBySeries = null) {
-  const prior = await env.SPORTS_ODDS_CACHE.get(MLB_FUTURES_STATE_KEY, "json") || {};
+  const prior = await env.MARKET_ATLAS_CACHE.get(MLB_FUTURES_STATE_KEY, "json") || {};
   if (now - number(prior.lastRunAt, 0) < MLB_FUTURES_INTERVAL_MS) return { refreshed: false };
   if (now - number(prior.pollStartedAt, 0) < FUTURES_POLL_LOCK_MS) return { refreshed: false, inProgress: true };
-  await env.SPORTS_ODDS_CACHE.put(MLB_FUTURES_STATE_KEY, JSON.stringify({ ...prior, pollStartedAt: now, lastAttemptAt: now }));
+  await env.MARKET_ATLAS_CACHE.put(MLB_FUTURES_STATE_KEY, JSON.stringify({ ...prior, pollStartedAt: now, lastAttemptAt: now }));
   const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
   const tokenBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
   const requestsPerSecond = Math.min(number(env.KALSHI_MAX_READ_REQUESTS_PER_SECOND, 10), tokenBudget / requestCost);
@@ -890,15 +1024,15 @@ export async function runMlbFuturesPoll(env, now = Date.now(), preloadedBySeries
     const refreshedSeries = new Set(series);
     const publicData = buildMlbFuturesSnapshot([...bySeries.values()], now);
     const priorRecords = await Promise.all(Object.keys(MLB_TEAMS).map(teamCode =>
-      env.SPORTS_ODDS_CACHE.get(teamFuturesCacheKey("MLB", teamCode), "json")));
+      env.MARKET_ATLAS_CACHE.get(teamFuturesCacheKey("MLB", teamCode), "json")));
     const records = Object.keys(MLB_TEAMS).map((teamCode, index) =>
       mergeTeamFuturesRecord(publicData.teams[teamCode], priorRecords[index], refreshedSeries));
     for (const record of records) {
       if (!validateTeamFuturesRecord(record)) throw new Error(`Refusing to cache invalid MLB futures for ${record.teamCode}`);
     }
     await Promise.all([
-      ...records.map(record => env.SPORTS_ODDS_CACHE.put(teamFuturesCacheKey("MLB", record.teamCode), JSON.stringify(record))),
-      env.SPORTS_ODDS_CACHE.put(MLB_FUTURES_STATE_KEY, JSON.stringify({
+      ...records.map(record => env.MARKET_ATLAS_CACHE.put(teamFuturesCacheKey("MLB", record.teamCode), JSON.stringify(record))),
+      env.MARKET_ATLAS_CACHE.put(MLB_FUTURES_STATE_KEY, JSON.stringify({
         schemaVersion: 2,
         sport: "MLB",
         lastRunAt: now,
@@ -912,7 +1046,7 @@ export async function runMlbFuturesPoll(env, now = Date.now(), preloadedBySeries
     ]);
     return { refreshed: true, teamCount: records.length, seriesRefreshed: series.length };
   } catch (error) {
-    await env.SPORTS_ODDS_CACHE.put(MLB_FUTURES_STATE_KEY, JSON.stringify({
+    await env.MARKET_ATLAS_CACHE.put(MLB_FUTURES_STATE_KEY, JSON.stringify({
       ...prior, pollStartedAt: null, lastAttemptAt: now, lastErrorAt: now, lastError: error?.message || String(error)
     }));
     throw error;
@@ -1074,10 +1208,10 @@ async function currentTeamFuturesDescriptors(env, gate, prior) {
 }
 
 export async function runTeamFuturesPoll(env, now = Date.now(), preloaded = null) {
-  const prior = await env.SPORTS_ODDS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json") || {};
+  const prior = await env.MARKET_ATLAS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json") || {};
   if (now - number(prior.lastRunAt, 0) < MLB_FUTURES_INTERVAL_MS) return { refreshed: false };
   if (now - number(prior.pollStartedAt, 0) < FUTURES_POLL_LOCK_MS) return { refreshed: false, inProgress: true };
-  await env.SPORTS_ODDS_CACHE.put(TEAM_FUTURES_STATE_KEY, JSON.stringify({ ...prior, pollStartedAt: now, lastAttemptAt: now }));
+  await env.MARKET_ATLAS_CACHE.put(TEAM_FUTURES_STATE_KEY, JSON.stringify({ ...prior, pollStartedAt: now, lastAttemptAt: now }));
   const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
   const tokenBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
   const requestsPerSecond = Math.min(number(env.KALSHI_MAX_READ_REQUESTS_PER_SECOND, 10), tokenBudget / requestCost);
@@ -1107,10 +1241,10 @@ export async function runTeamFuturesPoll(env, now = Date.now(), preloaded = null
       eventCount: Object.values(sports).reduce((total, snapshots) => total + snapshots.length, 0),
       sports
     };
-    await env.SPORTS_ODDS_CACHE.put(TEAM_FUTURES_STATE_KEY, JSON.stringify(manifest));
+    await env.MARKET_ATLAS_CACHE.put(TEAM_FUTURES_STATE_KEY, JSON.stringify(manifest));
     return { refreshed: true, seriesRequested: descriptors.length, eventCount: manifest.eventCount };
   } catch (error) {
-    await env.SPORTS_ODDS_CACHE.put(TEAM_FUTURES_STATE_KEY, JSON.stringify({
+    await env.MARKET_ATLAS_CACHE.put(TEAM_FUTURES_STATE_KEY, JSON.stringify({
       ...prior, pollStartedAt: null, lastAttemptAt: now, lastErrorAt: now, lastError: error?.message || String(error)
     }));
     throw error;
@@ -1118,16 +1252,16 @@ export async function runTeamFuturesPoll(env, now = Date.now(), preloaded = null
 }
 
 export async function runFuturesMaintenance(env, now = Date.now()) {
-  const pipeline = await env.SPORTS_ODDS_CACHE.get(FUTURES_PIPELINE_STATE_KEY, "json") || {};
+  const pipeline = await env.MARKET_ATLAS_CACHE.get(FUTURES_PIPELINE_STATE_KEY, "json") || {};
   if (now - number(pipeline.pollStartedAt, 0) < FUTURES_POLL_LOCK_MS) return { refreshed: false, inProgress: true };
   const [teamPrior, mlbPrior] = await Promise.all([
-    env.SPORTS_ODDS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json"),
-    env.SPORTS_ODDS_CACHE.get(MLB_FUTURES_STATE_KEY, "json")
+    env.MARKET_ATLAS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json"),
+    env.MARKET_ATLAS_CACHE.get(MLB_FUTURES_STATE_KEY, "json")
   ]);
   const teamDue = now - number(teamPrior?.lastRunAt, 0) >= MLB_FUTURES_INTERVAL_MS;
   const mlbDue = now - number(mlbPrior?.lastRunAt, 0) >= MLB_FUTURES_INTERVAL_MS;
   if (!teamDue && !mlbDue) return { refreshed: false };
-  await env.SPORTS_ODDS_CACHE.put(FUTURES_PIPELINE_STATE_KEY, JSON.stringify({
+  await env.MARKET_ATLAS_CACHE.put(FUTURES_PIPELINE_STATE_KEY, JSON.stringify({
     ...pipeline, pollStartedAt: now, lastAttemptAt: now
   }));
   try {
@@ -1147,7 +1281,7 @@ export async function runFuturesMaintenance(env, now = Date.now()) {
     const results = {};
     if (teamDue) results.team = await runTeamFuturesPoll(env, now, { descriptors, bySeries });
     if (mlbDue) results.mlb = await runMlbFuturesPoll(env, now, bySeries);
-    await env.SPORTS_ODDS_CACHE.put(FUTURES_PIPELINE_STATE_KEY, JSON.stringify({
+    await env.MARKET_ATLAS_CACHE.put(FUTURES_PIPELINE_STATE_KEY, JSON.stringify({
       pollStartedAt: null,
       lastAttemptAt: now,
       lastRunAt: now,
@@ -1157,7 +1291,7 @@ export async function runFuturesMaintenance(env, now = Date.now()) {
     }));
     return { refreshed: true, ...results };
   } catch (error) {
-    await env.SPORTS_ODDS_CACHE.put(FUTURES_PIPELINE_STATE_KEY, JSON.stringify({
+    await env.MARKET_ATLAS_CACHE.put(FUTURES_PIPELINE_STATE_KEY, JSON.stringify({
       ...pipeline, pollStartedAt: null, lastAttemptAt: now, lastErrorAt: now, lastError: error?.message || String(error)
     }));
     throw error;
@@ -1180,7 +1314,7 @@ function publicSnapshot(state, now) {
 }
 
 export async function runPoll(env, now = Date.now()) {
-  const state = await env.SPORTS_ODDS_CACHE.get(STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
+  const state = await env.MARKET_ATLAS_CACHE.get(STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
   state.events ||= {};
   const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
   const configuredSeries = parseSeries(env);
@@ -1265,8 +1399,8 @@ export async function runPoll(env, now = Date.now()) {
     authenticatedTierRefillRate: state.accountReadRefillRate || null
   };
   await Promise.all([
-    env.SPORTS_ODDS_CACHE.put(STATE_KEY, JSON.stringify(state)),
-    env.SPORTS_ODDS_CACHE.put(PUBLIC_KEY, JSON.stringify(publicData))
+    env.MARKET_ATLAS_CACHE.put(STATE_KEY, JSON.stringify(state)),
+    env.MARKET_ATLAS_CACHE.put(PUBLIC_KEY, JSON.stringify(publicData))
   ]);
   return { discoveryDue, eventCount: publicData.eventCount };
 }
@@ -1287,6 +1421,15 @@ function startLocalPoliticsPoll(env, now = Date.now()) {
     });
   }
   return localPoliticsPollPromise;
+}
+
+function startLocalWeatherPoll(env, now = Date.now()) {
+  if (!localWeatherPollPromise) {
+    localWeatherPollPromise = runWeatherPoll(env, now).finally(() => {
+      localWeatherPollPromise = null;
+    });
+  }
+  return localWeatherPollPromise;
 }
 
 const ALWAYS_INCLUDE_FOR_SCHEDULE_JOIN = new Set(["KXATP", "KXWTA"]);
@@ -1341,14 +1484,30 @@ async function handleRequest(request, env, ctx) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204 });
   if (request.method !== "GET") return json({ error: "Method not allowed" }, { status: 405 });
 
+  const legacyRoute = new Map([
+    ["/integrated-test", "/"],
+    ["/integrated-test/", "/"],
+    ["/politics-test", "/categories/politics/"],
+    ["/politics-test/", "/categories/politics/"],
+    ["/weather-test", "/categories/weather/"],
+    ["/weather-test/", "/categories/weather/"]
+  ]).get(url.pathname);
+  if (legacyRoute) {
+    const destination = new URL(legacyRoute, url);
+    destination.search = url.search;
+    return Response.redirect(destination, 308);
+  }
+
   if (url.pathname === "/api/health") {
-    const state = await env.SPORTS_ODDS_CACHE.get(STATE_KEY, "json");
-    const publicData = await env.SPORTS_ODDS_CACHE.get(PUBLIC_KEY, "json");
-    const futures = await env.SPORTS_ODDS_CACHE.get(MLB_FUTURES_STATE_KEY, "json");
-    const teamFutures = await env.SPORTS_ODDS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json");
-    const futuresPipeline = await env.SPORTS_ODDS_CACHE.get(FUTURES_PIPELINE_STATE_KEY, "json");
-    const politicsState = await env.SPORTS_ODDS_CACHE.get(POLITICS_STATE_KEY, "json");
-    const politicsPublic = await env.SPORTS_ODDS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
+    const state = await env.MARKET_ATLAS_CACHE.get(STATE_KEY, "json");
+    const publicData = await env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json");
+    const futures = await env.MARKET_ATLAS_CACHE.get(MLB_FUTURES_STATE_KEY, "json");
+    const teamFutures = await env.MARKET_ATLAS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json");
+    const futuresPipeline = await env.MARKET_ATLAS_CACHE.get(FUTURES_PIPELINE_STATE_KEY, "json");
+    const politicsState = await env.MARKET_ATLAS_CACHE.get(POLITICS_STATE_KEY, "json");
+    const politicsPublic = await env.MARKET_ATLAS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
+    const weatherState = await env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json");
+    const weatherPublic = await env.MARKET_ATLAS_CACHE.get(WEATHER_PUBLIC_KEY, "json");
     const now = Date.now();
     const events = Object.values(state?.events || {}).filter(snapshot => shouldRetain(snapshot, now));
     const overdueEvents = events.filter(snapshot => {
@@ -1381,21 +1540,27 @@ async function handleRequest(request, env, ctx) {
       politicsLastSuccessfulPollAt: politicsState?.lastSuccessfulPollAt ? new Date(politicsState.lastSuccessfulPollAt).toISOString() : null,
       politicsLastError: politicsState?.lastError || null,
       politicsBundles: politicsPublic?.bundleCount || 0,
-      politicsMarkets: politicsPublic?.marketCount || 0
+      politicsMarkets: politicsPublic?.marketCount || 0,
+      weatherLastRunAt: weatherState?.lastRunAt ? new Date(weatherState.lastRunAt).toISOString() : null,
+      weatherLastSuccessfulPollAt: weatherState?.lastSuccessfulPollAt ? new Date(weatherState.lastSuccessfulPollAt).toISOString() : null,
+      weatherLastError: weatherState?.lastError || null,
+      weatherSeries: weatherState?.seriesCount || 0,
+      weatherBundles: weatherPublic?.bundleCount || 0,
+      weatherMarkets: weatherPublic?.marketCount || 0
     });
   }
   if (url.pathname === "/api/politics") {
     const localRequest = new Set(["localhost", "127.0.0.1"]).has(url.hostname);
-    let payload = await env.SPORTS_ODDS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
+    let payload = await env.MARKET_ATLAS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
     if (localRequest) {
-      const state = await env.SPORTS_ODDS_CACHE.get(POLITICS_STATE_KEY, "json");
+      const state = await env.MARKET_ATLAS_CACHE.get(POLITICS_STATE_KEY, "json");
       const pollDue = Date.now() - number(state?.lastRunAt, 0) >= LOCAL_SCHEDULER_INTERVAL_MS;
       if (pollDue) {
         const poll = startLocalPoliticsPoll(env, Date.now());
         if (!payload) {
           try {
             await poll;
-            payload = await env.SPORTS_ODDS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
+            payload = await env.MARKET_ATLAS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
           } catch (error) {
             console.warn("Initial local Politics poll failed", error?.message || error);
           }
@@ -1408,6 +1573,7 @@ async function handleRequest(request, env, ctx) {
       status: 503,
       headers: { "cache-control": "no-store", "retry-after": "15" }
     });
+    applyHouseRaceRevealScales(payload.bundles || []);
     const etag = `W/\"politics-${Date.parse(payload.generatedAt).toString(36)}-${payload.marketCount}\"`;
     if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
     return json(payload, {
@@ -1417,6 +1583,76 @@ async function handleRequest(request, env, ctx) {
         "access-control-allow-origin": "*"
       }
     });
+  }
+  if (url.pathname === "/api/weather") {
+    const localRequest = new Set(["localhost", "127.0.0.1", "market-atlas.local"]).has(url.hostname);
+    let payload = await env.MARKET_ATLAS_CACHE.get(WEATHER_PUBLIC_KEY, "json");
+    if (localRequest) {
+      const state = await env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json");
+      const pollDue = Date.now() - number(state?.lastRunAt, 0) >= LOCAL_SCHEDULER_INTERVAL_MS;
+      if (pollDue) {
+        const poll = startLocalWeatherPoll(env, Date.now());
+        if (!payload) {
+          try {
+            await poll;
+            payload = await env.MARKET_ATLAS_CACHE.get(WEATHER_PUBLIC_KEY, "json");
+          } catch (error) {
+            console.warn("Initial local Weather poll failed", error?.message || error);
+          }
+        } else if (ctx) {
+          ctx.waitUntil(poll.catch(error => console.warn("Local Weather poll failed", error?.message || error)));
+        }
+      }
+    }
+    if (!payload) return json({ schemaVersion: 1, generatedAt: null, bundleCount: 0, marketCount: 0, horizons: [], bundles: [], warming: true }, {
+      status: 503,
+      headers: { "cache-control": "no-store", "retry-after": "15" }
+    });
+    const etag = `W/"weather-${Date.parse(payload.generatedAt).toString(36)}-${payload.marketCount}"`;
+    if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
+    return json(payload, {
+      headers: {
+        etag,
+        "cache-control": "public, max-age=15, s-maxage=30, stale-while-revalidate=180",
+        "access-control-allow-origin": "*"
+      }
+    });
+  }
+  if (url.pathname === "/api/search") {
+    const query = String(url.searchParams.get("q") || "").trim().slice(0, 160);
+    const limit = Math.max(1, Math.min(20, number(url.searchParams.get("limit"), 12)));
+    const activeCategory = ["sports", "politics", "weather"].includes(url.searchParams.get("active")) ? url.searchParams.get("active") : "sports";
+    if (query.length < 2) return json({ query, total: 0, results: [], interpretation: { context: "Type at least two characters" } }, {
+      headers: { "cache-control": "no-store", "access-control-allow-origin": "*" }
+    });
+    const canonical = new URLSearchParams({ q: query.toLowerCase(), limit: String(limit), active: activeCategory });
+    const cacheRequest = new Request(`${url.origin}/api/search?${canonical}`, request);
+    const edgeCache = globalThis.caches?.default;
+    const cached = await edgeCache?.match(cacheRequest);
+    if (cached) return cached;
+    const [sports, politics, weather, futures] = await Promise.all([
+      env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json"),
+      env.MARKET_ATLAS_CACHE.get(POLITICS_PUBLIC_KEY, "json"),
+      env.MARKET_ATLAS_CACHE.get(WEATHER_PUBLIC_KEY, "json"),
+      env.MARKET_ATLAS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json")
+    ]);
+    if (!sports && !politics && !weather && !futures) return json({ query, total: 0, results: [], warming: true }, {
+      status: 503,
+      headers: { "cache-control": "no-store", "retry-after": "15", "access-control-allow-origin": "*" }
+    });
+    const payload = searchMarkets(query, { sports, politics, weather, futures }, { limit, activeCategory });
+    const etagSeed = [sports?.generatedAt, politics?.generatedAt, weather?.generatedAt, futures?.generatedAt, activeCategory, payload.total].filter(Boolean).join("|");
+    const etag = `W/\"search-${stableHash(etagSeed || query)}\"`;
+    if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
+    const response = json(payload, {
+      headers: {
+        etag,
+        "cache-control": "public, max-age=15, s-maxage=30, stale-while-revalidate=120",
+        "access-control-allow-origin": "*"
+      }
+    });
+    if (edgeCache && ctx) ctx.waitUntil(edgeCache.put(cacheRequest, response.clone()));
+    return response;
   }
   if (url.pathname === "/api/team-markets") {
     const sport = String(url.searchParams.get("sport") || "").toUpperCase();
@@ -1435,8 +1671,8 @@ async function handleRequest(request, env, ctx) {
     if (sport === "MLB") {
       if (!MLB_TEAMS[team]) return json({ error: "Unknown MLB team" }, { status: 400 });
       const [teamData, oddsPayload] = await Promise.all([
-        env.SPORTS_ODDS_CACHE.get(teamFuturesCacheKey("MLB", team), "json"),
-        env.SPORTS_ODDS_CACHE.get(PUBLIC_KEY, "json")
+        env.MARKET_ATLAS_CACHE.get(teamFuturesCacheKey("MLB", team), "json"),
+        env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json")
       ]);
       if (!teamData) return json({ error: "MLB team cache is warming" }, {
         status: 503,
@@ -1447,7 +1683,7 @@ async function handleRequest(request, env, ctx) {
       }
       payload = { ...teamData, playerProps: buildMlbPlayerProps(oddsPayload, team, eventTicker), supportsPlayerProps: true };
     } else {
-      const manifest = await env.SPORTS_ODDS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json");
+      const manifest = await env.MARKET_ATLAS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json");
       if (!manifest) return json({ error: "Team futures cache is warming" }, {
         status: 503,
         headers: { "cache-control": "no-store", "retry-after": "30" }
@@ -1475,8 +1711,8 @@ async function handleRequest(request, env, ctx) {
     const cached = await edgeCache?.match(cacheRequest);
     if (cached) return cached;
     const [teamData, oddsPayload] = await Promise.all([
-      env.SPORTS_ODDS_CACHE.get(teamFuturesCacheKey("MLB", team), "json"),
-      env.SPORTS_ODDS_CACHE.get(PUBLIC_KEY, "json")
+      env.MARKET_ATLAS_CACHE.get(teamFuturesCacheKey("MLB", team), "json"),
+      env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json")
     ]);
     if (!teamData) return json({ error: "MLB team cache is warming" }, {
       status: 503,
@@ -1504,7 +1740,7 @@ async function handleRequest(request, env, ctx) {
     const edgeCache = globalThis.caches?.default;
     const cached = await edgeCache?.match(cacheRequest);
     if (cached) return cached;
-    const teamData = await env.SPORTS_ODDS_CACHE.get(teamFuturesCacheKey("MLB", team), "json");
+    const teamData = await env.MARKET_ATLAS_CACHE.get(teamFuturesCacheKey("MLB", team), "json");
     if (!teamData) return json({ error: "MLB futures cache is warming" }, {
       status: 503,
       headers: { "cache-control": "no-store", "retry-after": "30" }
@@ -1525,16 +1761,16 @@ async function handleRequest(request, env, ctx) {
 
   const date = url.searchParams.get("date") || "";
   const localRequest = new Set(["localhost", "127.0.0.1"]).has(url.hostname);
-  let payload = await env.SPORTS_ODDS_CACHE.get(PUBLIC_KEY, "json");
+  let payload = await env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json");
   if (localRequest) {
-    const state = await env.SPORTS_ODDS_CACHE.get(STATE_KEY, "json");
+    const state = await env.MARKET_ATLAS_CACHE.get(STATE_KEY, "json");
     const pollDue = Date.now() - number(state?.lastRunAt, 0) >= LOCAL_SCHEDULER_INTERVAL_MS;
     if (pollDue) {
       const poll = startLocalPoll(env, Date.now());
       if (!payload) {
         try {
           await poll;
-          payload = await env.SPORTS_ODDS_CACHE.get(PUBLIC_KEY, "json");
+          payload = await env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json");
         } catch (error) {
           console.warn("Initial local Kalshi poll failed", error?.message || error);
         }
@@ -1577,7 +1813,11 @@ export default {
         try {
           await runPoliticsPoll(env, now);
         } finally {
-          await runFuturesMaintenance(env, now);
+          try {
+            await runWeatherPoll(env, now);
+          } finally {
+            await runFuturesMaintenance(env, now);
+          }
         }
       }
     })());

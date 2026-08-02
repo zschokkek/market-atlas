@@ -6,7 +6,7 @@ const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 const dataDirectory = path.join(repository, "data");
 const outputPath = path.join(dataDirectory, "international-baseball-schedules-2026.json");
 const venueCachePath = path.join(dataDirectory, "international-baseball-venue-cache.json");
-const USER_AGENT = "sports-globe-schedule-builder/1.0";
+const USER_AGENT = "market-atlas-schedule-builder/1.0";
 
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const npbTeams = {

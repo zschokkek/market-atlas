@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import worker from "../src/worker.js";
-import { assertNearTermMarketCoverage, MISSING_MARKET_ERROR_CODE } from "../market-coverage.js";
+import { assertNearTermMarketCoverage, MISSING_MARKET_ERROR_CODE } from "../src/market-coverage.js";
 import {
+  applyHouseRaceRevealScales,
   buildTeamFuturesFromManifest,
   buildPoliticsPublicSnapshot,
   buildMlbFuturesSnapshot,
@@ -17,13 +18,238 @@ import {
   runFuturesMaintenance,
   runPoliticsPoll,
   runPoll,
+  runWeatherPoll,
   runTeamFuturesPoll,
   SUPPORTED_TEAM_FUTURES_SPORTS,
   teamFuturesCacheKey,
-  validateTeamFuturesRecord
+  validateTeamFuturesRecord,
+  weatherPollInterval
 } from "../src/worker.js";
 import { classifyPoliticsEvent, classifyPoliticsLocations, HOUSE_RACE_MIN_SCALE, HOUSE_RACE_PREVIEW_MIN_SCALE, houseRaceRevealScale, politicsMarketUrl, politicsParty, resolvePoliticalLocation } from "../src/politics-registry.js";
 import { HOUSE_DISTRICT_CENTROIDS } from "../src/congressional-district-centroids.js";
+import { interpretMarketQuery, searchMarkets } from "../src/market-search.js";
+import { buildWeatherPublicSnapshot, weatherMarketUrl } from "../src/weather-registry.js";
+
+test("redirects legacy preview URLs to the canonical Market Atlas routes", async () => {
+  const integrated = await worker.fetch(new Request("https://example.com/integrated-test/?category=politics"), {}, {});
+  const politics = await worker.fetch(new Request("https://example.com/politics-test/"), {}, {});
+  const weather = await worker.fetch(new Request("https://example.com/weather-test/"), {}, {});
+  assert.equal(integrated.status, 308);
+  assert.equal(integrated.headers.get("location"), "https://example.com/?category=politics");
+  assert.equal(politics.headers.get("location"), "https://example.com/categories/politics/");
+  assert.equal(weather.headers.get("location"), "https://example.com/categories/weather/");
+});
+
+test("maps all Philadelphia weather series and splits multi-city rain into city markets", () => {
+  const now = Date.parse("2026-08-02T16:00:00Z");
+  const snapshot = (seriesTicker, eventTicker, title, seriesTitle, tags, markets) => ({
+    seriesTicker, eventTicker, title, seriesTitle, seriesTags: tags, seriesFrequency: "daily",
+    endsAt: "2026-08-03T04:00:00Z", updatedAt: new Date(now).toISOString(), markets,
+    volume: markets.reduce((sum, market) => sum + market.volume, 0)
+  });
+  const market = (ticker, label, lastPrice, volume) => ({ ticker, label, lastPrice, volume, status: "active" });
+  const payload = buildWeatherPublicSnapshot([
+    snapshot("KXHIGHPHIL", "KXHIGHPHIL-26AUG02", "Highest temperature in Philadelphia today?", "Highest temperature in Philadelphia", ["Daily temperature"], [
+      market("KXHIGHPHIL-26AUG02-B84", "84° to 85°", 52, 1000), market("KXHIGHPHIL-26AUG02-B86", "86° to 87°", 33, 700)
+    ]),
+    snapshot("KXRAIN", "KXRAIN-26AUG02", "Where will it rain today?", "Where will it rain daily", ["Snow and rain"], [
+      market("KXRAIN-26AUG02-PHIL", "Philadelphia", 61, 800), market("KXRAIN-26AUG02-BOS", "Boston", 30, 400)
+    ])
+  ], now);
+  const philadelphia = payload.bundles.find(bundle => bundle.id === "philadelphia");
+  assert.ok(philadelphia, "Philadelphia should always resolve to its own marker");
+  assert.equal(philadelphia.markets.length, 2);
+  assert.deepEqual(philadelphia.markets.map(item => item.kind).sort(), ["Rain & Snow", "Temperature"]);
+  assert.equal(payload.bundles.find(bundle => bundle.id === "boston").markets[0].outcomes[0].price, 30);
+  assert.equal(weatherMarketUrl({ seriesTicker: "KXHIGHPHIL", eventTicker: "KXHIGHPHIL-26AUG02", seriesTitle: "Highest temperature in Philadelphia" }),
+    "https://kalshi.com/markets/kxhighphil/highest-temperature-in-philadelphia/kxhighphil-26aug02");
+});
+
+test("weather cache refreshes hourly and daily contracts faster than seasonal markets", () => {
+  const now = Date.parse("2026-08-02T12:00:00Z");
+  assert.equal(weatherPollInterval({ seriesFrequency: "hourly", endsAt: "2026-08-03T12:00:00Z" }, now), 60_000);
+  assert.equal(weatherPollInterval({ seriesFrequency: "daily", endsAt: "2026-08-03T12:00:00Z" }, now), 120_000);
+  assert.equal(weatherPollInterval({ seriesFrequency: "annual", endsAt: "2027-01-01T00:00:00Z" }, now), 3_600_000);
+});
+
+test("discovers the full Climate and Weather category and serves a stale-while-revalidate cache", async () => {
+  const cache = new Map();
+  const env = {
+    MARKET_ATLAS_CACHE: {
+      async get(key, type) { const value = cache.get(key); return type === "json" && value ? JSON.parse(value) : value || null; },
+      async put(key, value) { cache.set(key, value); }
+    },
+    KALSHI_WEATHER_READ_REQUESTS_PER_SECOND: "1000000"
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    if (url.pathname.endsWith("/series")) {
+      assert.equal(url.searchParams.get("category"), "Climate and Weather");
+      return Response.json({ series: [
+        { ticker: "KXHIGHPHIL", title: "Highest temperature in Philadelphia", frequency: "daily", tags: ["Daily temperature"] },
+        { ticker: "KXRAIN", title: "Where will it rain daily", frequency: "daily", tags: ["Snow and rain"] }
+      ] });
+    }
+    return Response.json({ events: [
+      { event_ticker: "KXHIGHPHIL-26AUG02", series_ticker: "KXHIGHPHIL", title: "Highest temperature in Philadelphia today?", markets: [
+        { ticker: "KXHIGHPHIL-26AUG02-B84", yes_sub_title: "84° to 85°", status: "active", last_price_dollars: "0.5200", volume_fp: "1200.00" }
+      ] },
+      { event_ticker: "KXRAIN-26AUG02", series_ticker: "KXRAIN", title: "Where will it rain today?", markets: [
+        { ticker: "KXRAIN-26AUG02-PHIL", yes_sub_title: "Philadelphia", status: "active", last_price_dollars: "0.6100", volume_fp: "800.00" }
+      ] }
+    ], cursor: "" });
+  };
+  try {
+    const result = await runWeatherPoll(env, Date.parse("2026-08-02T12:00:00Z"));
+    assert.equal(result.seriesCount, 2);
+    assert.equal(result.bundleCount, 1);
+    assert.equal(result.marketCount, 2);
+    const cached = JSON.parse(cache.get("kalshi:weather:public:v1"));
+    assert.equal(cached.bundles[0].name, "Philadelphia");
+    const response = await worker.fetch(new Request("https://example.com/api/weather"), env, { waitUntil() {} });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("cache-control"), /stale-while-revalidate/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("interprets colloquial market queries into category, sport, time, and ranking intent", () => {
+  const now = new Date("2026-08-01T16:00:00-04:00").getTime();
+  assert.deepEqual(interpretMarketQuery("show me the biggest soccer markets this weekend", now), {
+    query: "show me the biggest soccer markets this weekend",
+    category: "sports",
+    requiredTags: ["soccer"],
+    sort: "volume",
+    timing: { start: "2026-08-01", end: "2026-08-02", label: "this weekend" },
+    liveOnly: false,
+    yearIntent: null,
+    terms: []
+  });
+  const politics = interpretMarketQuery("what are the closest Senate races?", now);
+  assert.equal(politics.category, "politics");
+  assert.equal(politics.sort, "close");
+  assert.deepEqual(politics.terms, ["senate"]);
+});
+
+test("searches cached Sports and Politics markets with prices and conversational ranking", () => {
+  const now = new Date("2026-08-01T16:00:00-04:00").getTime();
+  const market = (ticker, label, lastPrice, volume) => ({ ticker, label, lastPrice, volume, status: "active" });
+  const sports = { events: [
+    {
+      eventTicker: "KXMLBGAME-26AUG012000BOSLAD", seriesTicker: "KXMLBGAME",
+      title: "Boston Red Sox at Los Angeles Dodgers", startsAt: "2026-08-02T00:00:00.000Z", endsAt: "2026-08-02T04:00:00.000Z",
+      status: "active", volume: 900000, markets: [market("KXMLBGAME-26AUG012000BOSLAD-LAD", "Los Angeles Dodgers", 64, 500000), market("KXMLBGAME-26AUG012000BOSLAD-BOS", "Boston Red Sox", 36, 400000)]
+    },
+    {
+      eventTicker: "KXEPLGAME-26AUG02ARSNEW", seriesTicker: "KXEPLGAME", title: "Arsenal vs Newcastle",
+      startsAt: "2026-08-02T15:00:00.000Z", endsAt: "2026-08-02T17:00:00.000Z", status: "active", volume: 1200000,
+      markets: [market("KXEPLGAME-26AUG02ARSNEW-ARS", "Arsenal", 58, 700000), market("KXEPLGAME-26AUG02ARSNEW-NEW", "Newcastle", 42, 500000)]
+    }
+  ] };
+  const politics = { bundles: [
+    { id: "us-mi", jurisdiction: "Michigan", capital: "Lansing", scope: "Statewide", dateKey: "2026-11-03", markets: [
+      { eventTicker: "SENATEMI-26", seriesTicker: "SENATEMI", title: "Michigan Senate winner?", office: "Senate", stage: "general", volume: 700000,
+        url: "https://kalshi.com/markets/senatemi/senatemi-26", outcomes: [{ name: "Democratic", price: 51, volume: 400000 }, { name: "Republican", price: 49, volume: 300000 }] }
+    ] },
+    { id: "us-oh", jurisdiction: "Ohio", capital: "Columbus", scope: "Statewide", dateKey: "2026-11-03", markets: [
+      { eventTicker: "SENATEOH-26", seriesTicker: "SENATEOH", title: "Ohio Senate winner?", office: "Senate", stage: "general", volume: 800000,
+        outcomes: [{ name: "Republican", price: 72, volume: 500000 }, { name: "Democratic", price: 28, volume: 300000 }] }
+    ] }
+  ] };
+
+  const dodgers = searchMarkets("Dodgers tonight", { sports, politics }, { now });
+  assert.equal(dodgers.results[0].eventTicker, "KXMLBGAME-26AUG012000BOSLAD");
+  assert.deepEqual(dodgers.results[0].outcomes.map(outcome => outcome.name), ["Los Angeles Dodgers", "Boston Red Sox"]);
+  const soccer = searchMarkets("biggest soccer markets this weekend", { sports, politics }, { now });
+  assert.equal(soccer.results[0].eventTicker, "KXEPLGAME-26AUG02ARSNEW");
+  const senate = searchMarkets("close Senate races", { sports, politics }, { now });
+  assert.deepEqual(senate.results.map(result => result.bundleId), ["us-mi", "us-oh"]);
+  const malformed = searchMarkets("biggest markets", { sports: { events: [{
+    eventTicker: "KXBADDATE-26", seriesTicker: "KXBADDATE", title: "Market with unavailable date", startsAt: "not-a-date",
+    volume: 10, markets: [market("KXBADDATE-26-YES", "Yes", 50, 10)]
+  }] } }, { now });
+  assert.equal(malformed.results[0].eventTicker, "KXBADDATE-26");
+});
+
+test("search spans Weather and uses location navigation without overriding explicit market intent", () => {
+  const sports = { events: [
+    {
+      eventTicker: "KXMLBGAME-26AUG012000BOSLAD", seriesTicker: "KXMLBGAME",
+      title: "Boston vs Los Angeles D", startsAt: "2026-08-02T00:00:00.000Z", status: "active", volume: 900000,
+      markets: [
+        { ticker: "KXMLBGAME-26AUG012000BOSLAD-BOS", label: "Boston", lastPrice: 36, volume: 400000, status: "active" },
+        { ticker: "KXMLBGAME-26AUG012000BOSLAD-LAD", label: "Los Angeles D", lastPrice: 64, volume: 500000, status: "active" }
+      ]
+    },
+    {
+      eventTicker: "KXMLBKS-26AUG012000BOSLAD", seriesTicker: "KXMLBKS",
+      title: "Boston vs Los Angeles D: Strikeouts", startsAt: "2026-08-02T00:00:00.000Z", status: "active", volume: 12000,
+      markets: [
+        { ticker: "KXMLBKS-26AUG012000BOSLAD-LADPITCHER-7", label: "Starting pitcher: 7+", lastPrice: 41, volume: 12000, status: "active" }
+      ]
+    }
+  ] };
+  const weather = { bundles: [{
+    id: "boston", name: "Boston", location: "Boston, Massachusetts", lat: 42.3601, lon: -71.0589, kind: "Rain & Snow", horizon: "Today",
+    markets: [{
+      id: "KXRAIN-26AUG02-BOS", eventTicker: "KXRAIN-26AUG02", seriesTicker: "KXRAIN",
+      title: "Will it rain in Boston on Aug 2?", kind: "Rain & Snow", horizon: "Today", volume: 12000,
+      outcomes: [{ name: "Yes", price: 41, volume: 7000 }, { name: "No", price: 59, volume: 5000 }]
+    }]
+  }] };
+
+  const weatherMarket = searchMarkets("rain in Boston", { sports, weather }, { activeCategory: "sports" });
+  assert.equal(weatherMarket.results[0].category, "weather");
+  assert.equal(weatherMarket.results[0].type, "weather");
+
+  const currentTabLocation = searchMarkets("Boston", { sports, weather }, { activeCategory: "weather" });
+  assert.equal(currentTabLocation.results[0].type, "location");
+  assert.equal(currentTabLocation.results[0].category, "weather");
+  assert.equal(currentTabLocation.results[0].lat, 42.3601);
+
+  const explicitCrossTabLocation = searchMarkets("Boston sports", { sports, weather }, { activeCategory: "weather" });
+  assert.equal(explicitCrossTabLocation.results[0].type, "location");
+  assert.equal(explicitCrossTabLocation.results[0].category, "sports");
+
+  const explicitTeam = searchMarkets("Boston Red Sox", { sports, weather }, { activeCategory: "weather" });
+  assert.equal(explicitTeam.results[0].type, "event");
+  assert.equal(explicitTeam.results[0].category, "sports");
+
+  const nicknameTeam = searchMarkets("Dodgers", { sports, weather }, { activeCategory: "weather" });
+  assert.equal(nicknameTeam.results[0].eventTicker, "KXMLBGAME-26AUG012000BOSLAD");
+  assert.equal(nicknameTeam.results[0].outcomes[0].name, "Los Angeles D");
+
+  const nicknameProp = searchMarkets("Dodgers strikeouts", { sports, weather }, { activeCategory: "politics" });
+  assert.equal(nicknameProp.results[0].eventTicker, "KXMLBKS-26AUG012000BOSLAD");
+
+  const dcPolitics = { bundles: [{
+    id: "us", jurisdiction: "United States", capital: "Washington, D.C.", dateKey: "2028-11-07",
+    markets: [{ eventTicker: "KXPRESPERSON-28", seriesTicker: "KXPRESPERSON", title: "2028 U.S. Presidential Election winner?", volume: 1000000,
+      outcomes: [{ name: "Candidate A", price: 50, volume: 500000 }, { name: "Candidate B", price: 50, volume: 500000 }] }]
+  }] };
+  const meaningfulPrefixOnly = searchMarkets("Dodgers", { sports, politics: dcPolitics }, { activeCategory: "politics" });
+  assert.ok(meaningfulPrefixOnly.results.length > 0);
+  assert.ok(meaningfulPrefixOnly.results.every(result => result.category === "sports"), "one-letter place tokens must not pollute another category");
+});
+
+test("serves cached colloquial search without polling Kalshi", async () => {
+  const sports = { generatedAt: "2026-08-02T12:00:00.000Z", events: [{
+    eventTicker: "KXNFLGAME-26SEP10DALPHI", seriesTicker: "KXNFLGAME", title: "Dallas at Philadelphia",
+    startsAt: "2026-09-11T00:00:00.000Z", endsAt: "2026-09-11T04:00:00.000Z", status: "active", volume: 400000,
+    markets: [
+      { ticker: "KXNFLGAME-26SEP10DALPHI-DAL", label: "Dallas", lastPrice: 44, volume: 170000, status: "active" },
+      { ticker: "KXNFLGAME-26SEP10DALPHI-PHI", label: "Philadelphia Eagles", lastPrice: 57, volume: 230000, status: "active" }
+    ]
+  }] };
+  const kv = { async get(key) { return key === "kalshi:sports:public:v2" ? sports : null; } };
+  const response = await worker.fetch(new Request("https://example.com/api/search?q=Eagles%20game&limit=5"), { MARKET_ATLAS_CACHE: kv }, {});
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.results[0].eventTicker, "KXNFLGAME-26SEP10DALPHI");
+  assert.equal(payload.results[0].outcomes[0].price, 57);
+});
 
 test("maps actual major election series to capitals and rejects adjacent political markets", () => {
   const texas = classifyPoliticsEvent({
@@ -157,7 +383,7 @@ test("maps every congressional district and marks House races as a deep-zoom lay
     ["Kansas 3rd District", "KS3", "Congress", "Congressional district"]
   );
   assert.equal(kansasThird.minZoomScale, HOUSE_RACE_MIN_SCALE);
-  assert.equal(HOUSE_RACE_MIN_SCALE, 5400, "House races wait for a regional-corridor-sized viewport");
+  assert.equal(HOUSE_RACE_MIN_SCALE, 4000, "every House race is reachable inside the integrated globe's regional zoom range");
   assert.ok(kansasThird.lon < -94 && kansasThird.lat > 37);
 
   const alaska = classifyPoliticsEvent({
@@ -172,10 +398,22 @@ test("maps every congressional district and marks House races as a deep-zoom lay
     volume: 1000, updatedAt: "2026-08-01T12:00:00.000Z", markets: []
   }], Date.parse("2026-08-01T12:00:00Z"));
   assert.equal(payload.bundles[0].minZoomScale, HOUSE_RACE_PREVIEW_MIN_SCALE);
-  assert.equal(houseRaceRevealScale(0, 100), 1800);
-  assert.equal(houseRaceRevealScale(10, 100), 2800);
-  assert.equal(houseRaceRevealScale(30, 100), 4000);
-  assert.equal(houseRaceRevealScale(55, 100), HOUSE_RACE_MIN_SCALE);
+  assert.equal(houseRaceRevealScale(0, 100), 1600);
+  assert.equal(houseRaceRevealScale(10, 100), 1600);
+  assert.equal(houseRaceRevealScale(20, 100), 2200);
+  assert.equal(houseRaceRevealScale(50, 100), 3000);
+  assert.equal(houseRaceRevealScale(80, 100), HOUSE_RACE_MIN_SCALE);
+  const cachedHouseBundles = Array.from({ length: 100 }, (_, index) => ({
+    id: `cached-house-${index}`,
+    scope: "Congressional district",
+    minZoomScale: 5400
+  }));
+  applyHouseRaceRevealScales(cachedHouseBundles);
+  assert.deepEqual(
+    [cachedHouseBundles[0], cachedHouseBundles[20], cachedHouseBundles[50], cachedHouseBundles[80]].map(bundle => bundle.minZoomScale),
+    [1600, 2200, 3000, 4000],
+    "stale cached payloads migrate to the current progressive reveal tiers"
+  );
   assert.equal(
     politicsMarketUrl("KXHOUSERACE-PA15-26", "KXHOUSERACE"),
     "https://kalshi.com/markets/kxhouserace/house-race-winner/kxhouserace-pa15-26"
@@ -323,7 +561,7 @@ test("keeps each actual election event as a separate market card with party-awar
 test("discovers, validates, caches, and serves live politics markets server-side", async () => {
   const cache = new Map();
   const env = {
-    SPORTS_ODDS_CACHE: {
+    MARKET_ATLAS_CACHE: {
       async get(key, type) {
         const value = cache.get(key);
         return type === "json" && value ? JSON.parse(value) : value || null;
@@ -421,7 +659,7 @@ test("applies near-term market coverage validation to every sport on the globe",
 });
 
 test("keeps near-term Kalshi coverage diagnostics internal to the generated app", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /MISSING_NEAR_TERM_KALSHI_MARKETS/);
   assert.match(html, /validateNearTermMarketCoverage/);
   assert.match(html, /\[Sports coverage diagnostic\]/);
@@ -454,7 +692,7 @@ test("migrates a stale series manifest and publishes AFL prices", async () => {
     })]
   ]);
   const env = {
-    SPORTS_ODDS_CACHE: {
+    MARKET_ATLAS_CACHE: {
       async get(key, type) {
         const value = cache.get(key);
         return type === "json" && value ? JSON.parse(value) : value || null;
@@ -510,7 +748,7 @@ test("migrates a stale series manifest and publishes AFL prices", async () => {
 });
 
 test("never presents a bare Kalshi series ticker as a specific event code", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /function specificEventTicker\(event\)/);
   assert.match(html, /eventTicker: event\.expectedEventTicker \|\| event\.eventTicker/);
   assert.match(html, /No listed Kalshi event ticker/);
@@ -571,7 +809,7 @@ test("repairs legacy cached outright status when remaining player contracts are 
     }]
   };
   const env = {
-    SPORTS_ODDS_CACHE: { async get(key) { return key === "kalshi:sports:public:v2" ? payload : null; } },
+    MARKET_ATLAS_CACHE: { async get(key) { return key === "kalshi:sports:public:v2" ? payload : null; } },
     ASSETS: { fetch() { return new Response("Not found", { status: 404 }); } }
   };
   const response = await worker.fetch(new Request("https://example.com/api/odds?date=2026-08-01"), env, { waitUntil() {} });
@@ -643,7 +881,7 @@ test("discovers and serves daily team futures through the generalized cache API"
     .every(sport => SUPPORTED_TEAM_FUTURES_SPORTS.has(sport)));
   const cache = new Map();
   const env = {
-    SPORTS_ODDS_CACHE: {
+    MARKET_ATLAS_CACHE: {
       async get(key, type) {
         const value = cache.get(key);
         return type === "json" && value ? JSON.parse(value) : value || null;
@@ -696,7 +934,7 @@ test("discovers and serves daily team futures through the generalized cache API"
 test("updates all daily futures caches from one server-side open-events sweep", async () => {
   const cache = new Map();
   const env = {
-    SPORTS_ODDS_CACHE: {
+    MARKET_ATLAS_CACHE: {
       async get(key, type) {
         const value = cache.get(key);
         return type === "json" && value ? JSON.parse(value) : value || null;
@@ -807,7 +1045,7 @@ test("polls international baseball events into the public odds cache", async () 
   };
   const cache = new Map();
   const env = {
-    SPORTS_ODDS_CACHE: {
+    MARKET_ATLAS_CACHE: {
       async get(key, type) {
         const value = cache.get(key);
         return type === "json" && value ? JSON.parse(value) : value || null;
@@ -858,7 +1096,7 @@ test("polls international baseball events into the public odds cache", async () 
 test("warms and refreshes the Kalshi cache from the local odds endpoint", async () => {
   const cache = new Map();
   const env = {
-    SPORTS_ODDS_CACHE: {
+    MARKET_ATLAS_CACHE: {
       async get(key, type) {
         const value = cache.get(key);
         return type === "json" && value ? JSON.parse(value) : value || null;
@@ -932,7 +1170,7 @@ test("hides stale odds while revalidating the local MLB cache in the background"
     ["kalshi:sports:public:v2", JSON.stringify({ generatedAt: staleEvent.updatedAt, eventCount: 1, events: [staleEvent] })]
   ]);
   const env = {
-    SPORTS_ODDS_CACHE: {
+    MARKET_ATLAS_CACHE: {
       async get(key, type) {
         const value = cache.get(key);
         return type === "json" && value ? JSON.parse(value) : value || null;
@@ -979,7 +1217,7 @@ test("hides stale odds while revalidating the local MLB cache in the background"
 });
 
 test("matches international baseball by exact ticker or both teams and start time", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /hostedOddsByTicker\.get\(event\.expectedEventTicker \|\| event\.eventTicker\)/);
   assert.match(html, /baseballTeamMatches\(event\.awayName, snapshotText\).*baseballTeamMatches\(event\.homeName, snapshotText\)/s);
   assert.match(html, /timeDistance > 2 \* 60 \* 60 \* 1000/);
@@ -987,8 +1225,8 @@ test("matches international baseball by exact ticker or both teams and start tim
 });
 
 test("keeps every Kalshi poll server-side and makes the browser cache-only", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  const client = fs.readFileSync(new URL("../hosted-odds-client.js", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
+  const client = fs.readFileSync(new URL("../public/assets/sports-odds.js", import.meta.url), "utf8");
   assert.match(client, /fetch\(`\/api\/odds\?date=/);
   assert.match(client, /fetch\(`\/api\/team-markets\?/);
   assert.doesNotMatch(client, /external-api\.kalshi\.com|api\.elections\.kalshi\.com/);
@@ -998,7 +1236,7 @@ test("keeps every Kalshi poll server-side and makes the browser cache-only", () 
 });
 
 test("sorts tennis outrights by probability and opens a matchups-only popup", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /class="tennis-markets-trigger"[^>]*>[\s\S]*<strong>Matches<\/strong>[\s\S]*Biggest singles matchups/);
   assert.doesNotMatch(html, /data-tennis-market=|Outright winner<\/button>/);
   assert.match(html, /const tennisMatchSeries = new Map\(\[\["ATP", "KXATPMATCH"\], \["WTA", "KXWTAMATCH"\]\]\)/);
@@ -1009,8 +1247,8 @@ test("sorts tennis outrights by probability and opens a matchups-only popup", ()
 });
 
 test("never displays embedded stale odds when a cache record is absent", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  const mlbData = JSON.parse(html.match(/<script id="global-sports-clean-mlb-season-data" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
+  const mlbData = JSON.parse(html.match(/<script id="market-atlas-mlb-season-data" type="application\/json">([\s\S]*?)<\/script>/)[1]);
   assert.equal(Object.keys(mlbData.markets || {}).length, 0, "the shipped MLB schedule must not contain fallback odds");
   assert.match(html, /All displayed odds\s*\n\s*\/\/ must come from the server cache through \/api\/odds/);
   assert.match(html, /if \(!snapshot\) \{\s*return \{\s*\.\.\.event,\s*marketPosted: false,\s*contracts: 0,\s*volume: 0,\s*prices: \[\]/s);
@@ -1027,32 +1265,32 @@ test("persists the local KV cache across server restarts", () => {
 });
 
 test("opens generalized futures panels from team names across every supported game league", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  const client = fs.readFileSync(new URL("../hosted-odds-client.js", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
+  const client = fs.readFileSync(new URL("../public/assets/sports-odds.js", import.meta.url), "utf8");
   assert.match(html, /const teamFuturesSports = new Set\(\["MLB", "NFL", "CFB", "NBA", "WNBA", "NHL", "EPL", "UCL"/);
-  assert.match(html, /new CustomEvent\("sports-globe:team"/);
+  assert.match(html, /new CustomEvent\("market-atlas:team"/);
   assert.match(html, /detail: \{ sport: team\.sport, teamCode: team\.code, teamName: team\.name/);
   assert.match(html, /payload\?\.schemaVersion === 3/);
-  assert.match(client, /document\.addEventListener\("sports-globe:team"/);
+  assert.match(client, /document\.addEventListener\("market-atlas:team"/);
   assert.match(client, /\/api\/team-markets\?\$\{query\}/);
-  assert.doesNotMatch(client, /sports-globe:mlb-team/);
+  assert.doesNotMatch(client, /market-atlas:mlb-team/);
 });
 
 test("uses one geography-first baseball filter and no soccer league selector", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /data-sport="BASEBALL-GROUP"[^>]*checked><span>Baseball<\/span>/);
-  assert.doesNotMatch(html, /global-sports-clean-league-select|Soccer league/);
+  assert.doesNotMatch(html, /market-atlas-league-select|Soccer league/);
 });
 
 test("shows every baseball league only on its game date", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /const baseballSports = new Set\(filterGroups\["BASEBALL-GROUP"\]\)/);
   assert.match(html, /if \(baseballSports\.has\(event\.sport\)\) \{\s*return \{ visible: false, upcoming: false/);
   assert.doesNotMatch(html, /advanceWindowSports = new Set\(\["LMB", "KBO", "NPB"/);
 });
 
 test("starts the timeline today and removes events after they finish", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /const todayIso = easternIsoDate\(\)/);
   assert.match(html, /const calendarStart = todayIso < scheduleStart \? scheduleStart : todayIso > calendarEnd \? calendarEnd : todayIso/);
   assert.match(html, /if \(event\.state === "L"\) return false/);
@@ -1063,7 +1301,7 @@ test("starts the timeline today and removes events after they finish", () => {
 });
 
 test("removes closed and time-expired games before rendering or missing-market validation", () => {
-  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /completedMarketStatuses = new Set\(\["closed", "settled", "finalized", "determined", "resolved"\]\)/);
   assert.match(html, /\["AFL", 3 \* 60 \* 60 \* 1000\]/);
   assert.match(html, /if \(completedMarketStatuses\.has\(String\(event\.marketStatus \|\| ""\)\.toLowerCase\(\)\)\) return true/);
