@@ -38,6 +38,10 @@
   cursor: default;
 }
 
+.market-globe-shell .market-globe.is-pinching {
+  cursor: zoom-in;
+}
+
 .market-globe-shell .event-marker,
 .market-globe-shell .event-cluster {
   cursor: pointer;

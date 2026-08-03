@@ -297,11 +297,30 @@ body.integration-body {
   to { transform: rotate(360deg); }
 }
 
-/* The source Sports page keeps its own strongly scoped visual system. */
+/* Sports inherits the same shell tokens as Politics and Weather. */
 [data-category-view="sports"] > #market-atlas-sports {
+  --background: #111713;
+  --surface: #1b211d;
+  --surface-strong: #222a25;
+  --surface-soft: #151b17;
+  --foreground: #f4f6f3;
+  --muted: #949d97;
+  --muted-soft: #6f7972;
+  --muted-foreground: #949d97;
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --border: rgba(255, 255, 255, 0.09);
+  --border-green: color-mix(in srgb, #0ac285 24%, var(--border));
+  --green: #0ac285;
+  --kalshi-green: #0ac285;
+  --green-soft: #5bdeb2;
+  --green-dark: #062e20;
+  --green-ink: #07120d;
+  --radius: 15px;
   height: 100%;
   padding: 5px;
   overflow: hidden;
+  color: var(--foreground);
+  background: var(--background);
 }
 
 [data-category-view="sports"] #market-atlas-sports > .sports-app-header {
@@ -359,6 +378,7 @@ body.integration-body {
 }
 
 /* Give every category one shared material and map treatment. */
+[data-category-view="sports"] #market-atlas-sports .orbital-panel,
 [data-category-view="politics"] .politics-app .orbital-panel,
 [data-category-view="weather"] .weather-app .orbital-panel {
   border-color: color-mix(in srgb, var(--green) 24%, var(--border));
@@ -371,22 +391,26 @@ body.integration-body {
     0 10px 26px color-mix(in srgb, var(--background) 58%, transparent);
 }
 
+[data-category-view="sports"] #market-atlas-sports .orbital-panel::before,
 [data-category-view="politics"] .politics-app .orbital-panel::before,
 [data-category-view="weather"] .weather-app .orbital-panel::before {
   border-color: color-mix(in srgb, var(--green) 15%, transparent);
 }
 
+[data-category-view="sports"] #market-atlas-sports .filter-sidebar,
 [data-category-view="politics"] .politics-app .filter-sidebar,
 [data-category-view="weather"] .weather-app .filter-sidebar {
   gap: 10px;
   padding: 12px;
 }
 
+[data-category-view="sports"] #market-atlas-sports .check-list,
 [data-category-view="politics"] .politics-app .check-list,
 [data-category-view="weather"] .weather-app .check-list {
   gap: 3px;
 }
 
+[data-category-view="sports"] #market-atlas-sports .check-option,
 [data-category-view="politics"] .politics-app .check-option,
 [data-category-view="weather"] .weather-app .check-option {
   gap: 7px;
@@ -394,11 +418,15 @@ body.integration-body {
   border-radius: 9px;
 }
 
+[data-category-view="sports"] #market-atlas-sports .check-option:hover,
 [data-category-view="politics"] .politics-app .check-option:hover,
 [data-category-view="weather"] .weather-app .check-option:hover {
   background: color-mix(in srgb, var(--green) 6%, transparent);
 }
 
+[data-category-view="sports"] #market-atlas-sports .panel-heading,
+[data-category-view="sports"] #market-atlas-sports .team-view-kicker,
+[data-category-view="sports"] #market-atlas-sports .date-kicker,
 [data-category-view="politics"] .politics-app .panel-heading,
 [data-category-view="politics"] .politics-app .detail-kicker,
 [data-category-view="politics"] .politics-app .timeline-kicker,
@@ -410,6 +438,8 @@ body.integration-body {
   letter-spacing: 0.04em;
 }
 
+[data-category-view="sports"] #market-atlas-sports .panel-orb,
+[data-category-view="sports"] #market-atlas-sports .date-orb,
 [data-category-view="politics"] .politics-app .feed-status-orb,
 [data-category-view="politics"] .politics-app .panel-orb,
 [data-category-view="politics"] .politics-app .timeline-orb,
@@ -428,12 +458,16 @@ body.integration-body {
   padding: 14px;
 }
 
+[data-category-view="sports"] #market-atlas-sports .date-dock,
 [data-category-view="politics"] .politics-app .timeline-dock,
 [data-category-view="weather"] .weather-app .timeline-dock {
   padding: 8px 12px 6px;
   border-radius: calc(var(--radius) * 1.05) calc(var(--radius) * 1.05) 5px 5px;
 }
 
+[data-category-view="sports"] #market-atlas-sports .zoom-in,
+[data-category-view="sports"] #market-atlas-sports .zoom-out,
+[data-category-view="sports"] #market-atlas-sports .date-step,
 [data-category-view="politics"] .politics-app .zoom-button,
 [data-category-view="politics"] .politics-app .timeline-step,
 [data-category-view="weather"] .weather-app .zoom-button,
@@ -443,6 +477,9 @@ body.integration-body {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 
+[data-category-view="sports"] #market-atlas-sports .zoom-in:hover,
+[data-category-view="sports"] #market-atlas-sports .zoom-out:hover,
+[data-category-view="sports"] #market-atlas-sports .date-step:hover,
 [data-category-view="politics"] .politics-app .zoom-button:hover,
 [data-category-view="politics"] .politics-app .timeline-step:hover,
 [data-category-view="weather"] .weather-app .zoom-button:hover,
@@ -498,6 +535,9 @@ body.integration-body {
   stroke-width: 0.65;
 }
 
+[data-category-view="sports"] #market-atlas-sports .map-tooltip,
+[data-category-view="sports"] #market-atlas-sports .market-card,
+[data-category-view="sports"] #market-atlas-sports .tooltip-market,
 [data-category-view="politics"] .politics-app .map-tooltip,
 [data-category-view="politics"] .politics-app .market-card,
 [data-category-view="politics"] .politics-app .tooltip-market,
@@ -508,12 +548,12 @@ body.integration-body {
   background: color-mix(in srgb, var(--card) 94%, transparent);
 }
 
-/* Sports detail adopts the calmer, editorial Politics market-card hierarchy. */
+/* Sports detail uses the same editorial hierarchy as Politics and Weather. */
 [data-category-view="sports"] #market-atlas-sports .event-detail {
   gap: 0;
-  padding: 20px;
-  border-color: color-mix(in srgb, var(--kalshi-green) 30%, var(--border));
-  border-radius: calc(var(--radius) * 1.25);
+  padding: 14px;
+  border-color: color-mix(in srgb, var(--kalshi-green) 24%, var(--border));
+  border-radius: calc(var(--radius) * 1.05);
   background:
     radial-gradient(circle at 50% -17%, color-mix(in srgb, var(--kalshi-green) 15%, transparent), transparent 49%),
     linear-gradient(112deg, color-mix(in srgb, var(--card) 95%, var(--kalshi-green) 5%), var(--card));
@@ -524,11 +564,11 @@ body.integration-body {
 }
 
 [data-category-view="sports"] #market-atlas-sports .event-detail > .detail-view > .panel-heading {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: var(--muted-foreground);
   font-size: calc(var(--font-size-base) * 0.78);
-  font-weight: 600;
-  letter-spacing: 0.075em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
 [data-category-view="sports"] #market-atlas-sports .event-detail .form-select {
@@ -561,9 +601,21 @@ body.integration-body {
 
 [data-category-view="sports"] #market-atlas-sports .event-name {
   margin: 4px 0 0;
-  font-size: clamp(24px, 2vw, 29px);
+  font-size: clamp(21px, 2vw, 27px);
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: normal;
+  line-height: 1.12;
+}
+
+[data-category-view="sports"] #market-atlas-sports .team-view-kicker {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+[data-category-view="sports"] #market-atlas-sports .team-futures-name,
+[data-category-view="sports"] #market-atlas-sports .tennis-market-name {
+  font-weight: 600;
+  letter-spacing: normal;
   line-height: 1.12;
 }
 
@@ -1527,23 +1579,7 @@ body.integration-body {
   }
 
   .mobile-market-sheet-close {
-    position: absolute;
-    z-index: 4;
-    top: 7px;
-    right: 8px;
-    display: grid;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    place-items: center;
-    border: 0;
-    border-radius: 50%;
-    color: var(--integration-muted);
-    background: color-mix(in srgb, var(--integration-foreground) 7%, transparent);
-    font: inherit;
-    font-size: 19px;
-    line-height: 1;
-    touch-action: manipulation;
+    display: none !important;
   }
 
   [data-category-view="sports"] #market-atlas-sports .event-detail,
@@ -1710,7 +1746,7 @@ body.integration-body {
   [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading {
     display: flex;
     min-height: 28px;
-    padding: 0 34px 4px 2px;
+    padding: 0 2px 4px;
     align-items: center;
     justify-content: space-between;
     gap: 8px;

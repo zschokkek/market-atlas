@@ -354,6 +354,99 @@ function installMobileMarketCarousel(view) {
   update({ reset: true });
 }
 
+function installSharedGlobePinch(view, lifecycle) {
+  const globe = view.querySelector(".market-globe");
+  if (!globe || globe.dataset.sharedPinch === "true" || typeof lifecycle?.getMapView !== "function" || typeof lifecycle?.setMapView !== "function") return;
+  globe.dataset.sharedPinch = "true";
+
+  const touchPointers = new Map();
+  let pinch = null;
+  let pinchSessionActive = false;
+
+  const pointFor = event => ({ x: event.clientX, y: event.clientY });
+  const metrics = () => {
+    const [first, second] = [...touchPointers.values()];
+    if (!first || !second) return null;
+    return {
+      distance: Math.hypot(second.x - first.x, second.y - first.y),
+      midpoint: { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 },
+    };
+  };
+  const capturePointers = () => {
+    touchPointers.forEach((_, pointerId) => {
+      try {
+        if (!globe.hasPointerCapture(pointerId)) globe.setPointerCapture(pointerId);
+      } catch {
+        // A browser can release a touch between the second pointer landing and capture.
+      }
+    });
+  };
+  const beginPinch = () => {
+    const gesture = metrics();
+    const mapView = lifecycle.getMapView();
+    if (!gesture || !mapView || !Array.isArray(mapView.rotate)) return;
+    pinch = {
+      distance: Math.max(24, gesture.distance),
+      midpoint: gesture.midpoint,
+      rotation: mapView.rotate.slice(0, 3),
+      scale: Number(mapView.scale) || 248,
+    };
+    pinchSessionActive = true;
+    globe.classList.remove("is-dragging");
+    globe.classList.add("is-pinching");
+    capturePointers();
+  };
+  const consumePinchEvent = event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+
+  globe.addEventListener("pointerdown", event => {
+    if (event.pointerType !== "touch") return;
+    touchPointers.set(event.pointerId, pointFor(event));
+    if (touchPointers.size < 2) return;
+    consumePinchEvent(event);
+    beginPinch();
+  }, { capture: true, passive: false });
+
+  globe.addEventListener("pointermove", event => {
+    if (event.pointerType !== "touch" || !touchPointers.has(event.pointerId)) return;
+    touchPointers.set(event.pointerId, pointFor(event));
+    if (!pinchSessionActive) return;
+    consumePinchEvent(event);
+    if (touchPointers.size < 2 || !pinch) return;
+    const gesture = metrics();
+    if (!gesture) return;
+    const ratio = Math.pow(Math.max(0.2, gesture.distance / pinch.distance), 0.9);
+    const nextScale = Math.max(170, Math.min(4200, pinch.scale * ratio));
+    const movementSensitivity = 0.2 * Math.max(0.08, Math.min(1, 520 / pinch.scale));
+    lifecycle.setMapView({
+      scale: nextScale,
+      rotate: [
+        pinch.rotation[0] + (gesture.midpoint.x - pinch.midpoint.x) * movementSensitivity,
+        Math.max(-84, Math.min(84, pinch.rotation[1] - (gesture.midpoint.y - pinch.midpoint.y) * movementSensitivity)),
+        pinch.rotation[2],
+      ],
+    });
+  }, { capture: true, passive: false });
+
+  const finishPointer = event => {
+    if (event.pointerType !== "touch" || !touchPointers.has(event.pointerId)) return;
+    if (pinchSessionActive) consumePinchEvent(event);
+    touchPointers.delete(event.pointerId);
+    if (touchPointers.size >= 2) {
+      beginPinch();
+      return;
+    }
+    pinch = null;
+    if (touchPointers.size) return;
+    pinchSessionActive = false;
+    globe.classList.remove("is-dragging", "is-pinching");
+  };
+  globe.addEventListener("pointerup", finishPointer, { capture: true, passive: false });
+  globe.addEventListener("pointercancel", finishPointer, { capture: true, passive: false });
+}
+
 function setLoadingError(view, error) {
   const loading = view.querySelector(".category-loading");
   if (!loading) return;
@@ -675,6 +768,7 @@ async function ensureView(category) {
   if (!view || !loader) throw new Error(`Unknown category: ${category}`);
   const loading = loader(view)
     .then(lifecycle => {
+      installSharedGlobePinch(view, lifecycle);
       loadedViews.set(category, lifecycle);
       loadingViews.delete(category);
       return lifecycle;

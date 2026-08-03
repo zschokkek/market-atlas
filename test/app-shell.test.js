@@ -91,6 +91,7 @@ test("mobile markets use click-only compact bottom sheets without page scrolling
   assert.match(source, /activeCard\.scrollHeight/);
   assert.match(css, /\.detail-market-list,[\s\S]*grid-auto-columns: 100%;[\s\S]*grid-auto-flow: column;[\s\S]*scroll-snap-type: x mandatory/);
   assert.match(css, /\.category-view \.map-tooltip,[\s\S]*display: none !important/);
+  assert.match(css, /\.mobile-market-sheet-close \{\s*display: none !important;/);
   assert.match(css, /\.event-detail,[\s\S]*\.election-detail[\s\S]*position: fixed !important[\s\S]*visibility: hidden/);
   assert.match(css, /\.event-detail\.is-mobile-open,[\s\S]*\.election-detail\.is-mobile-open[\s\S]*visibility: visible/);
   assert.match(css, /\.integration-stage,[\s\S]*\.category-view \{[\s\S]*overflow: hidden/);
@@ -111,6 +112,20 @@ test("mobile markets use click-only compact bottom sheets without page scrolling
   assert.match(sports, /preciseHoverViewport[\s\S]*showClusterTooltip/);
   assert.match(politics, /preciseHoverViewport[\s\S]*openMobileDetail/);
   assert.match(weather, /preciseHoverViewport[\s\S]*openMobileDetail/);
+});
+
+test("all three mobile globes share two-finger pinch zoom without breaking one-finger input", async () => {
+  const source = await read("public/assets/app.js");
+  const shellCss = await read("public/assets/globe-shell.css");
+  assert.match(source, /function installSharedGlobePinch\(view, lifecycle\)/);
+  assert.match(source, /const touchPointers = new Map\(\)/);
+  assert.match(source, /event\.pointerType !== "touch"/);
+  assert.match(source, /if \(touchPointers\.size < 2\) return/);
+  assert.match(source, /Math\.pow\(Math\.max\(0\.2, gesture\.distance \/ pinch\.distance\), 0\.9\)/);
+  assert.match(source, /lifecycle\.setMapView\(\{[\s\S]*scale: nextScale,[\s\S]*rotate:/);
+  assert.match(source, /pointermove[\s\S]*capture: true, passive: false/);
+  assert.match(source, /installSharedGlobePinch\(view, lifecycle\);[\s\S]*loadedViews\.set\(category, lifecycle\)/);
+  assert.match(shellCss, /\.market-globe\.is-pinching/);
 });
 
 test("Market Atlas app composes the real source views and preserves them while switching", async () => {
