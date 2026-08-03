@@ -675,7 +675,11 @@ async function loadPoliticsView(view) {
     .replace(
       '    renderTimeline();\n    const note = app.querySelector(".feed-status-note");',
       `    renderTimeline();
-    if (integratedPendingSearchResult) window.__integratedPoliticsView?.revealMarket?.(integratedPendingSearchResult);
+    if (integratedPendingSearchResult) {
+      const pending = integratedPendingSearchResult;
+      if (pending.type === "location") window.__integratedPoliticsView?.revealLocation?.(pending);
+      else window.__integratedPoliticsView?.revealMarket?.(pending);
+    }
     const note = app.querySelector(".feed-status-note");`
     )
     .replace(
@@ -748,7 +752,32 @@ window.__integratedPoliticsView = {
     renderTimeline();
   },
   revealLocation(result) {
-    return animateToLocation(result?.lon, result?.lat, result?.scale || 1050, 380);
+    const lon = Number(result?.lon);
+    const lat = Number(result?.lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return false;
+    const candidates = activeBundles.length ? activeBundles : electionBundles;
+    const ranked = candidates.map(bundle => {
+      const longitudeDelta = Math.abs(((Number(bundle.lon) - lon + 540) % 360) - 180);
+      const latitudeDelta = Math.abs(Number(bundle.lat) - lat);
+      return { bundle, distance: Math.hypot(longitudeDelta * Math.cos(lat * Math.PI / 180), latitudeDelta) };
+    }).sort((left, right) => left.distance - right.distance || bundleVolume(right.bundle) - bundleVolume(left.bundle));
+    const match = ranked[0]?.distance <= 5 ? ranked[0].bundle : null;
+    if (!match && !electionBundles.length) integratedPendingSearchResult = result;
+    else integratedPendingSearchResult = null;
+    if (drawFrame) cancelAnimationFrame(drawFrame);
+    if (zoomFrame) cancelAnimationFrame(zoomFrame);
+    drawFrame = null;
+    zoomFrame = null;
+    if (match) {
+      selectedBundleId = match.id;
+      renderDetail(match);
+      openMobileDetail();
+    }
+    projection.rotate([-(match?.lon ?? lon), -Math.max(-84, Math.min(84, match?.lat ?? lat)), 0]);
+    projection.scale(Math.max(170, Math.min(4200, Number(result?.scale) || 1050)));
+    hideTooltip();
+    draw();
+    return true;
   },
   revealMarket(result) {
     const bundle = electionBundles.find(item => item.id === result?.bundleId)

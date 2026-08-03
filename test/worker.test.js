@@ -5,6 +5,7 @@ import worker from "../src/worker.js";
 import { assertNearTermMarketCoverage, MISSING_MARKET_ERROR_CODE } from "../src/market-coverage.js";
 import {
   applyHouseRaceRevealScales,
+  applyCanonicalPoliticsUrls,
   buildTeamFuturesFromManifest,
   buildPoliticsPublicSnapshot,
   buildMlbFuturesSnapshot,
@@ -108,6 +109,34 @@ test("redirects legacy preview URLs to the canonical Market Atlas routes", async
   assert.equal(integrated.headers.get("location"), "https://example.com/?category=politics");
   assert.equal(politics.headers.get("location"), "https://example.com/categories/politics/");
   assert.equal(weather.headers.get("location"), "https://example.com/categories/weather/");
+});
+
+test("rewrites stale cached Politics links to the exact Kalshi event-ticker route", async () => {
+  const cached = {
+    schemaVersion: 1,
+    generatedAt: "2026-08-03T16:00:00.000Z",
+    bundleCount: 1,
+    marketCount: 1,
+    periods: [],
+    bundles: [{
+      id: "vatican",
+      scope: "International",
+      markets: [{
+        eventTicker: "KXPOPEVISIT-27JAN01",
+        url: "https://kalshi.com/markets/kxpopevisit/guessed-slug/kxpopevisit-27jan01"
+      }]
+    }]
+  };
+  applyCanonicalPoliticsUrls(cached.bundles);
+  assert.equal(cached.bundles[0].markets[0].url, "https://kalshi.com/markets_by_ticker/kxpopevisit-27jan01");
+
+  cached.bundles[0].markets[0].url = "https://kalshi.com/markets/kxpopevisit/stale-cache/kxpopevisit-27jan01";
+  const env = { MARKET_ATLAS_CACHE: { async get(key) { return key === "kalshi:politics:public:v1" ? cached : null; } } };
+  const response = await worker.fetch(new Request("https://example.com/api/politics"), env, {});
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("etag"), /politics-links-v2/);
+  const payload = await response.json();
+  assert.equal(payload.bundles[0].markets[0].url, "https://kalshi.com/markets_by_ticker/kxpopevisit-27jan01");
 });
 
 test("maps all Philadelphia weather series and splits multi-city rain into city markets", () => {
@@ -249,6 +278,10 @@ test("interprets colloquial market queries into category, sport, time, and ranki
   assert.equal(politics.category, "politics");
   assert.equal(politics.sort, "close");
   assert.deepEqual(politics.terms, ["senate"]);
+  const mls = interpretMarketQuery("show me MLS games", now);
+  assert.equal(mls.category, "sports");
+  assert.deepEqual(mls.requiredTags, ["soccer", "mls"]);
+  assert.deepEqual(mls.terms, []);
 });
 
 test("searches cached Sports and Politics markets with prices and conversational ranking", () => {
@@ -264,6 +297,11 @@ test("searches cached Sports and Politics markets with prices and conversational
       eventTicker: "KXEPLGAME-26AUG02ARSNEW", seriesTicker: "KXEPLGAME", title: "Arsenal vs Newcastle",
       startsAt: "2026-08-02T15:00:00.000Z", endsAt: "2026-08-02T17:00:00.000Z", status: "active", volume: 1200000,
       markets: [market("KXEPLGAME-26AUG02ARSNEW-ARS", "Arsenal", 58, 700000), market("KXEPLGAME-26AUG02ARSNEW-NEW", "Newcastle", 42, 500000)]
+    },
+    {
+      eventTicker: "KXMLSGAME-26AUG02MIAORL", seriesTicker: "KXMLSGAME", title: "Inter Miami vs Orlando City",
+      startsAt: "2026-08-02T23:30:00.000Z", endsAt: "2026-08-03T02:00:00.000Z", status: "active", volume: 600000,
+      markets: [market("KXMLSGAME-26AUG02MIAORL-MIA", "Inter Miami", 61, 350000), market("KXMLSGAME-26AUG02MIAORL-ORL", "Orlando City", 39, 250000)]
     }
   ] };
   const politics = { bundles: [
@@ -282,8 +320,15 @@ test("searches cached Sports and Politics markets with prices and conversational
   assert.deepEqual(dodgers.results[0].outcomes.map(outcome => outcome.name), ["Los Angeles Dodgers", "Boston Red Sox"]);
   const soccer = searchMarkets("biggest soccer markets this weekend", { sports, politics }, { now });
   assert.equal(soccer.results[0].eventTicker, "KXEPLGAME-26AUG02ARSNEW");
+  const mls = searchMarkets("MLS games", { sports, politics }, { now });
+  assert.equal(mls.results[0].eventTicker, "KXMLSGAME-26AUG02MIAORL");
   const senate = searchMarkets("close Senate races", { sports, politics }, { now });
   assert.deepEqual(senate.results.map(result => result.bundleId), ["us-mi", "us-oh"]);
+  assert.equal(
+    senate.results[0].url,
+    "https://kalshi.com/markets_by_ticker/senatemi-26",
+    "search ignores a cached display slug and opens the exact API event ticker"
+  );
   const malformed = searchMarkets("biggest markets", { sports: { events: [{
     eventTicker: "KXBADDATE-26", seriesTicker: "KXBADDATE", title: "Market with unavailable date", startsAt: "not-a-date",
     volume: 10, markets: [market("KXBADDATE-26-YES", "Yes", 50, 10)]
@@ -441,7 +486,7 @@ test("adds both parties' nominee markets only for major Senate-primary states", 
   assert.equal(payload.bundles[0].markets[2].outcomes[0].party, "R");
   assert.equal(
     payload.bundles[0].markets[1].url,
-    "https://kalshi.com/markets/kxsenatemid/kxsenatemid-26"
+    "https://kalshi.com/markets_by_ticker/kxsenatemid-26"
   );
 });
 
@@ -534,7 +579,7 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   );
   assert.equal(
     politicsMarketUrl("KXHOUSERACE-PA15-26", "KXHOUSERACE"),
-    "https://kalshi.com/markets/kxhouserace/house-race-winner/kxhouserace-pa15-26"
+    "https://kalshi.com/markets_by_ticker/kxhouserace-pa15-26"
   );
 
   const californiaThird = classifyPoliticsEvent({
@@ -549,7 +594,7 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   assert.equal(californiaThird.minZoomScale, HOUSE_RACE_MIN_SCALE);
   assert.equal(
     politicsMarketUrl("HOUSECA3-26", "HOUSECA3"),
-    "https://kalshi.com/markets/houseca3/house-ca3/houseca3-26"
+    "https://kalshi.com/markets_by_ticker/houseca3-26"
   );
 
   const missouriFifth = classifyPoliticsEvent({
@@ -563,7 +608,7 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   );
   assert.equal(
     politicsMarketUrl("KXHOUSEMO5-26", "KXHOUSEMO5"),
-    "https://kalshi.com/markets/kxhousemo5/house-mo5/kxhousemo5-26"
+    "https://kalshi.com/markets_by_ticker/kxhousemo5-26"
   );
 
   const californiaFourth = classifyPoliticsEvent({
@@ -577,11 +622,16 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   );
   assert.equal(
     politicsMarketUrl("KXCAELECTION-2604", "KXCAELECTION"),
-    "https://kalshi.com/markets/kxcaelection/california-general-elections-/kxcaelection-2604"
+    "https://kalshi.com/markets_by_ticker/kxcaelection-2604"
   );
   assert.equal(
     politicsMarketUrl("KXCA11PERSON-26", "KXCA11PERSON"),
-    "https://kalshi.com/markets/kxca11person/ca11-house-winner-person/kxca11person-26"
+    "https://kalshi.com/markets_by_ticker/kxca11person-26"
+  );
+  assert.equal(
+    politicsMarketUrl("KXPOPEVISIT-27JAN01", "KXPOPEVISIT"),
+    "https://kalshi.com/markets_by_ticker/kxpopevisit-27jan01",
+    "the exact API event ticker is also the exact Kalshi web resolver identity"
   );
 });
 
@@ -604,7 +654,7 @@ test("uses Kalshi House party metadata for marker color and canonical event link
   assert.equal(payload.bundles[0].leaderParty, "R");
   assert.equal(payload.bundles[0].leaderPrice, 92.5);
   assert.deepEqual(payload.bundles[0].markets[0].outcomes.map(outcome => outcome.party), ["R", "D"]);
-  assert.equal(payload.bundles[0].markets[0].url, "https://kalshi.com/markets/kxhouserace/house-race-winner/kxhouserace-pa15-26");
+  assert.equal(payload.bundles[0].markets[0].url, "https://kalshi.com/markets_by_ticker/kxhouserace-pa15-26");
 
   const california = normalizeEvent({
     event_ticker: "KXCAELECTION-2604", series_ticker: "KXCAELECTION", title: "CA-04 House winner?"
@@ -634,12 +684,12 @@ test("applies manual politics locations, duplicates multi-country events, and fo
     markets: [
       market("Benjamin Netanyahu", 44), market("Volodymyr Zelenskyy", 8), market("Keir Starmer", 99),
       market("Gustavo Petro", 98), market("Aleksandar Vučić", 94), market("Christopher Luxon", 47),
-      market("Emmanuel Macron", 11)
+      market("Emmanuel Macron", 11), market("Narendra Modi", 1)
     ]
   });
   assert.deepEqual(
     leaderLocations.map(location => location.jurisdiction),
-    ["United Kingdom", "Colombia", "Serbia", "New Zealand", "Israel"]
+    ["United Kingdom", "Colombia", "Serbia", "New Zealand", "Israel", "India"]
   );
 
   const duplicate = {
@@ -654,6 +704,114 @@ test("applies manual politics locations, duplicates multi-country events, and fo
   assert.equal(payload.bundleCount, 2);
   assert.equal(payload.marketCount, 1, "the same multi-location market is counted once globally");
   assert.deepEqual(payload.bundles.map(bundle => bundle.capital).sort(), ["Kyiv", "Moscow"]);
+});
+
+test("maps all ten African leader risks and keeps India outcomes visible", () => {
+  const market = (ticker, label, lastPrice, volume = 100) => ({ ticker, label, lastPrice, volume, status: "active" });
+  const africa = {
+    eventTicker: "KXAFRICALEADEROUT-35",
+    seriesTicker: "KXAFRICALEADEROUT",
+    title: "Which of these African leaders will leave office next?",
+    volume: 22_551,
+    updatedAt: "2026-08-03T12:00:00.000Z",
+    markets: [
+      market("KXAFRICALEADEROUT-35-BT", "Bola Tinubu", 38),
+      market("KXAFRICALEADEROUT-35-EM", "Emmerson Mnangagwa", 18),
+      market("KXAFRICALEADEROUT-35-WR", "William Ruto", 17),
+      market("KXAFRICALEADEROUT-35-CR", "Cyril Ramaphosa", 8),
+      market("KXAFRICALEADEROUT-35-AFES", "Abdel Fattah El-Sisi", 7),
+      market("KXAFRICALEADEROUT-35-JM", "John Mahama", 6),
+      market("KXAFRICALEADEROUT-35-AT", "Abdelmadjid Tebboune", 5),
+      market("KXAFRICALEADEROUT-35-PK", "Paul Kagame", 4),
+      market("KXAFRICALEADEROUT-35-FT", "Félix Tshisekedi", 3),
+      market("KXAFRICALEADEROUT-35-TAS", "Taye Atske Selassie", 2)
+    ]
+  };
+  const africaLocations = classifyPoliticsLocations(africa);
+  assert.deepEqual(
+    africaLocations.map(location => location.capital),
+    ["Abuja", "Harare", "Nairobi", "Pretoria", "Cairo", "Accra", "Algiers", "Kigali", "Kinshasa", "Addis Ababa"]
+  );
+  const africaPayload = buildPoliticsPublicSnapshot([africa], Date.parse("2026-08-03T12:00:00Z"));
+  assert.equal(africaPayload.bundleCount, 10);
+  assert.ok(africaPayload.bundles.every(bundle => bundle.markets[0].outcomes.length === 1));
+  assert.equal(
+    africaPayload.bundles[0].markets[0].url,
+    "https://kalshi.com/markets_by_ticker/kxafricaleaderout-35"
+  );
+
+  const india = {
+    eventTicker: "KXFTACOUNTRIES-27",
+    seriesTicker: "KXFTACOUNTRIES",
+    title: "Which countries will Trump make formal trade deals with this year?",
+    volume: 7_673,
+    updatedAt: "2026-08-03T12:00:00.000Z",
+    markets: [
+      market("KXFTACOUNTRIES-27-IND", "India", 21),
+      market("KXFTACOUNTRIES-27-JPN", "Japan", 13)
+    ]
+  };
+  const indiaPayload = buildPoliticsPublicSnapshot([india], Date.parse("2026-08-03T12:00:00Z"));
+  assert.equal(indiaPayload.bundleCount, 1);
+  assert.equal(indiaPayload.bundles[0].capital, "New Delhi");
+  assert.deepEqual(indiaPayload.bundles[0].markets[0].outcomes.map(outcome => outcome.name), ["India"]);
+});
+
+test("invalidates stale politics geography so the African leader market leaves the unmapped cache", async () => {
+  const now = Date.parse("2026-08-03T20:30:00Z");
+  const cache = new Map([["kalshi:politics:state:v1", JSON.stringify({
+    registryVersion: 1,
+    lastDiscoveryAt: now,
+    events: { "OLD-MAPPED": { eventTicker: "OLD-MAPPED", updatedAt: new Date(now).toISOString() } },
+    unmapped: [{ eventTicker: "KXAFRICALEADEROUT-35", seriesTicker: "KXAFRICALEADEROUT" }]
+  })]]);
+  const env = {
+    MARKET_ATLAS_CACHE: {
+      async get(key, type) {
+        const value = cache.get(key);
+        return type === "json" && value ? JSON.parse(value) : value || null;
+      },
+      async put(key, value) { cache.set(key, value); }
+    },
+    KALSHI_POLITICS_READ_REQUESTS_PER_SECOND: "1000000",
+    KALSHI_MAX_READ_REQUESTS_PER_SECOND: "1000000"
+  };
+  const originalFetch = globalThis.fetch;
+  let eventCatalogRequests = 0;
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    if (url.pathname.endsWith("/series")) return Response.json({
+      series: [{ ticker: "KXAFRICALEADEROUT", title: "Next African leader out", tags: ["International"] }]
+    });
+    eventCatalogRequests += 1;
+    return Response.json({ events: [{
+      event_ticker: "KXAFRICALEADEROUT-35",
+      series_ticker: "KXAFRICALEADEROUT",
+      title: "Which of these African leaders will leave office next?",
+      status: "open",
+      markets: [
+        { ticker: "KXAFRICALEADEROUT-35-BT", yes_sub_title: "Bola Tinubu", last_price_dollars: "0.3800", volume_fp: "12000.00", status: "active" },
+        { ticker: "KXAFRICALEADEROUT-35-CR", yes_sub_title: "Cyril Ramaphosa", last_price_dollars: "0.0970", volume_fp: "4000.00", status: "active" },
+        { ticker: "KXAFRICALEADEROUT-35-JM", yes_sub_title: "John Mahama", last_price_dollars: "0.0890", volume_fp: "3000.00", status: "active" },
+        { ticker: "KXAFRICALEADEROUT-35-WR", yes_sub_title: "William Ruto", last_price_dollars: "0.0800", volume_fp: "2000.00", status: "active" },
+        { ticker: "KXAFRICALEADEROUT-35-EM", yes_sub_title: "Emmerson Mnangagwa", last_price_dollars: "0.0700", volume_fp: "1000.00", status: "active" }
+      ]
+    }], cursor: "" });
+  };
+  try {
+    const result = await runPoliticsPoll(env, now);
+    assert.equal(result.discoveryDue, true, "a registry change must bypass a recent KV discovery timestamp");
+    assert.equal(eventCatalogRequests, 1);
+    const state = JSON.parse(cache.get("kalshi:politics:state:v1"));
+    assert.equal(state.registryVersion, 3);
+    assert.ok(state.events["KXAFRICALEADEROUT-35"]);
+    assert.ok(!state.unmapped.some(event => event.eventTicker === "KXAFRICALEADEROUT-35"));
+    const publicData = JSON.parse(cache.get("kalshi:politics:public:v1"));
+    assert.deepEqual(publicData.bundles.map(bundle => bundle.capital), ["Abuja", "Pretoria", "Accra", "Nairobi", "Harare"]);
+    assert.ok(publicData.bundles.every(bundle => bundle.markets[0].url.endsWith("/kxafricaleaderout-35")));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("keeps each actual election event as a separate market card with party-aware outcomes", () => {
@@ -726,10 +884,14 @@ test("discovers, validates, caches, and serves live politics markets server-side
   }
 });
 
-test("discovers the three added Americas soccer market series", () => {
+test("discovers Americas soccer games and the live AFCON future", () => {
   assert.ok(DEFAULT_SERIES.includes("KXBRASILEIROGAME"));
   assert.ok(DEFAULT_SERIES.includes("KXLIGAMXGAME"));
   assert.ok(DEFAULT_SERIES.includes("KXARGPREMDIVGAME"));
+  assert.ok(DEFAULT_SERIES.includes("KXMLSGAME"));
+  assert.ok(DEFAULT_SERIES.includes("KXCOPADOBRASILGAME"));
+  assert.ok(DEFAULT_SERIES.includes("KXCOPADOBRASILADVANCE"));
+  assert.ok(DEFAULT_SERIES.includes("KXAFCON"));
 });
 
 test("throws a hard coverage error when any unelapsed event today or tomorrow lacks a listed Kalshi market", () => {
@@ -762,7 +924,7 @@ test("allows distant unlisted events while requiring every active near-term spor
 });
 
 test("applies near-term market coverage validation to every sport on the globe", () => {
-  const sports = ["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "ATP", "WTA", "PGA", "GOLF", "UCL", "SOC", "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA", "CRK", "IPL", "F1"];
+  const sports = ["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "ATP", "WTA", "PGA", "GOLF", "UCL", "SOC", "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA", "MLS", "COPADOBRASIL", "AFCON", "CRK", "IPL", "F1"];
   const events = sports.map(sport => ({ id: `today-${sport}`, sport, name: `${sport} event`, start: "2026-08-01", end: "2026-08-01" }));
   for (const missingSport of sports) {
     assert.throws(() => assertNearTermMarketCoverage(events, {
@@ -1150,7 +1312,7 @@ test("updates all daily futures caches from one server-side open-events sweep", 
 
 test("ships complete, located Americas soccer schedules", () => {
   const schedules = JSON.parse(fs.readFileSync(new URL("../data/americas-soccer-schedules-2026.json", import.meta.url)));
-  const minimums = { BRASILEIRAO: 380, LIGAMX: 300, ARGPRIMERA: 480 };
+  const minimums = { BRASILEIRAO: 380, LIGAMX: 300, ARGPRIMERA: 480, MLS: 510 };
   for (const [league, minimum] of Object.entries(minimums)) {
     const events = schedules[league].events;
     assert.ok(events.length >= minimum, `${league} should include its complete 2026 calendar`);
@@ -1501,6 +1663,33 @@ test("normalizes fixed-point Kalshi prices and volumes", () => {
   assert.equal(snapshot.volume, 12345);
   assert.equal(snapshot.startsAt, "2026-08-01T20:00:00.000Z");
   assert.equal(snapshot.endsAt, "2026-08-01T23:00:00.000Z");
+});
+
+test("uses a game ticker schedule when Kalshi copies a settlement deadline into occurrence time", () => {
+  const snapshot = normalizeEvent(
+    { event_ticker: "KXTESTMATCH-26AUG021000PAKWI", series_ticker: "KXTESTMATCH", title: "West Indies vs Pakistan" },
+    [{
+      ticker: "KXTESTMATCH-26AUG021000PAKWI-WI",
+      event_ticker: "KXTESTMATCH-26AUG021000PAKWI",
+      yes_sub_title: "West Indies",
+      status: "active",
+      occurrence_datetime: "2026-08-07T14:00:00Z",
+      expected_expiration_time: "2026-08-07T14:00:00Z",
+      close_time: "2026-08-09T14:00:00Z"
+    }],
+    Date.parse("2026-08-03T12:00:00Z")
+  );
+  assert.equal(snapshot.startsAt, "2026-08-02T14:00:00.000Z");
+  assert.equal(snapshot.endsAt, "2026-08-09T14:00:00.000Z");
+  assert.deepEqual(filterForDate({ events: [snapshot] }, "2026-08-03").events.map(event => event.eventTicker), [
+    "KXTESTMATCH-26AUG021000PAKWI"
+  ]);
+
+  const legacySnapshot = { ...snapshot, startsAt: "2026-08-07T14:00:00.000Z" };
+  assert.deepEqual(filterForDate({ events: [legacySnapshot] }, "2026-08-03").events.map(event => event.eventTicker), [
+    "KXTESTMATCH-26AUG021000PAKWI"
+  ]);
+  assert.equal(pollInterval(legacySnapshot, Date.parse("2026-08-03T12:00:00Z")), 60 * 1000);
 });
 
 test("keeps a multi-contract outright active while any player market is active", () => {

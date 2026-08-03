@@ -472,7 +472,21 @@ window.__integratedWeatherView = {
   getTimelineOptions() { return activeWeatherHorizons.map((label, index) => ({ value: index, label })); },
   getTimelineIndex() { return horizonIndex; },
   setTimelineIndex(index) { horizonIndex = Math.max(0, Math.min(activeWeatherHorizons.length - 1, Number(index) || 0)); renderHorizon(); },
-  revealLocation(result) { return animateToLocation(result?.lon, result?.lat, result?.scale || 1050, 380); },
+  revealLocation(result) {
+    const lon = Number(result?.lon), lat = Number(result?.lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return false;
+    const ranked = activeWeatherBundles.map(bundle => {
+      const longitudeDelta = Math.abs(((Number(bundle.lon) - lon + 540) % 360) - 180);
+      const latitudeDelta = Math.abs(Number(bundle.lat) - lat);
+      return { bundle, distance: Math.hypot(longitudeDelta * Math.cos(lat * Math.PI / 180), latitudeDelta) };
+    }).sort((left, right) => left.distance - right.distance || bundleVolume(right.bundle) - bundleVolume(left.bundle));
+    const bundle = ranked[0]?.distance <= 5 ? ranked[0].bundle : null;
+    if (drawFrame) cancelAnimationFrame(drawFrame); if (zoomFrame) cancelAnimationFrame(zoomFrame); drawFrame = null; zoomFrame = null;
+    if (bundle) { app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); }
+    projection.rotate([-(bundle?.lon ?? lon), -Math.max(-84, Math.min(84, bundle?.lat ?? lat)), 0]);
+    projection.scale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, Number(result?.scale) || 1050)));
+    hideTooltip(); draw(); return true;
+  },
   revealMarket(result) {
     const bundle = activeWeatherBundles.find(item => item.id === result?.bundleId)
       || activeWeatherBundles.find(item => item.markets.some(market => market.eventTicker === result?.eventTicker));

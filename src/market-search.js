@@ -1,8 +1,9 @@
 import { SEARCH_LOCATIONS } from "./search-locations.js";
+import { politicsMarketUrl } from "./politics-registry.js";
 
 const GENERIC_WORDS = new Set([
   "a", "about", "all", "any", "are", "around", "at", "bet", "bets", "can", "could", "event", "events",
-  "find", "for", "give", "i", "in", "is", "list", "market", "markets", "me", "of", "on", "odds", "please",
+  "find", "for", "game", "games", "give", "i", "in", "is", "list", "market", "markets", "match", "matches", "me", "of", "on", "odds", "please",
   "price", "prices", "race", "races", "show", "the", "to", "traded", "trading", "what", "whats", "will", "with"
 ]);
 
@@ -23,6 +24,7 @@ const SPORT_ALIASES = [
   { pattern: /\b(?:nba|pro basketball)\b/, tags: ["nba"] },
   { pattern: /\bwnba\b/, tags: ["wnba"] },
   { pattern: /\b(?:nhl|hockey|stanley cup)\b/, tags: ["nhl"] },
+  { pattern: /\b(?:major league soccer|mls)\b/, tags: ["soccer", "mls"] },
   { pattern: /\b(?:soccer|futbol|football club|premier league|epl|champions league|ucl|la liga|bundesliga|serie a|ligue 1|liga mx)\b/, tags: ["soccer"] },
   { pattern: /\b(?:tennis|atp|wta)\b/, tags: ["tennis"] },
   { pattern: /\b(?:golf|pga|lpga)\b/, tags: ["golf"] },
@@ -159,10 +161,10 @@ function sportTags(seriesTicker, title = "") {
   if (/KXF1/.test(ticker) || /formula 1|grand prix/.test(text)) return ["sports", "f1", "racing"];
   if (/KXIPL|KXT20|KXTEST|KXHUNDRED/.test(ticker) || /cricket/.test(text)) return ["sports", "cricket"];
   if (/KXAFL/.test(ticker) || /australian football/.test(text)) return ["sports", "afl", "football"];
-  if (/KXEPL|KXUCL|KXLALIGA|KXBUNDESLIGA|KXSERIEA|KXLIGUE1|KXBRASILEIR|KXLIGAMX|KXARG|KXCHNSL|KXKLEAGUE|KXALLSVENSKAN|KXELITESERIEN/.test(ticker)
-    || /soccer|premier league|champions league|la liga|bundesliga|serie a|ligue 1|liga mx/.test(text)) {
+  if (/KXEPL|KXUCL|KXLALIGA|KXBUNDESLIGA|KXSERIEA|KXLIGUE1|KXBRASILEIR|KXLIGAMX|KXARG|KXMLS|KXCHNSL|KXKLEAGUE|KXALLSVENSKAN|KXELITESERIEN/.test(ticker)
+    || /soccer|major league soccer|\bmls\b|premier league|champions league|la liga|bundesliga|serie a|ligue 1|liga mx/.test(text)) {
     const region = /KXEPL|KXUCL|KXLALIGA|KXBUNDESLIGA|KXSERIEA|KXLIGUE1|KXALLSVENSKAN|KXELITESERIEN/.test(ticker) ? "europe" : "international";
-    return ["sports", "soccer", "football", region];
+    return ["sports", "soccer", "football", ...(ticker.startsWith("KXMLS") || /major league soccer|\bmls\b/.test(text) ? ["mls"] : []), region];
   }
   return ["sports"];
 }
@@ -271,7 +273,7 @@ function politicsCandidates(payload) {
     ].filter(Boolean),
     outcomes: outcomePreview(market.outcomes, []),
     allOutcomes: market.outcomes || [],
-    url: market.url || `https://kalshi.com/markets/${String(market.seriesTicker || "").toLowerCase()}/${String(market.eventTicker || "").toLowerCase()}`
+    url: politicsMarketUrl(market.eventTicker)
   });
   }));
 }
@@ -428,7 +430,7 @@ export function searchMarkets(value, { sports = null, politics = null, weather =
   const scored = [];
   for (const candidate of candidates) {
     if (intent.category && candidate.category !== intent.category) continue;
-    if (intent.requiredTags.length && !intent.requiredTags.some(tag => candidate.tags.includes(tag))) continue;
+    if (intent.requiredTags.length && !intent.requiredTags.every(tag => candidate.tags.includes(tag))) continue;
     if (intent.liveOnly && !isLive(candidate, now)) continue;
     const date = candidateDate(candidate);
     if (intent.timing && (!date || date < intent.timing.start || date > intent.timing.end)) continue;

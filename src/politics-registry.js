@@ -94,6 +94,16 @@ const politicalLocations = [
   [/\bpakistan\b|\bpakistani\b/i, "Pakistan", "PAK", "Islamabad", 73.0479, 33.6844],
   [/\bunited kingdom\b|\bbritain\b|\bbritish\b|\bu\.k\.\b|\bthe uk\b/i, "United Kingdom", "GBR", "London", -0.1276, 51.5072],
   [/\bindia\b|\bindian\b/i, "India", "IND", "New Delhi", 77.2090, 28.6139],
+  [/\bnigeria\b|\bnigerian\b/i, "Nigeria", "NGA", "Abuja", 7.3986, 9.0765],
+  [/\bkenya\b|\bkenyan\b/i, "Kenya", "KEN", "Nairobi", 36.8219, -1.2921],
+  [/\bsouth africa\b|\bsouth african\b/i, "South Africa", "ZAF", "Pretoria", 28.2293, -25.7479],
+  [/\brwanda\b|\brwandan\b/i, "Rwanda", "RWA", "Kigali", 30.0619, -1.9441],
+  [/\bethiopia\b|\bethiopian\b/i, "Ethiopia", "ETH", "Addis Ababa", 38.7578, 8.9806],
+  [/\bghana\b|\bghanaian\b/i, "Ghana", "GHA", "Accra", -0.1870, 5.6037],
+  [/\bzimbabwe\b|\bzimbabwean\b/i, "Zimbabwe", "ZWE", "Harare", 31.0522, -17.8292],
+  [/\begypt\b|\begyptian\b/i, "Egypt", "EGY", "Cairo", 31.2357, 30.0444],
+  [/\balgeria\b|\balgerian\b/i, "Algeria", "DZA", "Algiers", 3.0588, 36.7538],
+  [/\b(?:democratic republic of the congo|dr\.? congo|drc)\b/i, "DR Congo", "COD", "Kinshasa", 15.2663, -4.4419],
   [/\bontario\b/i, "Ontario", "ON", "Toronto", -79.3832, 43.6532],
   [/\balberta\b/i, "Alberta", "AB", "Edmonton", -113.4909, 53.5461],
   [/\bcanada\b|\bcanadian\b/i, "Canada", "CAN", "Ottawa", -75.6972, 45.4215],
@@ -169,7 +179,15 @@ const MANUAL_LOCATIONS = {
   copenhagen: manualLocation("intl-dnk", "Denmark", "DNK", "Copenhagen", 12.5683, 55.6761),
   nuuk: manualLocation("intl-grl", "Greenland", "GRL", "Nuuk", -51.7216, 64.1814),
   caracas: manualLocation("intl-ven", "Venezuela", "VEN", "Caracas", -66.9036, 10.4806),
-  grozny: manualLocation("intl-che", "Chechnya", "CHE", "Grozny", 45.6986, 43.3181)
+  grozny: manualLocation("intl-che", "Chechnya", "CHE", "Grozny", 45.6986, 43.3181),
+  abuja: manualLocation("intl-nga", "Nigeria", "NGA", "Abuja", 7.3986, 9.0765),
+  nairobi: manualLocation("intl-ken", "Kenya", "KEN", "Nairobi", 36.8219, -1.2921),
+  harare: manualLocation("intl-zwe", "Zimbabwe", "ZWE", "Harare", 31.0522, -17.8292),
+  kigali: manualLocation("intl-rwa", "Rwanda", "RWA", "Kigali", 30.0619, -1.9441),
+  addisAbaba: manualLocation("intl-eth", "Ethiopia", "ETH", "Addis Ababa", 38.7578, 8.9806),
+  accra: manualLocation("intl-gha", "Ghana", "GHA", "Accra", -0.1870, 5.6037),
+  algiers: manualLocation("intl-dza", "Algeria", "DZA", "Algiers", 3.0588, 36.7538),
+  cairo: manualLocation("intl-egy", "Egypt", "EGY", "Cairo", 31.2357, 30.0444)
 };
 
 const MANUAL_SERIES_LOCATIONS = {
@@ -191,6 +209,8 @@ const MANUAL_SERIES_LOCATIONS = {
   KXZELENSKYPUTIN: [MANUAL_LOCATIONS.moscow, MANUAL_LOCATIONS.kyiv],
   KXABRAHAMSA: [MANUAL_LOCATIONS.telAviv, MANUAL_LOCATIONS.riyadh],
   KXABRAHAMQ: [MANUAL_LOCATIONS.telAviv, MANUAL_LOCATIONS.doha],
+  KXTARIFFRATEINDIA: [MANUAL_LOCATIONS.newDelhi],
+  KXBLOCKITOUTSOURCING: [MANUAL_LOCATIONS.newDelhi],
   KXG7LEADEROUT: [
     MANUAL_LOCATIONS.ottawa, MANUAL_LOCATIONS.paris, MANUAL_LOCATIONS.berlin, MANUAL_LOCATIONS.rome,
     MANUAL_LOCATIONS.tokyo, MANUAL_LOCATIONS.london, MANUAL_LOCATIONS.washington
@@ -237,6 +257,18 @@ const LEADER_LOCATIONS = new Map(Object.entries({
   "sebastien lecornu": MANUAL_LOCATIONS.paris
 }).map(([name, location]) => [name, location]));
 
+for (const [name, location] of Object.entries({
+  "india": MANUAL_LOCATIONS.newDelhi,
+  "bola tinubu": MANUAL_LOCATIONS.abuja,
+  "emmerson mnangagwa": MANUAL_LOCATIONS.harare,
+  "william ruto": MANUAL_LOCATIONS.nairobi,
+  "paul kagame": MANUAL_LOCATIONS.kigali,
+  "taye atske selassie": MANUAL_LOCATIONS.addisAbaba,
+  "john mahama": MANUAL_LOCATIONS.accra,
+  "abdelmadjid tebboune": MANUAL_LOCATIONS.algiers,
+  "abdel fattah el sisi": MANUAL_LOCATIONS.cairo
+})) LEADER_LOCATIONS.set(name, location);
+
 function normalizedName(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -247,15 +279,52 @@ function marketProbability(market) {
   return Number(market?.yesAsk ?? market?.yesBid ?? -1);
 }
 
-function likelyLeaderLocations(snapshot) {
+const CLOSED_POLITICS_MARKET_STATUSES = new Set(["closed", "settled", "finalized", "determined", "resolved"]);
+
+function rankedLeaderLocations(snapshot, { limit = 5, includeNames = null } = {}) {
   const seen = new Set();
   return (snapshot?.markets || [])
-    .map(market => ({ location: LEADER_LOCATIONS.get(normalizedName(market.label || market.title)), probability: marketProbability(market) }))
+    .filter(market => !CLOSED_POLITICS_MARKET_STATUSES.has(String(market.status || "").toLowerCase()))
+    .map(market => {
+      const outcomeLabel = market.label || market.title || market.ticker;
+      const name = normalizedName(outcomeLabel);
+      return {
+        location: !includeNames || includeNames.has(name) ? LEADER_LOCATIONS.get(name) : null,
+        outcomeLabel,
+        outcomeTicker: market.ticker,
+        probability: marketProbability(market)
+      };
+    })
     .filter(candidate => candidate.location && Number.isFinite(candidate.probability))
     .sort((left, right) => right.probability - left.probability)
     .filter(candidate => !seen.has(candidate.location.id) && seen.add(candidate.location.id))
-    .slice(0, 5)
-    .map(candidate => candidate.location);
+    .slice(0, limit)
+    .map(candidate => ({
+      ...candidate.location,
+      outcomeLabel: candidate.outcomeLabel,
+      outcomeTicker: candidate.outcomeTicker
+    }));
+}
+
+const AFRICAN_LEADER_NAMES = new Set([
+  "taye atske selassie", "felix tshisekedi", "emmerson mnangagwa", "john mahama",
+  "abdelmadjid tebboune", "abdel fattah el sisi", "bola tinubu", "cyril ramaphosa",
+  "paul kagame", "william ruto"
+]);
+
+function likelyLeaderLocations(snapshot) {
+  const leaders = rankedLeaderLocations(snapshot);
+  const india = rankedLeaderLocations(snapshot, { limit: 1, includeNames: new Set(["narendra modi"]) })[0];
+  return india && !leaders.some(location => location.id === india.id) ? [...leaders, india] : leaders;
+}
+
+function likelyAfricanLeaderLocations(snapshot) {
+  return rankedLeaderLocations(snapshot, { limit: 10, includeNames: AFRICAN_LEADER_NAMES });
+}
+
+function indiaOutcomeLocations(snapshot) {
+  const indiaNames = new Set(["india", "narendra modi"]);
+  return rankedLeaderLocations(snapshot, { limit: 1, includeNames: indiaNames });
 }
 
 function manualPoliticsClassification(location) {
@@ -263,7 +332,9 @@ function manualPoliticsClassification(location) {
     jurisdictionId: location.id, geography: "Global", jurisdiction: location.jurisdiction, code: location.code,
     capital: location.capital, lon: location.lon, lat: location.lat, dateKey: "international",
     dateLabel: "Open international markets", confidence: "Manually located", scope: "Geopolitical",
-    office: "International", importance: 76
+    office: "International", importance: 76,
+    outcomeLabel: location.outcomeLabel,
+    outcomeTicker: location.outcomeTicker
   };
 }
 
@@ -304,32 +375,14 @@ export function politicsParty(label, ticker = "") {
   return "N";
 }
 
-export function politicsMarketUrl(eventTicker, seriesTicker = "") {
-  const ticker = String(eventTicker || "").trim().toUpperCase();
-  const series = String(seriesTicker || seriesFromEventTicker(ticker)).trim().toUpperCase();
-  if (series === "KXHOUSERACE" && /^KXHOUSERACE-[A-Z]{2}(?:\d{2}|AL)-\d{2}$/.test(ticker)) {
-    return `https://kalshi.com/markets/kxhouserace/house-race-winner/${ticker.toLowerCase()}`;
-  }
-  if (series === "KXCAELECTION" && /^KXCAELECTION-26\d{2}$/.test(ticker)) {
-    return `https://kalshi.com/markets/kxcaelection/california-general-elections-/${ticker.toLowerCase()}`;
-  }
-  if (series === "KXCA11PERSON" && ticker === "KXCA11PERSON-26") {
-    return `https://kalshi.com/markets/kxca11person/ca11-house-winner-person/${ticker.toLowerCase()}`;
-  }
-  if ((/^KXSENATE[A-Z]{2}[DR]$/.test(series) || series === "KXSCRSENS" || series === "KXAKSENADVANCE") && ticker.startsWith(`${series}-`)) {
-    return `https://kalshi.com/markets/${series.toLowerCase()}/${ticker.toLowerCase()}`;
-  }
-  const legacyHouse = series.match(/^HOUSE([A-Z]{2})(\d{1,2}|AL)$/);
-  if (legacyHouse && new RegExp(`^${series}-\\d{2}$`).test(ticker)) {
-    const slug = `house-${legacyHouse[1].toLowerCase()}${legacyHouse[2].toLowerCase()}`;
-    return `https://kalshi.com/markets/${series.toLowerCase()}/${slug}/${ticker.toLowerCase()}`;
-  }
-  const legacyKxHouse = series.match(/^KXHOUSE([A-Z]{2})(\d{1,2}|AL)$/);
-  if (legacyKxHouse && new RegExp(`^${series}-\\d{2}$`).test(ticker)) {
-    const slug = `house-${legacyKxHouse[1].toLowerCase()}${legacyKxHouse[2].toLowerCase()}`;
-    return `https://kalshi.com/markets/${series.toLowerCase()}/${slug}/${ticker.toLowerCase()}`;
-  }
-  return `https://kalshi.com/markets_by_ticker/${encodeURIComponent(ticker.toLowerCase())}`;
+export function politicsMarketUrl(eventTicker) {
+  const ticker = String(eventTicker || "").trim().toLowerCase();
+  // Event and series display slugs are not API identifiers and can change.
+  // Kalshi's ticker resolver is the canonical stable web route for the exact
+  // event identity that supplied the prices in the cached Politics payload.
+  return ticker
+    ? `https://kalshi.com/markets_by_ticker/${encodeURIComponent(ticker)}`
+    : "https://kalshi.com/markets";
 }
 
 function seriesFromEventTicker(eventTicker) {
@@ -471,9 +524,12 @@ function classifyStandardPoliticsEvent(snapshot) {
 
 export function classifyPoliticsLocations(snapshot) {
   const seriesTicker = String(snapshot?.seriesTicker || "").toUpperCase();
-  const manual = seriesTicker === "KXLEADERSOUT"
-    ? likelyLeaderLocations(snapshot)
-    : MANUAL_SERIES_LOCATIONS[seriesTicker];
+  let manual;
+  if (seriesTicker === "KXLEADERSOUT") manual = likelyLeaderLocations(snapshot);
+  else if (seriesTicker === "KXAFRICALEADEROUT") manual = likelyAfricanLeaderLocations(snapshot);
+  else if (["KXFTACOUNTRIES", "KXTRUMPCOUNTRIES", "KXTRUMPMEET"].includes(seriesTicker)) {
+    manual = indiaOutcomeLocations(snapshot);
+  } else manual = MANUAL_SERIES_LOCATIONS[seriesTicker];
   if (manual?.length) return manual.map(manualPoliticsClassification);
   const standard = classifyStandardPoliticsEvent(snapshot);
   return standard ? [standard] : [];

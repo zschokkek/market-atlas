@@ -27,7 +27,8 @@
     "deploy:production": "wrangler deploy --env production",
     "refresh:international-baseball": "node scripts/build-international-baseball-schedules.mjs",
     "refresh:mlb-futures": "node scripts/build-mlb-futures-cache.mjs",
-    "refresh:soccer-schedules": "node scripts/build-americas-soccer-schedules.mjs",
+    "refresh:soccer-schedules": "node scripts/build-americas-soccer-schedules.mjs && node scripts/merge-mls-schedule.mjs",
+    "refresh:mls-schedule": "node scripts/merge-mls-schedule.mjs",
     "test": "node --test test/*.test.js"
   },
   "devDependencies": {

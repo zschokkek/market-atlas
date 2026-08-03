@@ -11,6 +11,11 @@ const FUTURES_PIPELINE_STATE_KEY = "kalshi:team-futures:pipeline:v1";
 const TEAM_FUTURES_KEY_PREFIX = "kalshi:team-futures:v2";
 const POLITICS_STATE_KEY = "kalshi:politics:state:v1";
 const POLITICS_PUBLIC_KEY = "kalshi:politics:public:v1";
+const POLITICS_LINK_VERSION = 2;
+// Increment whenever politics geography rules change. KV survives deployments,
+// so this forces one fresh discovery instead of leaving newly mappable events
+// stranded in the prior deployment's `unmapped` list.
+const POLITICS_REGISTRY_VERSION = 3;
 const WEATHER_STATE_KEY = "kalshi:weather:state:v1";
 const WEATHER_PUBLIC_KEY = "kalshi:weather:public:v1";
 const GEOGRAPHIC_DISCOVERY_INTERVAL_MS = 60 * 60 * 1000;
@@ -20,7 +25,8 @@ export const SCHEDULED_REFRESH_STEPS = ["geographic", "sports", "futures"];
 export const DEFAULT_SERIES = [
   "KXMLBGAME", "KXMLBKS", "KXMLBHRR", "KXNFLGAME", "KXNCAAFGAME", "KXNBAGAME", "KXWNBAGAME", "KXNHLGAME", "KXAFLGAME",
   "KXEPLGAME", "KXUCLGAME", "KXLALIGAGAME", "KXBUNDESLIGAGAME", "KXSERIEAGAME", "KXLIGUE1GAME",
-  "KXBRASILEIROGAME", "KXLIGAMXGAME", "KXARGPREMDIVGAME",
+  "KXBRASILEIROGAME", "KXLIGAMXGAME", "KXARGPREMDIVGAME", "KXMLSGAME", "KXCOPADOBRASILGAME", "KXCOPADOBRASILADVANCE",
+  "KXAFCON",
   "KXCHNSLGAME", "KXKLEAGUEGAME", "KXALLSVENSKANGAME", "KXELITESERIENGAME",
   "KXLMBGAME", "KXKBOGAME", "KXNPBGAME",
   "KXIPLGAME", "KXHUNDREDMATCH", "KXWHUNDREDMATCH", "KXT20MATCH", "KXTESTMATCH",
@@ -278,14 +284,69 @@ function marketVolume(market) {
   return number(market.volume_fp ?? market.volume, 0);
 }
 
+const TICKER_MONTHS = new Map([
+  ["JAN", 0], ["FEB", 1], ["MAR", 2], ["APR", 3], ["MAY", 4], ["JUN", 5],
+  ["JUL", 6], ["AUG", 7], ["SEP", 8], ["OCT", 9], ["NOV", 10], ["DEC", 11]
+]);
+const EASTERN_OFFSET_FORMAT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  timeZoneName: "shortOffset"
+});
+
+function tickerStart(eventTicker) {
+  const match = String(eventTicker || "").toUpperCase()
+    .match(/-(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})(\d{2})(\d{2})/);
+  if (!match) return null;
+  const [, shortYear, monthCode, day, hour, minute] = match;
+  const year = 2000 + Number(shortYear);
+  const month = TICKER_MONTHS.get(monthCode);
+  const reference = new Date(Date.UTC(year, month, Number(day), 12));
+  const offsetName = EASTERN_OFFSET_FORMAT.formatToParts(reference)
+    .find(part => part.type === "timeZoneName")?.value || "GMT-5";
+  const offsetHours = Number(offsetName.match(/GMT([+-]\d+)/)?.[1] || -5);
+  const timestamp = Date.UTC(year, month, Number(day), Number(hour) - offsetHours, Number(minute));
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function effectiveEventStart(event) {
+  const supplied = new Date(event?.startsAt || 0).getTime();
+  const encoded = tickerStart(event?.eventTicker);
+  if (!Number.isFinite(encoded)) return supplied;
+  // Legacy snapshots can contain a settlement deadline in startsAt when Kalshi
+  // omits occurrence_datetime. Only repair a material discrepancy so a real
+  // occurrence timestamp remains authoritative.
+  if (!Number.isFinite(supplied) || supplied <= 0 || Math.abs(supplied - encoded) > 24 * 60 * 60 * 1000) return encoded;
+  return supplied;
+}
+
 function eventStart(event, markets) {
   const occurrenceCandidates = [event?.occurrence_datetime, ...markets.map(market => market.occurrence_datetime)]
     .filter(Boolean).map(value => new Date(value)).filter(value => Number.isFinite(value.getTime()));
+  const encodedStart = tickerStart(event?.event_ticker || event?.ticker || markets?.[0]?.event_ticker);
+  const expirationCandidates = [
+    event?.expected_expiration_time,
+    ...markets.map(market => market.expected_expiration_time)
+  ].filter(Boolean).map(value => new Date(value)).filter(value => Number.isFinite(value.getTime()));
   const fallbackCandidates = [
     event?.strike_date, event?.expected_expiration_time, event?.close_time,
     ...markets.flatMap(market => [market.expected_expiration_time, market.close_time, market.expiration_time])
   ].filter(Boolean).map(value => new Date(value)).filter(value => Number.isFinite(value.getTime()));
-  const candidates = occurrenceCandidates.length ? occurrenceCandidates : fallbackCandidates;
+  const occurrenceStart = occurrenceCandidates.length
+    ? Math.min(...occurrenceCandidates.map(value => value.getTime()))
+    : null;
+  // Some multi-day cricket contracts copy their expected settlement deadline
+  // into occurrence_datetime. When that conflicts materially with the full
+  // YYMONDDHHMM schedule encoded in the event ticker, use the ticker instead.
+  const occurrenceIsSettlement = Number.isFinite(occurrenceStart)
+    && expirationCandidates.some(value => Math.abs(value.getTime() - occurrenceStart) < 60 * 1000);
+  const encodedCorrectsSettlement = Number.isFinite(encodedStart)
+    && occurrenceIsSettlement
+    && Math.abs(occurrenceStart - encodedStart) > 24 * 60 * 60 * 1000;
+  const candidates = encodedCorrectsSettlement
+    ? [new Date(encodedStart)]
+    : occurrenceCandidates.length
+      ? occurrenceCandidates
+      : Number.isFinite(encodedStart) ? [new Date(encodedStart)] : fallbackCandidates;
   return candidates.length ? new Date(Math.min(...candidates.map(value => value.getTime()))).toISOString() : null;
 }
 
@@ -339,7 +400,7 @@ export function normalizeEvent(event, markets, now = Date.now()) {
 }
 
 export function pollInterval(snapshot, now = Date.now()) {
-  const start = new Date(snapshot.startsAt || 0).getTime();
+  const start = effectiveEventStart(snapshot);
   const suppliedEnd = new Date(snapshot.endsAt || 0).getTime();
   const liveEnd = Number.isFinite(suppliedEnd) && suppliedEnd > start
     ? Math.min(suppliedEnd, start + 14 * 24 * 60 * 60 * 1000)
@@ -353,7 +414,7 @@ export function pollInterval(snapshot, now = Date.now()) {
 }
 
 function shouldRetain(snapshot, now) {
-  const start = new Date(snapshot.startsAt || 0).getTime();
+  const start = effectiveEventStart(snapshot);
   return !Number.isFinite(start) || start <= 0 || now - start < RETAIN_AFTER_START_MS;
 }
 
@@ -725,7 +786,12 @@ function politicsPollInterval(snapshot, now = Date.now()) {
 const POLITICS_COMPLETED_STATUSES = new Set(["closed", "settled", "finalized", "determined", "resolved"]);
 
 function politicsMarket(snapshot) {
-  const outcomes = (snapshot.markets || []).filter(market => !POLITICS_COMPLETED_STATUSES.has(String(market.status || "").toLowerCase())).map(market => ({
+  const scopedMarkets = snapshot.politics.outcomeTicker
+    ? (snapshot.markets || []).filter(market => market.ticker === snapshot.politics.outcomeTicker)
+    : snapshot.politics.outcomeLabel
+      ? (snapshot.markets || []).filter(market => (market.label || market.title || market.ticker) === snapshot.politics.outcomeLabel)
+      : (snapshot.markets || []);
+  const outcomes = scopedMarkets.filter(market => !POLITICS_COMPLETED_STATUSES.has(String(market.status || "").toLowerCase())).map(market => ({
     name: market.label || market.title || market.ticker,
     ticker: market.ticker,
     price: politicsPrice(market),
@@ -846,6 +912,15 @@ export function applyHouseRaceRevealScales(bundles = []) {
   return bundles;
 }
 
+export function applyCanonicalPoliticsUrls(bundles = []) {
+  for (const bundle of bundles) {
+    for (const market of bundle.markets || []) {
+      market.url = politicsMarketUrl(market.eventTicker);
+    }
+  }
+  return bundles;
+}
+
 function weatherUnmappedEvents(events) {
   return Object.values(events).filter(snapshot => !resolveWeatherLocations(
     `${snapshot.seriesTitle || ""} ${snapshot.title || ""} ${snapshot.subtitle || ""} ${(snapshot.markets || []).map(market => `${market.label || ""} ${market.title || ""}`).join(" ")}`
@@ -882,6 +957,7 @@ export async function runGeographicPoll(env, now = Date.now(), options = {}) {
   politicsPrior.events ||= {};
   weatherPrior.events ||= {};
   const discoveryDue = Boolean(options.forceDiscovery)
+    || politicsPrior.registryVersion !== POLITICS_REGISTRY_VERSION
     || now - number(politicsPrior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
     || now - number(weatherPrior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
     || !Object.keys(politicsPrior.events).length
@@ -898,6 +974,7 @@ export async function runGeographicPoll(env, now = Date.now(), options = {}) {
     const discovery = await discoverGeographicEvents(env, gate, now);
     const politicsState = {
       ...politicsPrior,
+      registryVersion: POLITICS_REGISTRY_VERSION,
       events: discovery.politicsEvents,
       unmapped: discovery.politicsUnmapped,
       lastDiscoveryAt: now,
@@ -964,7 +1041,8 @@ export async function runGeographicPoll(env, now = Date.now(), options = {}) {
 export async function runPoliticsPoll(env, now = Date.now(), options = {}) {
   const prior = await env.MARKET_ATLAS_CACHE.get(POLITICS_STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
   prior.events ||= {};
-  const discoveryDue = now - number(prior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
+  const discoveryDue = prior.registryVersion !== POLITICS_REGISTRY_VERSION
+    || now - number(prior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
     || !Object.keys(prior.events).length;
   const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
   const tokenBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
@@ -980,6 +1058,7 @@ export async function runPoliticsPoll(env, now = Date.now(), options = {}) {
       const discovery = await discoverPoliticsEvents(env, gate, now);
       prior.events = discovery.events;
       prior.unmapped = discovery.unmapped;
+      prior.registryVersion = POLITICS_REGISTRY_VERSION;
       prior.lastDiscoveryAt = now;
       requestCount = discovery.requestCount;
       successCount = discovery.requestCount;
@@ -1816,7 +1895,7 @@ export function filterForDate(payload, date) {
     // Keep every open ATP/WTA outright in the compact response so a market whose
     // Kalshi occurrence time is the final does not disappear earlier in the week.
     if (ALWAYS_INCLUDE_FOR_SCHEDULE_JOIN.has(event.seriesTicker)) return true;
-    const start = new Date(event.startsAt || 0).getTime();
+    const start = effectiveEventStart(event);
     const end = new Date(event.endsAt || event.startsAt || 0).getTime();
     // The browser validates both today and tomorrow across global time zones.
     // Interval overlap also retains an ongoing multi-day golf, F1, or cricket event.
@@ -1958,7 +2037,8 @@ async function handleRequest(request, env, ctx) {
       });
     }
     applyHouseRaceRevealScales(payload.bundles || []);
-    const etag = `W/\"politics-${Date.parse(payload.generatedAt).toString(36)}-${payload.marketCount}\"`;
+    applyCanonicalPoliticsUrls(payload.bundles || []);
+    const etag = `W/\"politics-links-v${POLITICS_LINK_VERSION}-${Date.parse(payload.generatedAt).toString(36)}-${payload.marketCount}\"`;
     if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
     return json(payload, {
       headers: {

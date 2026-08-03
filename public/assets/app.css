@@ -924,11 +924,158 @@ body.integration-body {
   fill: var(--shared-globe-foreground);
 }
 
+@media (min-width: 701px) {
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser[hidden],
+  [data-category-view="sports"] #market-atlas-sports .game-detail-view[hidden] {
+    display: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading {
+    position: sticky;
+    z-index: 2;
+    top: -14px;
+    display: flex;
+    min-height: 42px;
+    margin: -14px -14px 0;
+    padding: 14px 14px 8px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--integration-border);
+    background: color-mix(in srgb, var(--card) 96%, var(--integration-green) 4%);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading strong {
+    font-size: 17px;
+    font-weight: 650;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-count {
+    color: var(--integration-muted);
+    font-size: 11px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-detail-market-list {
+    display: grid;
+    min-height: 0;
+    gap: 10px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 22%, var(--integration-border));
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--integration-surface) 94%, transparent);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-heading {
+    display: flex;
+    min-height: 42px;
+    padding: 9px 10px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--integration-border);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-title {
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    color: var(--integration-foreground);
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.25;
+    text-align: left;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card button.market-card-title {
+    cursor: pointer;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card button.market-card-title:hover {
+    color: color-mix(in srgb, var(--integration-green) 76%, white);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-volume {
+    flex: none;
+    color: var(--integration-muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcomes {
+    display: grid;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcome {
+    position: relative;
+    display: flex;
+    min-height: 34px;
+    padding: 7px 10px;
+    overflow: hidden;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    font-size: 12px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-fill {
+    position: absolute;
+    z-index: 0;
+    inset: 0 auto 0 0;
+    background: color-mix(in srgb, var(--integration-green) 13%, transparent);
+    pointer-events: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card :is(.outcome-name, .outcome-price) {
+    position: relative;
+    z-index: 1;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-price {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-footer {
+    display: flex;
+    padding: 7px 10px;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--integration-muted);
+    font-size: 10px;
+  }
+}
+
 .mobile-calendar-picker {
   display: none;
 }
 
 .mobile-market-sheet-close {
+  display: none;
+}
+
+.mobile-market-carousel-nav {
   display: none;
 }
 

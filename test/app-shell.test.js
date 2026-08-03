@@ -37,6 +37,17 @@ test("Market Atlas app exposes one functional cross-category market search", asy
   assert.match(client, /metaKey \|\| event\.ctrlKey/);
 });
 
+test("geographic search jumps instantly and selects the destination detail market", async () => {
+  const shell = await read("public/assets/app.js");
+  const sports = await read("public/categories/sports/index.html");
+  const weather = await read("public/categories/weather/app.js");
+  assert.match(shell, /const candidates = activeBundles\.length \? activeBundles : electionBundles;[\s\S]*selectedBundleId = match\.id;[\s\S]*renderDetail\(match\);[\s\S]*projection\.rotate\(\[-\(match\?\.lon \?\? lon\)/);
+  assert.match(shell, /pending\.type === "location"[\s\S]*revealLocation\?\.\(pending\)/);
+  assert.match(weather, /revealLocation\(result\) \{[\s\S]*selectedId = bundle\.id;[\s\S]*renderDetail\(bundle\);[\s\S]*projection\.rotate\(\[-\(bundle\?\.lon \?\? lon\)/);
+  assert.match(sports, /revealLocation\(result\) \{[\s\S]*showClusterDetail\(localEvents\)[\s\S]*selectEvent\(nearest\.event\.id, false\)[\s\S]*projection\.rotate\(\[-\(target\?\.lon \?\? lon\)/);
+  assert.match(sports, /revealMarket\(result\) \{[\s\S]*selectEvent\(event\.id, false\);[\s\S]*projection\.rotate\(\[-event\.lon/);
+});
+
 test("Market Atlas search remains viewport-safe on small phones", async () => {
   const shellCss = await read("public/assets/app.css");
   const searchCss = await read("public/assets/search.css");
@@ -99,10 +110,12 @@ test("mobile markets use click-only compact bottom sheets without page scrolling
   assert.match(css, /\.market-card\[data-outcome-count="2"\] \.market-outcomes,[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /\.election-detail \{[\s\S]*grid-template-rows: auto auto auto;[\s\S]*height: auto/);
   assert.match(css, /\.mobile-market-carousel-nav[\s\S]*grid-template-columns: 30px minmax\(0, 1fr\) 30px/);
+  assert.match(css, /\.mobile-market-carousel-nav \{\s*display: none;\s*\}[\s\S]*@media \(max-width: 900px\)[\s\S]*@media \(max-width: 700px\)[\s\S]*\.mobile-market-carousel-nav \{\s*display: grid;/);
   assert.match(sports, /list\.dataset\.outcomeCount = String\(displayedPrices\.length\)/);
   assert.match(sports, /class="sports-mobile-market-browser"/);
   assert.match(sports, /function showMobileMarketBrowser\(events\)/);
   assert.match(sports, /mobileMarketList\.innerHTML = ranked\.map\(sportsMobileMarketCard\)\.join\(""\)/);
+  assert.match(sports, /const ticker = prices\[0\]\?\.\[4\] \|\| specificEventTicker\(event\)/);
   assert.match(sports, /showMobileMarketBrowser\(events\)/);
   assert.match(css, /\.sports-detail-market-list \{[\s\S]*grid-auto-columns: 100%;[\s\S]*grid-auto-flow: column;[\s\S]*scroll-snap-type: x mandatory/);
   assert.match(css, /\.sports-market-card\[data-outcome-count="2"\] \.market-outcomes \{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
@@ -222,6 +235,12 @@ test("Sports, Politics, and Weather are composed on one shared globe shell", asy
   assert.match(shell, /\.market-timeline-dock[\s\S]*grid-area: timeline/);
 });
 
+test("all desktop map detail panels scroll within the shared shell", async () => {
+  const shell = await read("public/assets/globe-shell.css");
+  assert.match(shell, /:is\(#market-atlas-sports, \.politics-app, \.weather-app\)\.market-globe-shell \.market-detail-panel \{[\s\S]*max-height: min\(570px, calc\(100dvh - 220px\)\);[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
+  assert.doesNotMatch(shell, /#market-atlas-sports\.market-globe-shell \.market-detail-panel \{[\s\S]*overflow: visible;/);
+});
+
 test("Market Atlas app gives hidden views lifecycle-controlled polling", async () => {
   const source = await read("public/assets/app.js");
   assert.match(source, /sportsClient\.deactivate\(\)/);
@@ -334,6 +353,49 @@ test("Sports uses the shared restrained marker scale without automatic matchup p
   assert.match(sports, /const radius = volumeRadius\(largestMarketVolume\);/);
   assert.doesNotMatch(sports, /Bubble size = volume/);
   assert.match(shell, /#market-atlas-sports\.market-globe-shell \.event-marker > text[\s\S]*font-size: 7\.25px/);
+});
+
+test("desktop Sports clusters load every underlying market into the scrollable detail panel", async () => {
+  const sports = await read("public/categories/sports/index.html");
+  const css = await read("public/assets/app.css");
+  assert.match(sports, /if \(!mobileMarketViewport\(\)\) \{[\s\S]*showClusterDetail\(events\);[\s\S]*group\.classList\.add\("is-selected"\);[\s\S]*hideTooltip\(true\);/);
+  assert.match(sports, /function showClusterDetail\(events\) \{[\s\S]*sportsMobileMarketCard\(event, true\)[\s\S]*detail\.classList\.add\("is-cluster-detail"\);[\s\S]*wireSportsMarketCards\(\);/);
+  assert.match(sports, /event-cluster\.is-selected \.marker-halo/);
+  assert.match(css, /@media \(min-width: 701px\) \{[\s\S]*\.sports-detail-market-list \{[\s\S]*display: grid;[\s\S]*gap: 10px/);
+});
+
+test("desktop team futures and player props escape the scrollable detail card as full overlays", async () => {
+  const sports = await read("public/categories/sports/index.html");
+  assert.match(sports, /root\.append\(teamMarketWindow, tennisMarketWindow\);/);
+  assert.match(sports, /function positionFloatingMarketWindow\(panel\) \{[\s\S]*panel\.style\.position = "fixed";[\s\S]*panel\.style\.overflowY = "auto";[\s\S]*panel\.style\.zIndex = "120";/);
+  assert.match(sports, /teamMarketWindow\.hidden = false;\s*positionFloatingMarketWindow\(teamMarketWindow\);/);
+  assert.match(sports, /tennisMarketWindow\.hidden = false;\s*positionFloatingMarketWindow\(tennisMarketWindow\);/);
+  assert.match(sports, /const detailTop = detailRect\.top - rootRect\.top/);
+});
+
+test("Sports maps exact Copa do Brasil markets and the AFCON future across all host countries", async () => {
+  const sports = await read("public/categories/sports/index.html");
+  assert.equal((sports.match(/id: "copa-do-brasil-\d+"/g) || []).length, 9, "all currently posted Copa do Brasil events are mapped");
+  assert.match(sports, /KXCOPADOBRASILGAME-26AUG03CAPVIT/);
+  assert.equal((sports.match(/KXCOPADOBRASILADVANCE-26AUG0[456][A-Z]+/g) || []).length, 16, "eight exact advance tickers are retained on both event fields");
+  assert.match(sports, /event\.marketKind === "advance"[\s\S]*Kalshi to advance · last trade/);
+  assert.match(sports, /eventTicker: "KXAFCON-27", seriesTicker: "KXAFCON", expectedEventTicker: "KXAFCON-27"/);
+  assert.match(sports, /\["nairobi", "Nairobi, Kenya", -1\.286389, 36\.817223\]/);
+  assert.match(sports, /\["kampala", "Kampala, Uganda", 0\.347596, 32\.58252\]/);
+  assert.match(sports, /\["dar-es-salaam", "Dar es Salaam, Tanzania", -6\.792354, 39\.208328\]/);
+  assert.match(sports, /"SOCCER-GROUP": \[[^\]]*"COPADOBRASIL", "AFCON"\]/);
+});
+
+test("Sports embeds the complete MLS calendar and resolves its cached Kalshi game series", async () => {
+  const sports = await read("public/categories/sports/index.html");
+  const scheduleMatch = sports.match(/<script id="market-atlas-americas-soccer-schedule-data" type="application\/json">([\s\S]*?)<\/script>/);
+  assert.ok(scheduleMatch, "Americas soccer schedule data should be embedded");
+  const schedules = JSON.parse(scheduleMatch[1]);
+  assert.equal(schedules.MLS.series, "KXMLSGAME");
+  assert.equal(schedules.MLS.events.length, 510);
+  assert.ok(schedules.MLS.events.every(event => Number.isFinite(event.lat) && Number.isFinite(event.lon)));
+  assert.match(sports, /"SOCCER-GROUP": \[[^\]]*"MLS", "COPADOBRASIL"/);
+  assert.match(sports, /MLS: "MLS"/);
 });
 
 test("Politics markers match the Sports dark-core construction and retain count badges", async () => {
