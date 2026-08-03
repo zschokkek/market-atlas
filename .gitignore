@@ -8,5 +8,13 @@ dist/
 .env.*
 !.env.example
 *.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.private-key
+api[0-9]*.txt
+kalshi-credentials.*
+kalshi-private-key.*
 secrets.json
 .local-cache/

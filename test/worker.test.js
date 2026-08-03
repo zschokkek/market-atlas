@@ -59,9 +59,45 @@ test("paces hosted refreshes as a durable three-step rotation", async () => {
   };
   const result = await runScheduledRefresh(env, now, { step: "futures" });
   assert.equal(result.step, "futures");
+  assert.deepEqual(result.steps, ["futures"]);
   assert.equal(result.nextStep, "geographic");
   assert.deepEqual(Object.keys(result.results), ["futures"]);
   assert.equal(result.ok, true);
+});
+
+test("runs a complete authenticated maintenance cycle through one shared gate", async () => {
+  const now = Date.parse("2026-08-02T12:00:00Z");
+  const cache = new Map([
+    ["kalshi:team-futures:manifest:v3", JSON.stringify({ lastRunAt: now })],
+    ["kalshi:team-futures:manifest:v2:MLB", JSON.stringify({ lastRunAt: now })]
+  ]);
+  const env = {
+    ENVIRONMENT: "test",
+    MARKET_ATLAS_CACHE: {
+      async get(key, type) { const value = cache.get(key); return type === "json" && value ? JSON.parse(value) : value || null; },
+      async put(key, value) { cache.set(key, value); }
+    },
+    KALSHI_SCHEDULED_READ_REQUESTS_PER_SECOND: "1000000",
+    KALSHI_SCHEDULED_STEPS_PER_RUN: "3",
+    KALSHI_MAX_READ_REQUESTS_PER_SECOND: "1000000",
+    KALSHI_POLL_CONCURRENCY: "4"
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    return Response.json(url.pathname.endsWith("/series")
+      ? { series: [], cursor: "" }
+      : { events: [], cursor: "" });
+  };
+  try {
+    const result = await runScheduledRefresh(env, now, { step: "geographic" });
+    assert.deepEqual(result.steps, ["geographic", "sports", "futures"]);
+    assert.equal(result.nextStep, "geographic");
+    assert.deepEqual(Object.keys(result.results), ["geographic", "sports", "futures"]);
+    assert.equal(result.ok, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("redirects legacy preview URLs to the canonical Market Atlas routes", async () => {

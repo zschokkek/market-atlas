@@ -15,10 +15,12 @@ test("Wrangler isolates staging and production resources and polling budgets", a
   assert.equal(new Set(hostedKvIds).size, 4);
   assert.match(config, /\[env\.staging\.triggers\][\s\S]*"\*\/5 \* \* \* \*"/);
   assert.match(config, /\[env\.production\.triggers\][\s\S]*"\* \* \* \* \*"/);
-  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_SCHEDULED_READ_REQUESTS_PER_SECOND = "0\.25"/);
-  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_POLL_CONCURRENCY = "1"/);
-  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_MAX_EVENT_REFRESHES_PER_RUN = "15"/);
-  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_MAX_RETRY_ATTEMPTS = "1"/);
+  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_RATE_BUDGET_FRACTION = "0\.20"/);
+  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_SCHEDULED_READ_REQUESTS_PER_SECOND = "4"/);
+  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_SCHEDULED_STEPS_PER_RUN = "3"/);
+  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_POLL_CONCURRENCY = "4"/);
+  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_MAX_EVENT_REFRESHES_PER_RUN = "60"/);
+  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_MAX_RETRY_ATTEMPTS = "2"/);
   assert.match(config, /compatibility_date = "2026-08-02"/);
   assert.match(config, /compatibility_flags = \["nodejs_compat"\]/);
   assert.match(config, /\[exports\.RefreshCoordinator\][\s\S]*type = "durable-object"[\s\S]*storage = "sqlite"/);

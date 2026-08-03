@@ -1631,6 +1631,16 @@ export async function runPoll(env, now = Date.now(), options = {}) {
 export async function runScheduledRefresh(env, now = Date.now(), options = {}) {
   const requestedStep = String(options.step || "geographic").toLowerCase();
   const step = SCHEDULED_REFRESH_STEPS.includes(requestedStep) ? requestedStep : "geographic";
+  const stepCount = Math.max(1, Math.min(
+    SCHEDULED_REFRESH_STEPS.length,
+    Math.floor(number(env.KALSHI_SCHEDULED_STEPS_PER_RUN, 1))
+  ));
+  const steps = [];
+  let nextStep = step;
+  for (let index = 0; index < stepCount; index += 1) {
+    steps.push(nextStep);
+    nextStep = nextScheduledRefreshStep(nextStep);
+  }
   const gate = options.gate || createRateGate(geographicRequestsPerSecond(env));
   const results = {};
   const errors = {};
@@ -1656,12 +1666,13 @@ export async function runScheduledRefresh(env, now = Date.now(), options = {}) {
     sports: () => runPoll(env, now, { gate }),
     futures: () => runFuturesMaintenance(env, now, { gate })
   };
-  await runStep(step, operations[step]);
+  for (const name of steps) await runStep(name, operations[name]);
 
   const summary = {
     environment: env.ENVIRONMENT || "unknown",
     step,
-    nextStep: nextScheduledRefreshStep(step),
+    steps,
+    nextStep,
     scheduledAt: new Date(now).toISOString(),
     completedAt: new Date().toISOString(),
     ok: Object.keys(errors).length === 0,
@@ -1704,11 +1715,12 @@ export class RefreshCoordinator {
     }
     const storedStep = await this.ctx.storage.get("next-step");
     const step = SCHEDULED_REFRESH_STEPS.includes(storedStep) ? storedStep : "geographic";
-    const nextStep = nextScheduledRefreshStep(step);
+    const fallbackNextStep = nextScheduledRefreshStep(step);
     const runId = crypto.randomUUID();
     await this.ctx.storage.put("last-run", { runId, step, startedAt: now, completedAt: null, ok: null });
     try {
       const result = await runScheduledRefresh(this.env, scheduledTime, { step });
+      const nextStep = SCHEDULED_REFRESH_STEPS.includes(result.nextStep) ? result.nextStep : fallbackNextStep;
       await Promise.all([
         this.ctx.storage.put("next-step", nextStep),
         this.ctx.storage.put("last-run", {
@@ -1724,11 +1736,11 @@ export class RefreshCoordinator {
       return result;
     } catch (error) {
       await Promise.all([
-        this.ctx.storage.put("next-step", nextStep),
+        this.ctx.storage.put("next-step", fallbackNextStep),
         this.ctx.storage.put("last-run", {
           runId,
           step,
-          nextStep,
+          nextStep: fallbackNextStep,
           startedAt: now,
           completedAt: Date.now(),
           ok: false,

@@ -5,13 +5,14 @@ uses a five-minute cron and reduced Kalshi read budget. Production uses the
 one-minute live-event scheduler. Each environment must have its own KV
 namespace and Worker secrets.
 
-The production cron is intentionally a paced three-stage rotation rather than
-one burst: Geography (Politics and Weather), Sports, then Futures. The Durable
-Object persists the next stage, permits only one refresh at a time, and advances
-even after a failed stage so a single `429` cannot restart the entire cold
-discovery sweep every minute. Production schedules at most one Kalshi request
-every four seconds with one poller; expect a cold cache to become progressively
-useful and finish warming in roughly three to five minutes.
+The production cron runs Geography (Politics and Weather), Sports, and Futures
+as one authenticated maintenance cycle every minute. All three stages share one
+four-request-per-second gate, four fetch workers, and a Durable Object that
+permits only one cycle at a time. The gate consumes at most 40 of the account's
+200 read tokens per second, leaving 80% headroom for retries and other clients.
+If a cycle exceeds one minute, the next cron invocation is skipped rather than
+overlapped. A cold cache should become useful within seconds and normally finish
+warming in under two minutes.
 
 ## Release flow
 
@@ -59,9 +60,18 @@ npx wrangler secret put KALSHI_PRIVATE_KEY --env production
 ```
 
 The Kalshi private key must retain its complete PEM header, footer, and line
-breaks. Authentication is optional for public market reads, but production
-should use it so the scheduler can inspect its assigned read tier and preserve
-rate-limit headroom.
+breaks. Cloudflare WebCrypto expects PKCS#8 (`BEGIN PRIVATE KEY`). If Kalshi
+downloads a PKCS#1 key (`BEGIN RSA PRIVATE KEY`), convert it without writing the
+converted value into the repository:
+
+```bash
+openssl pkcs8 -topk8 -nocrypt -in kalshi-private-key.pem | \
+  npx wrangler secret put KALSHI_PRIVATE_KEY --env production
+```
+
+Authentication is optional for public market reads, but production should use
+it so the scheduler can inspect its assigned read tier and preserve rate-limit
+headroom.
 
 ## One-time GitHub setup
 

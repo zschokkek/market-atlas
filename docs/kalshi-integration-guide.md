@@ -187,11 +187,11 @@ Important behavior:
 - `429` currently does not include `Retry-After` or `X-RateLimit-*` headers.
 - Batch requests do not necessarily save tokens because each item can still be billed.
 
-The current sports poller uses 25% of an authenticated read refill rate by default, caps itself at 10 requests per second, and uses a conservative unauthenticated rate otherwise. Requests are evenly spaced. `429` and `5xx` responses retry up to four times with jittered exponential backoff.
+Authenticated production uses 20% of the account's read refill rate, capped at four requests per second, and uses a conservative unauthenticated rate otherwise. Geography, Sports, and Futures share the same evenly spaced gate, so the cap applies to the complete minute cycle rather than independently to each pipeline. `429` and `5xx` responses retry twice with jittered exponential backoff.
 
-### Current rate-limit weakness
+### Scheduler priority
 
-Each pipeline creates its own rate gate. Production cron runs sports, politics, weather, and futures sequentially, which prevents literal concurrency, but a fresh gate begins with no memory of tokens consumed by the prior pipeline. Local endpoints can also start separate background polls. A production-grade version should use one process-wide or durable token coordinator across all Kalshi work, with reserved priority lanes:
+The production cron now creates one shared rate gate for its complete maintenance cycle. The Durable Object prevents overlapping cycles, and the pipelines run in this priority order:
 
 1. Live games.
 2. Pregame games.
@@ -199,7 +199,7 @@ Each pipeline creates its own rate gate. Production cron runs sports, politics, 
 4. Baseline discovery.
 5. Daily futures maintenance.
 
-That would make the configured budget fraction an aggregate guarantee rather than a per-pipeline aspiration.
+This makes the configured production budget an aggregate cycle limit rather than a per-pipeline aspiration. Local development can still use independent gates because it does not share production credentials or production KV.
 
 ## Numeric fields: fixed point is now the real format
 

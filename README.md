@@ -17,11 +17,11 @@ Every hour the worker pages through `GET /events` for each sports series with `s
 
 The live window uses Kalshi's `occurrence_datetime` and expiration fields, which keeps multi-day golf, tennis, and cricket events fresh. A five-hour window is used only when Kalshi has not supplied an end timestamp.
 
-Without credentials, the upstream gate is two requests per second: a conservative 20-token allowance divided by Kalshi's common 10-token request cost. With credentials, the worker reads `/account/limits` hourly, uses 25% of the account's current read refill rate, and caps itself at 10 requests per second. That leaves headroom for other Kalshi clients using the same account. `429` and `5xx` responses use jittered exponential backoff. Kalshi currently does not send `Retry-After` or rate-limit headers, so the worker does not depend on them.
+Without credentials, the upstream gate uses a deliberately conservative anonymous allowance. Authenticated production reads `/account/limits`, then runs all three maintenance stages through one shared four-request-per-second gate. At the current 10-token request cost and 200-token-per-second account refill, that reserves 80% of the read allowance for retries and other clients. `429` and `5xx` responses use jittered exponential backoff. Kalshi currently does not send `Retry-After` or rate-limit headers, so the worker does not depend on them.
 
 ## Cache path
 
-1. The minute cron runs the scheduler.
+1. The minute cron runs one coordinated Geography, Sports, and Futures cycle. A Durable Object skips overlapping invocations.
 2. The worker writes one internal state document and one sanitized public snapshot to KV. The local server mirrors the same KV records to `.local-cache/kalshi-kv.json`, so restarting localhost does not trigger an empty cold cache.
 3. `/api/odds?date=YYYY-MM-DD` returns only the nearby events needed by the globe.
 4. Cloudflare's edge cache holds that response for 30 seconds and may serve stale data for two minutes during an upstream problem.
