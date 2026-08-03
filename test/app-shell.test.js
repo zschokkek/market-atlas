@@ -46,6 +46,10 @@ test("geographic search jumps instantly and selects the destination detail marke
   assert.match(weather, /revealLocation\(result\) \{[\s\S]*selectedId = bundle\.id;[\s\S]*renderDetail\(bundle\);[\s\S]*projection\.rotate\(\[-\(bundle\?\.lon \?\? lon\)/);
   assert.match(sports, /revealLocation\(result\) \{[\s\S]*showClusterDetail\(localEvents\)[\s\S]*selectEvent\(nearest\.event\.id, false\)[\s\S]*projection\.rotate\(\[-\(target\?\.lon \?\? lon\)/);
   assert.match(sports, /revealMarket\(result\) \{[\s\S]*selectEvent\(event\.id, false\);[\s\S]*projection\.rotate\(\[-event\.lon/);
+  assert.match(sports, /SPORTS_SEARCH_LOCATION_SCALE = 1400/);
+  assert.match(sports, /SPORTS_SEARCH_MARKET_SCALE = 1500/);
+  assert.match(sports, /revealLocation\(result\) \{[\s\S]*Math\.max\(SPORTS_SEARCH_LOCATION_SCALE/);
+  assert.match(sports, /revealMarket\(result\) \{[\s\S]*Math\.max\(SPORTS_SEARCH_MARKET_SCALE/);
 });
 
 test("Market Atlas search remains viewport-safe on small phones", async () => {

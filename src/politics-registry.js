@@ -375,14 +375,120 @@ export function politicsParty(label, ticker = "") {
   return "N";
 }
 
-export function politicsMarketUrl(eventTicker) {
-  const ticker = String(eventTicker || "").trim().toLowerCase();
-  // Event and series display slugs are not API identifiers and can change.
-  // Kalshi's ticker resolver is the canonical stable web route for the exact
-  // event identity that supplied the prices in the cached Politics payload.
-  return ticker
-    ? `https://kalshi.com/markets_by_ticker/${encodeURIComponent(ticker)}`
-    : "https://kalshi.com/markets";
+// Kalshi's public API identifies series and events by ticker, while its web
+// URLs also contain a series display slug. Most slugs are the normalized API
+// series title. Keep the exceptions here so a cache refresh never has to guess
+// and every client receives the same canonical link.
+export const VERIFIED_POLITICS_SERIES_SLUGS = Object.freeze({
+  KXAFRICALEADEROUT: "next-african-leader-out",
+  KXCA11PERSON: "ca11-house-winner-person",
+  KXCAELECTION: "california-general-elections-",
+  KXHOUSERACE: "house-race-winner",
+  KXPOPEVISIT: "what-countries-will-pope-leo-visit-before-2027",
+  KXPRESPERSON: "pres-person"
+});
+
+export function kalshiSeriesSlug(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function legacyHouseSlug(seriesTicker) {
+  const match = String(seriesTicker || "").toUpperCase().match(/^(?:KX)?HOUSE([A-Z]{2})(\d{1,2}|AL)$/);
+  return match ? `house-${match[1].toLowerCase()}${match[2].toLowerCase()}` : "";
+}
+
+function storedSeriesSlug(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/^-+/, "");
+}
+
+export function politicsSeriesSlug(snapshot = {}) {
+  const eventTicker = String(snapshot.eventTicker || "").trim().toUpperCase();
+  const seriesTicker = String(snapshot.seriesTicker || seriesFromEventTicker(eventTicker)).trim().toUpperCase();
+  return storedSeriesSlug(snapshot.seriesSlug)
+    || VERIFIED_POLITICS_SERIES_SLUGS[seriesTicker]
+    || legacyHouseSlug(seriesTicker)
+    || kalshiSeriesSlug(snapshot.seriesTitle);
+}
+
+export function politicsMarketUrl(snapshotOrEventTicker, suppliedSeriesTicker = "") {
+  const snapshot = snapshotOrEventTicker && typeof snapshotOrEventTicker === "object"
+    ? snapshotOrEventTicker
+    : { eventTicker: snapshotOrEventTicker, seriesTicker: suppliedSeriesTicker };
+  const eventTicker = String(snapshot.eventTicker || "").trim().toUpperCase();
+  const seriesTicker = String(snapshot.seriesTicker || seriesFromEventTicker(eventTicker)).trim().toUpperCase();
+  if (!seriesTicker) return "https://kalshi.com/markets";
+
+  const seriesSlug = politicsSeriesSlug(snapshot);
+  const seriesPath = encodeURIComponent(seriesTicker.toLowerCase());
+  if (!eventTicker || !seriesSlug) return `https://kalshi.com/markets/${seriesPath}`;
+  return `https://kalshi.com/markets/${seriesPath}/${seriesSlug}/${encodeURIComponent(eventTicker.toLowerCase())}`;
+}
+
+export function kalshiSeriesSlugFromUrl(value, expectedSeriesTicker = "") {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.hostname !== "kalshi.com") return "";
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts.length < 4 || parts[0] !== "markets") return "";
+    const actualSeries = decodeURIComponent(parts[1]).toUpperCase();
+    const expectedSeries = String(expectedSeriesTicker || "").trim().toUpperCase();
+    if (expectedSeries && actualSeries !== expectedSeries) return "";
+    return storedSeriesSlug(decodeURIComponent(parts[2]));
+  } catch {
+    return "";
+  }
+}
+
+async function responseHead(response, limit = 96 * 1024) {
+  if (!response?.body?.getReader) return String(await response?.text?.() || "").slice(0, limit);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (size < limit) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value.slice(0, limit - size);
+      chunks.push(chunk);
+      size += chunk.byteLength;
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+export async function resolveKalshiSeriesSlug(seriesTicker, fetcher = fetch) {
+  const series = String(seriesTicker || "").trim().toUpperCase();
+  if (!series) return "";
+  const response = await fetcher(`https://kalshi.com/markets/${encodeURIComponent(series.toLowerCase())}`, {
+    method: "GET",
+    redirect: "follow",
+    headers: { accept: "text/html" }
+  });
+  if (!response?.ok) return "";
+  const redirectedSlug = kalshiSeriesSlugFromUrl(response.url, series);
+  if (redirectedSlug) {
+    await response.body?.cancel?.().catch(() => {});
+    return redirectedSlug;
+  }
+  const head = await responseHead(response);
+  const canonical = head.match(/<link\b[^>]*\brel=["']canonical["'][^>]*\bhref=["']([^"']+)["']/i)?.[1]
+    || head.match(/<link\b[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["']canonical["']/i)?.[1]
+    || head.match(/<meta\b[^>]*\bproperty=["']og:url["'][^>]*\bcontent=["']([^"']+)["']/i)?.[1];
+  return kalshiSeriesSlugFromUrl(canonical, series);
 }
 
 function seriesFromEventTicker(eventTicker) {

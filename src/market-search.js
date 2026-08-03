@@ -273,7 +273,7 @@ function politicsCandidates(payload) {
     ].filter(Boolean),
     outcomes: outcomePreview(market.outcomes, []),
     allOutcomes: market.outcomes || [],
-    url: politicsMarketUrl(market.eventTicker)
+    url: market.url || politicsMarketUrl(market)
   });
   }));
 }

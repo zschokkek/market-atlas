@@ -30,7 +30,7 @@ import {
   validateTeamFuturesRecord,
   weatherPollInterval
 } from "../src/worker.js";
-import { classifyPoliticsEvent, classifyPoliticsLocations, HOUSE_RACE_MIN_SCALE, HOUSE_RACE_PREVIEW_MIN_SCALE, houseRaceRevealScale, politicsMarketUrl, politicsParty, resolvePoliticalLocation } from "../src/politics-registry.js";
+import { classifyPoliticsEvent, classifyPoliticsLocations, HOUSE_RACE_MIN_SCALE, HOUSE_RACE_PREVIEW_MIN_SCALE, houseRaceRevealScale, kalshiSeriesSlugFromUrl, politicsMarketUrl, politicsParty, resolveKalshiSeriesSlug, resolvePoliticalLocation } from "../src/politics-registry.js";
 import { HOUSE_DISTRICT_CENTROIDS } from "../src/congressional-district-centroids.js";
 import { interpretMarketQuery, searchMarkets } from "../src/market-search.js";
 import { buildWeatherPublicSnapshot, weatherMarketUrl } from "../src/weather-registry.js";
@@ -111,7 +111,7 @@ test("redirects legacy preview URLs to the canonical Market Atlas routes", async
   assert.equal(weather.headers.get("location"), "https://example.com/categories/weather/");
 });
 
-test("rewrites stale cached Politics links to the exact Kalshi event-ticker route", async () => {
+test("rewrites stale cached Politics links to the full canonical Kalshi market page", async () => {
   const cached = {
     schemaVersion: 1,
     generatedAt: "2026-08-03T16:00:00.000Z",
@@ -128,15 +128,32 @@ test("rewrites stale cached Politics links to the exact Kalshi event-ticker rout
     }]
   };
   applyCanonicalPoliticsUrls(cached.bundles);
-  assert.equal(cached.bundles[0].markets[0].url, "https://kalshi.com/markets_by_ticker/kxpopevisit-27jan01");
+  assert.equal(cached.bundles[0].markets[0].url, "https://kalshi.com/markets/kxpopevisit/what-countries-will-pope-leo-visit-before-2027/kxpopevisit-27jan01");
 
   cached.bundles[0].markets[0].url = "https://kalshi.com/markets/kxpopevisit/stale-cache/kxpopevisit-27jan01";
   const env = { MARKET_ATLAS_CACHE: { async get(key) { return key === "kalshi:politics:public:v1" ? cached : null; } } };
   const response = await worker.fetch(new Request("https://example.com/api/politics"), env, {});
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("etag"), /politics-links-v2/);
+  assert.match(response.headers.get("etag"), /politics-links-v3/);
   const payload = await response.json();
-  assert.equal(payload.bundles[0].markets[0].url, "https://kalshi.com/markets_by_ticker/kxpopevisit-27jan01");
+  assert.equal(payload.bundles[0].markets[0].url, "https://kalshi.com/markets/kxpopevisit/what-countries-will-pope-leo-visit-before-2027/kxpopevisit-27jan01");
+});
+
+test("resolves and validates Kalshi's canonical series slug before caching links", async () => {
+  const canonical = "https://kalshi.com/markets/kxpopevisit/what-countries-will-pope-leo-visit-before-2027/kxpopevisit-27jan01";
+  assert.equal(kalshiSeriesSlugFromUrl(canonical, "KXPOPEVISIT"), "what-countries-will-pope-leo-visit-before-2027");
+  assert.equal(kalshiSeriesSlugFromUrl(canonical, "KXOTHER"), "", "a redirect for another series is never accepted");
+  const slug = await resolveKalshiSeriesSlug("KXPOPEVISIT", async url => {
+    assert.equal(url, "https://kalshi.com/markets/kxpopevisit");
+    return { ok: true, url: canonical, body: { async cancel() {} } };
+  });
+  assert.equal(slug, "what-countries-will-pope-leo-visit-before-2027");
+
+  const htmlSlug = await resolveKalshiSeriesSlug("KXPOPEVISIT", async () => new Response(
+    `<html><head><link rel="canonical" href="${canonical}"></head></html>`,
+    { status: 200, headers: { "content-type": "text/html" } }
+  ));
+  assert.equal(htmlSlug, "what-countries-will-pope-leo-visit-before-2027");
 });
 
 test("maps all Philadelphia weather series and splits multi-city rain into city markets", () => {
@@ -232,6 +249,9 @@ test("warms Politics and Weather from one shared Kalshi event-catalog pass", asy
       if (url.searchParams.get("category") === "Climate and Weather") {
         return Response.json({ series: [{ ticker: "KXHIGHPHIL", title: "Highest temperature in Philadelphia", frequency: "daily", tags: ["Daily temperature"] }] });
       }
+      if (url.searchParams.get("category") === "Elections") {
+        return Response.json({ series: [{ ticker: "SENATETX", title: "Texas Senate race", tags: ["US Elections"] }] });
+      }
       return Response.json({ series: [{ ticker: "KXHORMUZNORM", title: "Strait of Hormuz traffic", tags: ["International"] }] });
     }
     eventCatalogRequests += 1;
@@ -255,7 +275,9 @@ test("warms Politics and Weather from one shared Kalshi event-catalog pass", asy
     assert.equal(eventCatalogRequests, 1, "Politics and Weather must share one open-events scan");
     assert.equal(result.politics.bundleCount, 1);
     assert.equal(result.weather.bundleCount, 1);
-    assert.equal(JSON.parse(cache.get("kalshi:politics:public:v1")).bundles[0].jurisdiction, "Texas");
+    const politicsPayload = JSON.parse(cache.get("kalshi:politics:public:v1"));
+    assert.equal(politicsPayload.bundles[0].jurisdiction, "Texas");
+    assert.equal(politicsPayload.bundles[0].markets[0].url, "https://kalshi.com/markets/senatetx/texas-senate-race/senatetx-26");
     assert.equal(JSON.parse(cache.get("kalshi:weather:public:v1")).bundles[0].name, "Philadelphia");
   } finally {
     globalThis.fetch = originalFetch;
@@ -307,7 +329,8 @@ test("searches cached Sports and Politics markets with prices and conversational
   const politics = { bundles: [
     { id: "us-mi", jurisdiction: "Michigan", capital: "Lansing", scope: "Statewide", dateKey: "2026-11-03", markets: [
       { eventTicker: "SENATEMI-26", seriesTicker: "SENATEMI", title: "Michigan Senate winner?", office: "Senate", stage: "general", volume: 700000,
-        url: "https://kalshi.com/markets/senatemi/senatemi-26", outcomes: [{ name: "Democratic", price: 51, volume: 400000 }, { name: "Republican", price: 49, volume: 300000 }] }
+        seriesTitle: "Michigan Senate race", seriesSlug: "michigan-senate-race",
+        url: "https://kalshi.com/markets/senatemi/michigan-senate-race/senatemi-26", outcomes: [{ name: "Democratic", price: 51, volume: 400000 }, { name: "Republican", price: 49, volume: 300000 }] }
     ] },
     { id: "us-oh", jurisdiction: "Ohio", capital: "Columbus", scope: "Statewide", dateKey: "2026-11-03", markets: [
       { eventTicker: "SENATEOH-26", seriesTicker: "SENATEOH", title: "Ohio Senate winner?", office: "Senate", stage: "general", volume: 800000,
@@ -326,8 +349,8 @@ test("searches cached Sports and Politics markets with prices and conversational
   assert.deepEqual(senate.results.map(result => result.bundleId), ["us-mi", "us-oh"]);
   assert.equal(
     senate.results[0].url,
-    "https://kalshi.com/markets_by_ticker/senatemi-26",
-    "search ignores a cached display slug and opens the exact API event ticker"
+    "https://kalshi.com/markets/senatemi/michigan-senate-race/senatemi-26",
+    "search preserves the canonical URL stored with the cached market"
   );
   const malformed = searchMarkets("biggest markets", { sports: { events: [{
     eventTicker: "KXBADDATE-26", seriesTicker: "KXBADDATE", title: "Market with unavailable date", startsAt: "not-a-date",
@@ -466,10 +489,12 @@ test("adds both parties' nominee markets only for major Senate-primary states", 
     },
     {
       eventTicker: "KXSENATEMID-26", seriesTicker: "KXSENATEMID", title: "Michigan Democratic Senate nominee?", volume: 30_000,
+      seriesTitle: "MID",
       updatedAt: "2026-08-01T12:00:00.000Z", markets: [candidate("KXSENATEMID-26-AELS", "Abdul El-Sayed", 75, 30_000)]
     },
     {
       eventTicker: "KXSENATEMIR-26", seriesTicker: "KXSENATEMIR", title: "Michigan Republican Senate nominee?", volume: 15_000,
+      seriesTitle: "MIR",
       updatedAt: "2026-08-01T12:00:00.000Z", markets: [candidate("KXSENATEMIR-26-MROG", "Mike Rogers", 95, 15_000)]
     },
     {
@@ -486,7 +511,7 @@ test("adds both parties' nominee markets only for major Senate-primary states", 
   assert.equal(payload.bundles[0].markets[2].outcomes[0].party, "R");
   assert.equal(
     payload.bundles[0].markets[1].url,
-    "https://kalshi.com/markets_by_ticker/kxsenatemid-26"
+    "https://kalshi.com/markets/kxsenatemid/mid/kxsenatemid-26"
   );
 });
 
@@ -579,7 +604,7 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   );
   assert.equal(
     politicsMarketUrl("KXHOUSERACE-PA15-26", "KXHOUSERACE"),
-    "https://kalshi.com/markets_by_ticker/kxhouserace-pa15-26"
+    "https://kalshi.com/markets/kxhouserace/house-race-winner/kxhouserace-pa15-26"
   );
 
   const californiaThird = classifyPoliticsEvent({
@@ -594,7 +619,7 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   assert.equal(californiaThird.minZoomScale, HOUSE_RACE_MIN_SCALE);
   assert.equal(
     politicsMarketUrl("HOUSECA3-26", "HOUSECA3"),
-    "https://kalshi.com/markets_by_ticker/houseca3-26"
+    "https://kalshi.com/markets/houseca3/house-ca3/houseca3-26"
   );
 
   const missouriFifth = classifyPoliticsEvent({
@@ -608,7 +633,7 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   );
   assert.equal(
     politicsMarketUrl("KXHOUSEMO5-26", "KXHOUSEMO5"),
-    "https://kalshi.com/markets_by_ticker/kxhousemo5-26"
+    "https://kalshi.com/markets/kxhousemo5/house-mo5/kxhousemo5-26"
   );
 
   const californiaFourth = classifyPoliticsEvent({
@@ -622,16 +647,21 @@ test("maps every congressional district and marks House races as a deep-zoom lay
   );
   assert.equal(
     politicsMarketUrl("KXCAELECTION-2604", "KXCAELECTION"),
-    "https://kalshi.com/markets_by_ticker/kxcaelection-2604"
+    "https://kalshi.com/markets/kxcaelection/california-general-elections-/kxcaelection-2604"
+  );
+  assert.equal(
+    politicsMarketUrl({ eventTicker: "KXCAELECTION-2604", seriesTicker: "KXCAELECTION", seriesSlug: "california-general-elections-" }),
+    "https://kalshi.com/markets/kxcaelection/california-general-elections-/kxcaelection-2604",
+    "stored canonical slugs retain Kalshi's significant trailing hyphen"
   );
   assert.equal(
     politicsMarketUrl("KXCA11PERSON-26", "KXCA11PERSON"),
-    "https://kalshi.com/markets_by_ticker/kxca11person-26"
+    "https://kalshi.com/markets/kxca11person/ca11-house-winner-person/kxca11person-26"
   );
   assert.equal(
     politicsMarketUrl("KXPOPEVISIT-27JAN01", "KXPOPEVISIT"),
-    "https://kalshi.com/markets_by_ticker/kxpopevisit-27jan01",
-    "the exact API event ticker is also the exact Kalshi web resolver identity"
+    "https://kalshi.com/markets/kxpopevisit/what-countries-will-pope-leo-visit-before-2027/kxpopevisit-27jan01",
+    "the stored series slug and exact event ticker produce Kalshi's canonical page"
   );
 });
 
@@ -654,7 +684,7 @@ test("uses Kalshi House party metadata for marker color and canonical event link
   assert.equal(payload.bundles[0].leaderParty, "R");
   assert.equal(payload.bundles[0].leaderPrice, 92.5);
   assert.deepEqual(payload.bundles[0].markets[0].outcomes.map(outcome => outcome.party), ["R", "D"]);
-  assert.equal(payload.bundles[0].markets[0].url, "https://kalshi.com/markets_by_ticker/kxhouserace-pa15-26");
+  assert.equal(payload.bundles[0].markets[0].url, "https://kalshi.com/markets/kxhouserace/house-race-winner/kxhouserace-pa15-26");
 
   const california = normalizeEvent({
     event_ticker: "KXCAELECTION-2604", series_ticker: "KXCAELECTION", title: "CA-04 House winner?"
@@ -737,7 +767,7 @@ test("maps all ten African leader risks and keeps India outcomes visible", () =>
   assert.ok(africaPayload.bundles.every(bundle => bundle.markets[0].outcomes.length === 1));
   assert.equal(
     africaPayload.bundles[0].markets[0].url,
-    "https://kalshi.com/markets_by_ticker/kxafricaleaderout-35"
+    "https://kalshi.com/markets/kxafricaleaderout/next-african-leader-out/kxafricaleaderout-35"
   );
 
   const india = {
@@ -803,7 +833,7 @@ test("invalidates stale politics geography so the African leader market leaves t
     assert.equal(result.discoveryDue, true, "a registry change must bypass a recent KV discovery timestamp");
     assert.equal(eventCatalogRequests, 1);
     const state = JSON.parse(cache.get("kalshi:politics:state:v1"));
-    assert.equal(state.registryVersion, 3);
+    assert.equal(state.registryVersion, 4);
     assert.ok(state.events["KXAFRICALEADEROUT-35"]);
     assert.ok(!state.unmapped.some(event => event.eventTicker === "KXAFRICALEADEROUT-35"));
     const publicData = JSON.parse(cache.get("kalshi:politics:public:v1"));
@@ -849,7 +879,12 @@ test("discovers, validates, caches, and serves live politics markets server-side
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async input => {
     const url = new URL(input);
-    if (url.pathname.endsWith("/series")) return Response.json({ series: [{ ticker: "KXHORMUZNORM", title: "Strait of Hormuz traffic", tags: ["International"] }] });
+    if (url.pathname.endsWith("/series")) {
+      if (url.searchParams.get("category") === "Elections") {
+        return Response.json({ series: [{ ticker: "SENATETX", title: "Texas Senate race", tags: ["US Elections"] }] });
+      }
+      return Response.json({ series: [{ ticker: "KXHORMUZNORM", title: "Strait of Hormuz traffic", tags: ["International"] }] });
+    }
     assert.ok(url.pathname.endsWith("/events"));
     return Response.json({ events: [
       {
@@ -875,6 +910,7 @@ test("discovers, validates, caches, and serves live politics markets server-side
     const cached = JSON.parse(cache.get("kalshi:politics:public:v1"));
     const texasBundle = cached.bundles.find(bundle => bundle.jurisdiction === "Texas");
     assert.equal(texasBundle.markets[0].eventTicker, "SENATETX-26");
+    assert.equal(texasBundle.markets[0].url, "https://kalshi.com/markets/senatetx/texas-senate-race/senatetx-26");
     const response = await worker.fetch(new Request("https://example.com/api/politics"), env, { waitUntil() {} });
     assert.equal(response.status, 200);
     assert.match(response.headers.get("cache-control"), /stale-while-revalidate/);

@@ -124,9 +124,14 @@ function displayPrice(outcome) {
 }
 
 function marketUrl(market) {
+  if (market?.url) return market.url;
+  const seriesTicker = String(market?.seriesTicker || "").trim().toLowerCase();
+  const seriesSlug = String(market?.seriesSlug || "").trim().toLowerCase();
   const eventTicker = String(market?.eventTicker || (typeof market === "string" ? market : "")).trim().toLowerCase();
-  if (eventTicker) return `https://kalshi.com/markets_by_ticker/${encodeURIComponent(eventTicker)}`;
-  return market?.url || "https://kalshi.com/markets";
+  if (seriesTicker && seriesSlug && eventTicker) {
+    return `https://kalshi.com/markets/${encodeURIComponent(seriesTicker)}/${encodeURIComponent(seriesSlug)}/${encodeURIComponent(eventTicker)}`;
+  }
+  return seriesTicker ? `https://kalshi.com/markets/${encodeURIComponent(seriesTicker)}` : "https://kalshi.com/markets";
 }
 
 function snapshotAge(value) {

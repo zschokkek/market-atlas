@@ -1,4 +1,4 @@
-import { classifyPoliticsLocations, houseRaceRevealScale, MAJOR_SENATE_PRIMARY_VOLUME, politicsMarketUrl, politicsParty, politicsTimeline } from "./politics-registry.js";
+import { classifyPoliticsLocations, houseRaceRevealScale, MAJOR_SENATE_PRIMARY_VOLUME, politicsMarketUrl, politicsParty, politicsSeriesSlug, politicsTimeline, resolveKalshiSeriesSlug, VERIFIED_POLITICS_SERIES_SLUGS } from "./politics-registry.js";
 import { searchMarkets } from "./market-search.js";
 import { buildWeatherPublicSnapshot, resolveWeatherLocations } from "./weather-registry.js";
 
@@ -11,11 +11,11 @@ const FUTURES_PIPELINE_STATE_KEY = "kalshi:team-futures:pipeline:v1";
 const TEAM_FUTURES_KEY_PREFIX = "kalshi:team-futures:v2";
 const POLITICS_STATE_KEY = "kalshi:politics:state:v1";
 const POLITICS_PUBLIC_KEY = "kalshi:politics:public:v1";
-const POLITICS_LINK_VERSION = 2;
-// Increment whenever politics geography rules change. KV survives deployments,
-// so this forces one fresh discovery instead of leaving newly mappable events
-// stranded in the prior deployment's `unmapped` list.
-const POLITICS_REGISTRY_VERSION = 3;
+const POLITICS_LINK_VERSION = 3;
+// Increment whenever Politics geography or cached series metadata changes. KV
+// survives deployments, so this forces a fresh discovery instead of retaining
+// stale locations, titles, or canonical URL slugs.
+const POLITICS_REGISTRY_VERSION = 4;
 const WEATHER_STATE_KEY = "kalshi:weather:state:v1";
 const WEATHER_PUBLIC_KEY = "kalshi:weather:public:v1";
 const GEOGRAPHIC_DISCOVERY_INTERVAL_MS = 60 * 60 * 1000;
@@ -539,14 +539,87 @@ async function refreshEvent(env, ticker, gate, now) {
   return normalizeEvent(payload.event, payload.event?.markets || payload.markets || [], now);
 }
 
+async function discoverPoliticsSeriesMetadata(env, gate) {
+  const series = new Map();
+  for (const category of ["Politics", "Elections"]) {
+    const query = new URLSearchParams({ category, include_volume: "true" });
+    const payload = await kalshiFetch(env, `/series?${query}`, gate);
+    for (const record of payload.series || []) {
+      const ticker = String(record.ticker || "").toUpperCase();
+      if (ticker) series.set(ticker, record);
+    }
+  }
+  return { series, requestCount: 2 };
+}
+
+function enrichPoliticsSnapshot(snapshot, series) {
+  if (!series) return snapshot;
+  const politicsTags = series.tags || [];
+  const seriesTicker = String(snapshot.seriesTicker || "").toUpperCase();
+  const enriched = {
+    ...snapshot,
+    seriesTitle: series.title || "",
+    politicsTags,
+    isInternationalPolitics: politicsTags.includes("International"),
+    seriesSlugSource: VERIFIED_POLITICS_SERIES_SLUGS[seriesTicker] ? "verified-registry" : "api-series-title"
+  };
+  return { ...enriched, seriesSlug: politicsSeriesSlug(enriched) };
+}
+
+const POLITICS_SERIES_SLUG_MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000;
+
+function applyStoredPoliticsSeriesSlugs(state) {
+  const stored = state.seriesSlugs || {};
+  for (const snapshot of Object.values(state.events || {})) {
+    const record = stored[String(snapshot.seriesTicker || "").toUpperCase()];
+    if (!record?.slug) continue;
+    snapshot.seriesSlug = record.slug;
+    snapshot.seriesSlugSource = "kalshi-canonical";
+  }
+}
+
+async function refreshPoliticsSeriesSlugs(env, state, now) {
+  state.seriesSlugs ||= {};
+  applyStoredPoliticsSeriesSlugs(state);
+  const configured = String(env.KALSHI_VERIFY_CANONICAL_URLS || "").toLowerCase();
+  if (configured === "false" || (!env.ENVIRONMENT && configured !== "true") || env.ENVIRONMENT === "test") return;
+
+  const bySeries = new Map();
+  for (const snapshot of Object.values(state.events || {})) {
+    const seriesTicker = String(snapshot.seriesTicker || "").toUpperCase();
+    if (!seriesTicker || VERIFIED_POLITICS_SERIES_SLUGS[seriesTicker]) continue;
+    const current = bySeries.get(seriesTicker);
+    if (!current || Number(snapshot.volume || 0) > Number(current.volume || 0)) bySeries.set(seriesTicker, snapshot);
+  }
+  const due = [...bySeries.values()].filter(snapshot => {
+    const record = state.seriesSlugs[String(snapshot.seriesTicker || "").toUpperCase()];
+    return !record?.slug || now - Number(record.verifiedAt || 0) >= POLITICS_SERIES_SLUG_MAX_AGE_MS;
+  }).sort((left, right) => Number(right.volume || 0) - Number(left.volume || 0));
+  const defaultLimit = env.ENVIRONMENT === "local" ? 4 : 12;
+  const limit = Math.max(0, number(env.KALSHI_MAX_POLITICS_URL_REFRESHES_PER_RUN, defaultLimit));
+  const verified = await mapWithConcurrency(due.slice(0, limit), 2, async snapshot => {
+    const seriesTicker = String(snapshot.seriesTicker || "").toUpperCase();
+    try {
+      const slug = await resolveKalshiSeriesSlug(seriesTicker);
+      return slug ? { seriesTicker, slug } : null;
+    } catch (error) {
+      console.warn(`Kalshi canonical URL lookup failed for ${seriesTicker}`, error?.message || error);
+      return null;
+    }
+  });
+  for (const record of verified.filter(Boolean)) {
+    state.seriesSlugs[record.seriesTicker] = { slug: record.slug, verifiedAt: now };
+  }
+  applyStoredPoliticsSeriesSlugs(state);
+}
+
 async function discoverPoliticsEvents(env, gate, now) {
   const events = {};
   const unmapped = [];
-  const seriesQuery = new URLSearchParams({ category: "Politics", tags: "International", include_volume: "true" });
-  const seriesPayload = await kalshiFetch(env, `/series?${seriesQuery}`, gate);
-  const internationalSeries = new Map((seriesPayload.series || []).map(series => [String(series.ticker || "").toUpperCase(), series]));
+  const politicsMetadata = await discoverPoliticsSeriesMetadata(env, gate);
+  const politicsSeries = politicsMetadata.series;
   let cursor = "";
-  let requestCount = 1;
+  let requestCount = politicsMetadata.requestCount;
   do {
     const query = new URLSearchParams({ limit: "200", status: "open", with_nested_markets: "true" });
     if (cursor) query.set("cursor", cursor);
@@ -554,13 +627,8 @@ async function discoverPoliticsEvents(env, gate, now) {
     requestCount += 1;
     for (const event of payload.events || []) {
       const normalized = normalizeEvent(event, event.markets || [], now);
-      const series = internationalSeries.get(String(normalized.seriesTicker || "").toUpperCase());
-      const snapshot = series ? {
-        ...normalized,
-        seriesTitle: series.title || "",
-        politicsTags: ["International", ...(series.tags || [])],
-        isInternationalPolitics: true
-      } : normalized;
+      const series = politicsSeries.get(String(normalized.seriesTicker || "").toUpperCase());
+      const snapshot = enrichPoliticsSnapshot(normalized, series);
       const classifications = classifyPoliticsLocations(snapshot);
       if (classifications.length && snapshot.eventTicker) events[snapshot.eventTicker] = {
         ...snapshot,
@@ -613,19 +681,17 @@ async function discoverWeatherEvents(env, gate, now) {
 }
 
 async function discoverGeographicEvents(env, gate, now) {
-  const politicsQuery = new URLSearchParams({ category: "Politics", tags: "International", include_volume: "true" });
   const weatherQuery = new URLSearchParams({ category: "Climate and Weather", include_volume: "true" });
-  const politicsSeriesPayload = await kalshiFetch(env, `/series?${politicsQuery}`, gate);
+  const politicsMetadata = await discoverPoliticsSeriesMetadata(env, gate);
   const weatherSeriesPayload = await kalshiFetch(env, `/series?${weatherQuery}`, gate);
-  const internationalSeries = new Map((politicsSeriesPayload.series || [])
-    .map(series => [String(series.ticker || "").toUpperCase(), series]));
+  const politicsSeries = politicsMetadata.series;
   const climateSeries = new Map((weatherSeriesPayload.series || [])
     .map(series => [String(series.ticker || "").toUpperCase(), series]));
   const politicsEvents = {};
   const weatherEvents = {};
   const politicsUnmapped = [];
   let cursor = "";
-  let requestCount = 2;
+  let requestCount = politicsMetadata.requestCount + 1;
   do {
     const query = new URLSearchParams({ limit: "200", status: "open", with_nested_markets: "true" });
     if (cursor) query.set("cursor", cursor);
@@ -635,13 +701,8 @@ async function discoverGeographicEvents(env, gate, now) {
       const normalized = normalizeEvent(event, event.markets || [], now);
       if (!normalized.eventTicker) continue;
       const seriesTicker = String(normalized.seriesTicker || "").toUpperCase();
-      const politicsSeries = internationalSeries.get(seriesTicker);
-      const politicsSnapshot = politicsSeries ? {
-        ...normalized,
-        seriesTitle: politicsSeries.title || "",
-        politicsTags: ["International", ...(politicsSeries.tags || [])],
-        isInternationalPolitics: true
-      } : normalized;
+      const politicsSeriesRecord = politicsSeries.get(seriesTicker);
+      const politicsSnapshot = enrichPoliticsSnapshot(normalized, politicsSeriesRecord);
       const classifications = classifyPoliticsLocations(politicsSnapshot);
       if (classifications.length) {
         politicsEvents[politicsSnapshot.eventTicker] = {
@@ -649,7 +710,7 @@ async function discoverGeographicEvents(env, gate, now) {
           politics: classifications[0],
           politicsLocations: classifications
         };
-      } else if (politicsSeries) {
+      } else if (politicsSeriesRecord) {
         politicsUnmapped.push({
           eventTicker: politicsSnapshot.eventTicker,
           seriesTicker: politicsSnapshot.seriesTicker,
@@ -808,9 +869,12 @@ function politicsMarket(snapshot) {
     id: snapshot.eventTicker,
     eventTicker: snapshot.eventTicker,
     seriesTicker: snapshot.seriesTicker,
+    seriesTitle: snapshot.seriesTitle || "",
+    seriesSlug: politicsSeriesSlug(snapshot),
+    seriesSlugSource: snapshot.seriesSlugSource || "fallback",
     title: snapshot.title,
     subtitle: snapshot.subtitle,
-    url: politicsMarketUrl(snapshot.eventTicker, snapshot.seriesTicker),
+    url: politicsMarketUrl(snapshot),
     office: snapshot.politics.office,
     stage: snapshot.politics.stage || "general",
     importance: snapshot.politics.importance,
@@ -915,7 +979,11 @@ export function applyHouseRaceRevealScales(bundles = []) {
 export function applyCanonicalPoliticsUrls(bundles = []) {
   for (const bundle of bundles) {
     for (const market of bundle.markets || []) {
-      market.url = politicsMarketUrl(market.eventTicker);
+      market.seriesSlug = politicsSeriesSlug(market);
+      if (VERIFIED_POLITICS_SERIES_SLUGS[String(market.seriesTicker || market.eventTicker || "").split("-")[0].toUpperCase()]) {
+        market.seriesSlugSource = "verified-registry";
+      }
+      market.url = politicsMarketUrl(market);
     }
   }
   return bundles;
@@ -1003,6 +1071,7 @@ export async function runGeographicPoll(env, now = Date.now(), options = {}) {
       requestCount: discovery.requestCount,
       source: "Kalshi public trade API"
     };
+    await refreshPoliticsSeriesSlugs(env, politicsState, now);
     const politicsPublic = buildPoliticsPublicSnapshot(
       Object.values(politicsState.events), now, sharedCache, politicsState.unmapped
     );
@@ -1073,6 +1142,8 @@ export async function runPoliticsPoll(env, now = Date.now(), options = {}) {
         const enriched = {
           ...next,
           seriesTitle: snapshot.seriesTitle || "",
+          seriesSlug: snapshot.seriesSlug || "",
+          seriesSlugSource: snapshot.seriesSlugSource || "",
           politicsTags: snapshot.politicsTags || [],
           isInternationalPolitics: Boolean(snapshot.isInternationalPolitics)
         };
@@ -1087,6 +1158,7 @@ export async function runPoliticsPoll(env, now = Date.now(), options = {}) {
     prior.lastRequestCount = requestCount;
     prior.lastRequestSuccessCount = successCount;
     prior.lastError = null;
+    await refreshPoliticsSeriesSlugs(env, prior, now);
     const publicData = buildPoliticsPublicSnapshot(Object.values(prior.events), now, {
       lastPollAt: new Date(now).toISOString(),
       lastDiscoveryAt: prior.lastDiscoveryAt ? new Date(prior.lastDiscoveryAt).toISOString() : null,
