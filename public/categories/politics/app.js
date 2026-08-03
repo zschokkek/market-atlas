@@ -21,6 +21,8 @@ const detailCode = app.querySelector(".detail-code");
 const detailLocation = app.querySelector(".detail-location");
 const detailMeta = app.querySelector(".detail-meta");
 const detailMarketList = app.querySelector(".detail-market-list");
+const detailPanel = app.querySelector(".election-detail");
+const mobileDetailClose = app.querySelector(".mobile-market-sheet-close");
 const timelineRange = app.querySelector(".timeline-range");
 const timelineStopLayer = app.querySelector(".timeline-stops");
 const timelineEyebrow = app.querySelector(".timeline-eyebrow");
@@ -62,6 +64,16 @@ let tooltipHideTimer = null;
 let dragState = null;
 let drawFrame = null;
 let zoomFrame = null;
+
+const mobileMarketViewport = () => window.matchMedia("(max-width: 700px), (hover: none)").matches;
+const preciseHoverViewport = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+function openMobileDetail() {
+  if (mobileMarketViewport()) detailPanel?.classList.add("is-mobile-open");
+}
+function closeMobileDetail() {
+  detailPanel?.classList.remove("is-mobile-open");
+}
+mobileDetailClose?.addEventListener("click", closeMobileDetail);
 
 function renderTimelineStops() {
   timelineStopLayer.replaceChildren();
@@ -169,7 +181,7 @@ function marketCardMarkup(market) {
     </div>`;
   }).join("");
   return `
-    <article class="market-card">
+    <article class="market-card" data-outcome-count="${market.outcomes.length}">
       <div class="market-card-heading">
         <a class="market-card-title" href="${marketUrl(market)}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a>
         <span class="market-volume">${compactVolume(market.volume)} vol</span>
@@ -268,6 +280,7 @@ function positionTooltip(point) {
 }
 
 function showTooltip(bundle, point) {
+  if (!preciseHoverViewport()) return;
   cancelTooltipHide();
   tooltipBundleId = bundle.id;
   tooltip.innerHTML = `
@@ -325,10 +338,12 @@ function createMarker(bundle) {
   const activate = () => {
     selectedBundleId = bundle.id;
     renderDetail(bundle);
+    openMobileDetail();
     draw();
   };
   group.addEventListener("pointerdown", event => event.stopPropagation());
   group.addEventListener("mouseenter", () => {
+    if (!preciseHoverViewport()) return;
     const point = projection([bundle.lon, bundle.lat]);
     if (point) showTooltip(bundle, point);
   });

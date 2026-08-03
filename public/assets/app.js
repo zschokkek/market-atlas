@@ -1,5 +1,8 @@
 const shell = document.querySelector(".integration-shell");
 const search = document.querySelector(".integration-search input");
+const usesIOSNativePickers = /iP(?:hone|ad|od)/i.test(navigator.userAgent)
+  || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+document.documentElement.classList.toggle("ios-native-controls", usesIOSNativePickers);
 const categoryTabs = [...document.querySelectorAll(".integration-tab[data-category]")];
 const categoryViews = new Map(
   [...document.querySelectorAll("[data-category-view]")].map(view => [view.dataset.categoryView, view])
@@ -12,6 +15,7 @@ const viewLoaders = {
 };
 const loadedViews = new Map();
 const loadingViews = new Map();
+const prefetchedCategoryAssets = new Set();
 let activeCategory = null;
 let sharedMapView = null;
 
@@ -56,10 +60,36 @@ function installMobileFilterDropdown(view, { label, allLabel }) {
 
   const inputs = [...content.querySelectorAll('input[type="checkbox"]')];
   const summary = button.querySelector(".mobile-filter-summary");
+  let nativeSelect = null;
+  if (usesIOSNativePickers && inputs.length) {
+    nativeSelect = document.createElement("select");
+    nativeSelect.className = "mobile-native-filter-select";
+    nativeSelect.multiple = true;
+    nativeSelect.setAttribute("aria-label", `${label} filters`);
+    inputs.forEach((input, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = input.closest("label")?.querySelector("span")?.textContent?.trim()
+        || input.closest("label")?.textContent?.trim()
+        || `Option ${index + 1}`;
+      nativeSelect.appendChild(option);
+    });
+    panel.appendChild(nativeSelect);
+    button.setAttribute("aria-hidden", "true");
+    button.tabIndex = -1;
+  }
+
+  const syncNativeSelect = () => {
+    if (!nativeSelect) return;
+    [...nativeSelect.options].forEach((option, index) => {
+      option.selected = Boolean(inputs[index]?.checked);
+    });
+  };
   const updateSummary = () => {
     const checked = inputs.filter(input => input.checked);
     const allChecked = checked.length === inputs.length || checked.some(input => input.dataset.sport === "ALL");
     summary.textContent = allChecked ? allLabel : `${checked.length} selected`;
+    syncNativeSelect();
   };
   const close = () => {
     panel.classList.remove("is-open");
@@ -70,6 +100,23 @@ function installMobileFilterDropdown(view, { label, allLabel }) {
     const open = !panel.classList.contains("is-open");
     panel.classList.toggle("is-open", open);
     button.setAttribute("aria-expanded", String(open));
+  });
+  nativeSelect?.addEventListener("change", () => {
+    const selected = new Set([...nativeSelect.selectedOptions].map(option => Number(option.value)));
+    const allIndex = inputs.findIndex(input => input.dataset.sport === "ALL");
+    if (allIndex >= 0 && selected.has(allIndex) && !inputs[allIndex].checked) {
+      inputs[allIndex].checked = true;
+      inputs[allIndex].dispatchEvent(new Event("change", { bubbles: true }));
+      updateSummary();
+      return;
+    }
+    inputs.forEach((input, index) => {
+      const checked = selected.has(index);
+      if (input.checked === checked) return;
+      input.checked = checked;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    updateSummary();
   });
   panel.addEventListener("change", updateSummary);
   panel.addEventListener("keydown", event => {
@@ -103,7 +150,15 @@ function installMobileCalendarDropdown(view, lifecycle, { label }) {
       </header>
       <div class="mobile-calendar-menu" id="${menuId}" role="listbox" aria-label="${label}"></div>
     </section>`;
-  view.appendChild(picker);
+  let nativeSelect = null;
+  if (usesIOSNativePickers) {
+    nativeSelect = document.createElement("select");
+    nativeSelect.className = "mobile-native-calendar-select";
+    nativeSelect.setAttribute("aria-label", label);
+    picker.appendChild(nativeSelect);
+  }
+  const controlHost = view.querySelector(".market-globe-layout") || view;
+  controlHost.appendChild(picker);
 
   const toggle = picker.querySelector(".mobile-calendar-toggle");
   const value = picker.querySelector(".mobile-calendar-value");
@@ -155,6 +210,16 @@ function installMobileCalendarDropdown(view, lifecycle, { label }) {
       menu.replaceChildren(...children);
       menu.dataset.signature = signature;
     }
+    if (nativeSelect && nativeSelect.dataset.signature !== signature) {
+      nativeSelect.replaceChildren(...options.map(option => {
+        const item = document.createElement("option");
+        item.value = String(option.value);
+        item.textContent = optionLabel(option);
+        return item;
+      }));
+      nativeSelect.dataset.signature = signature;
+    }
+    if (nativeSelect) nativeSelect.value = selectedValue;
     menu.querySelectorAll(".mobile-calendar-option").forEach(item => {
       const selected = item.dataset.value === selectedValue;
       item.classList.toggle("is-selected", selected);
@@ -183,6 +248,10 @@ function installMobileCalendarDropdown(view, lifecycle, { label }) {
     backdrop.hidden = false;
     sheet.hidden = false;
     requestAnimationFrame(() => menu.querySelector('.mobile-calendar-option[aria-selected="true"]')?.scrollIntoView({ block: "center" }));
+  });
+  nativeSelect?.addEventListener("change", () => {
+    lifecycle.setTimelineIndex?.(Number(nativeSelect.value));
+    sync();
   });
   backdrop.addEventListener("click", () => close({ restoreFocus: true }));
   done.addEventListener("click", () => close({ restoreFocus: true }));
@@ -227,7 +296,20 @@ function installMobileMarketCarousel(view) {
   const status = navigation.querySelector(".mobile-market-carousel-status");
   let activeIndex = 0;
   let scrollFrame = null;
+  let heightFrame = null;
   const cards = () => [...list.children].filter(child => child.classList.contains("market-card"));
+  const syncHeight = items => {
+    if (heightFrame) cancelAnimationFrame(heightFrame);
+    heightFrame = requestAnimationFrame(() => {
+      heightFrame = null;
+      const activeCard = items[activeIndex];
+      if (!activeCard) {
+        list.style.removeProperty("--mobile-market-card-height");
+        return;
+      }
+      list.style.setProperty("--mobile-market-card-height", `${Math.ceil(activeCard.scrollHeight)}px`);
+    });
+  };
   const nearestIndex = items => {
     if (!items.length) return 0;
     const left = list.getBoundingClientRect().left;
@@ -249,6 +331,7 @@ function installMobileMarketCarousel(view) {
     previous.disabled = activeIndex <= 0;
     next.disabled = activeIndex >= count - 1;
     items.forEach((card, index) => card.setAttribute("aria-label", `Market ${index + 1} of ${count}`));
+    syncHeight(items);
   };
   const move = direction => {
     const items = cards();
@@ -266,6 +349,7 @@ function installMobileMarketCarousel(view) {
       update();
     });
   }, { passive: true });
+  window.addEventListener("resize", () => update(), { passive: true });
   new MutationObserver(() => update({ reset: true })).observe(list, { childList: true });
   update({ reset: true });
 }
@@ -276,6 +360,24 @@ function setLoadingError(view, error) {
   loading.classList.add("is-error");
   const message = loading.querySelector("span:last-child");
   if (message) message.textContent = `Unable to load this globe · ${error.message}`;
+}
+
+function prefetchCategoryAssets(category) {
+  if (prefetchedCategoryAssets.has(category)) return;
+  prefetchedCategoryAssets.add(category);
+  const assets = {
+    sports: ["/categories/sports/"],
+    politics: ["/categories/politics/", "/categories/politics/styles.css", "/categories/politics/app.js", "/categories/politics/data.js"],
+    weather: ["/categories/weather/", "/categories/weather/styles.css", "/categories/weather/app.js", "/categories/weather/data.js"]
+  }[category] || [];
+  assets.forEach(href => {
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.href = href;
+    link.as = href.endsWith(".css") ? "style" : href.endsWith(".js") ? "script" : "fetch";
+    link.crossOrigin = "anonymous";
+    document.head.appendChild(link);
+  });
 }
 
 async function importSource(source, replacements = []) {
@@ -318,8 +420,8 @@ async function loadSportsView(view) {
   root.querySelector(".sports-app-header")?.remove();
   view.appendChild(document.importNode(root, true));
   installMobileFilterDropdown(view, { label: "Markets", allLabel: "All sports" });
+  installMobileMarketCarousel(view);
   const integratedSportsSource = moduleScript.textContent
-    .replace('  const center = [310, 270];', '  const center = [310, 280];')
     .replace(
       '    getActiveDate: () => calendarDates[activeDateIndex],',
       `    getActiveDate: () => calendarDates[activeDateIndex],
@@ -503,6 +605,7 @@ window.__integratedPoliticsView = {
     integratedPendingSearchResult = null;
     selectedBundleId = bundle.id;
     renderDetail(bundle);
+    openMobileDetail();
     projection.rotate([-bundle.lon, -bundle.lat, 0]);
     projection.scale(Math.max(420, Math.min(900, projection.scale())));
     hideTooltip();
@@ -556,6 +659,9 @@ function closeTransientUi(view) {
   });
   view.querySelectorAll(".team-market-window, .tennis-market-window, .coverage-error-window").forEach(panel => {
     panel.hidden = true;
+  });
+  view.querySelectorAll(".event-detail, .election-detail").forEach(panel => {
+    panel.classList.remove("is-mobile-open");
   });
   view.querySelectorAll(".mobile-filter-dropdown").forEach(panel => panel._closeMobileDropdown?.());
   view._closeMobileCalendar?.();
@@ -643,6 +749,8 @@ async function activateCategory(category, { historyMode = "push" } = {}) {
 }
 
 categoryTabs.forEach(tab => {
+  tab.addEventListener("pointerenter", () => prefetchCategoryAssets(tab.dataset.category), { once: true });
+  tab.addEventListener("focus", () => prefetchCategoryAssets(tab.dataset.category), { once: true });
   tab.addEventListener("click", () => void activateCategory(tab.dataset.category));
   tab.addEventListener("keydown", event => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -680,13 +788,6 @@ document.addEventListener("visibilitychange", () => {
 const requestedCategory = new URL(window.location.href).searchParams.get("category");
 const initialCategory = viewLoaders[requestedCategory] ? requestedCategory : "sports";
 await activateCategory(initialCategory, { historyMode: "replace" });
-
-const idle = window.requestIdleCallback || (callback => setTimeout(callback, 700));
-idle(() => {
-  Object.keys(viewLoaders).filter(category => category !== initialCategory).forEach(category => {
-    void ensureView(category).catch(() => {});
-  });
-}, { timeout: 1600 });
 
 function createSportsDataClient() {
   const POLL_INTERVAL_MS = 30_000;

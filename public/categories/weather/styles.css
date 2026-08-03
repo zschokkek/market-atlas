@@ -135,29 +135,6 @@
   min-width: 180px;
 }
 
-.weather-app .viewport-anchor-tag {
-  display: none;
-}
-
-.weather-app .event-marker.is-viewport-anchor .viewport-anchor-tag {
-  display: block;
-}
-
-.weather-app .event-marker.is-viewport-anchor .viewport-anchor-tag rect {
-  fill: rgba(17, 23, 19, 0.94);
-  stroke: color-mix(in srgb, var(--weather-marker, var(--green)) 58%, var(--border));
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.weather-app .event-marker.is-viewport-anchor .viewport-anchor-tag text {
-  fill: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.015em;
-}
-
 @media (max-width: 1120px) {
   .weather-app .check-option small {
     display: none;

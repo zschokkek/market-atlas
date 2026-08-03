@@ -13,6 +13,9 @@ const POLITICS_STATE_KEY = "kalshi:politics:state:v1";
 const POLITICS_PUBLIC_KEY = "kalshi:politics:public:v1";
 const WEATHER_STATE_KEY = "kalshi:weather:state:v1";
 const WEATHER_PUBLIC_KEY = "kalshi:weather:public:v1";
+const GEOGRAPHIC_DISCOVERY_INTERVAL_MS = 60 * 60 * 1000;
+const SCHEDULED_REFRESH_COOLDOWN_MS = 45 * 1000;
+export const SCHEDULED_REFRESH_STEPS = ["geographic", "sports", "futures"];
 
 export const DEFAULT_SERIES = [
   "KXMLBGAME", "KXMLBKS", "KXMLBHRR", "KXNFLGAME", "KXNCAAFGAME", "KXNBAGAME", "KXWNBAGAME", "KXNHLGAME", "KXAFLGAME",
@@ -401,15 +404,33 @@ function createRateGate(requestsPerSecond) {
   };
 }
 
+export function nextScheduledRefreshStep(step) {
+  const index = SCHEDULED_REFRESH_STEPS.indexOf(step);
+  return SCHEDULED_REFRESH_STEPS[(index + 1) % SCHEDULED_REFRESH_STEPS.length];
+}
+
+export function scheduledRefreshStepForTime(now = Date.now()) {
+  return SCHEDULED_REFRESH_STEPS[Math.floor(now / 60_000) % SCHEDULED_REFRESH_STEPS.length];
+}
+
 async function kalshiFetch(env, pathname, gate, attempt = 0) {
   await gate();
   const url = `${env.KALSHI_API_ORIGIN || API_ORIGIN}${pathname}`;
   const headers = await authHeaders(env, "GET", url);
   const response = await fetch(url, { headers });
-  if ((response.status === 429 || response.status >= 500) && attempt < 4) {
-    const backoff = Math.min(8000, 500 * (2 ** attempt)) + Math.floor(Math.random() * 350);
+  const retryLimit = Math.max(0, number(env.KALSHI_MAX_RETRY_ATTEMPTS, 2));
+  if ((response.status === 429 || response.status >= 500) && attempt < retryLimit) {
+    const base = response.status === 429
+      ? Math.max(1000, number(env.KALSHI_429_BACKOFF_BASE_MS, 5000))
+      : 750;
+    const backoff = Math.min(60_000, base * (2 ** attempt)) + Math.floor(Math.random() * 500);
     await sleep(backoff);
     return kalshiFetch(env, pathname, gate, attempt + 1);
+  }
+  if (response.status === 429) {
+    const error = new Error(`Kalshi 429 for ${pathname}`);
+    error.code = "KALSHI_RATE_LIMITED";
+    throw error;
   }
   if (!response.ok) throw new Error(`Kalshi ${response.status} for ${pathname}`);
   return response.json();
@@ -530,6 +551,76 @@ async function discoverWeatherEvents(env, gate, now) {
   return { events, seriesCount: climateSeries.size, requestCount };
 }
 
+async function discoverGeographicEvents(env, gate, now) {
+  const politicsQuery = new URLSearchParams({ category: "Politics", tags: "International", include_volume: "true" });
+  const weatherQuery = new URLSearchParams({ category: "Climate and Weather", include_volume: "true" });
+  const politicsSeriesPayload = await kalshiFetch(env, `/series?${politicsQuery}`, gate);
+  const weatherSeriesPayload = await kalshiFetch(env, `/series?${weatherQuery}`, gate);
+  const internationalSeries = new Map((politicsSeriesPayload.series || [])
+    .map(series => [String(series.ticker || "").toUpperCase(), series]));
+  const climateSeries = new Map((weatherSeriesPayload.series || [])
+    .map(series => [String(series.ticker || "").toUpperCase(), series]));
+  const politicsEvents = {};
+  const weatherEvents = {};
+  const politicsUnmapped = [];
+  let cursor = "";
+  let requestCount = 2;
+  do {
+    const query = new URLSearchParams({ limit: "200", status: "open", with_nested_markets: "true" });
+    if (cursor) query.set("cursor", cursor);
+    const payload = await kalshiFetch(env, `/events?${query}`, gate);
+    requestCount += 1;
+    for (const event of payload.events || []) {
+      const normalized = normalizeEvent(event, event.markets || [], now);
+      if (!normalized.eventTicker) continue;
+      const seriesTicker = String(normalized.seriesTicker || "").toUpperCase();
+      const politicsSeries = internationalSeries.get(seriesTicker);
+      const politicsSnapshot = politicsSeries ? {
+        ...normalized,
+        seriesTitle: politicsSeries.title || "",
+        politicsTags: ["International", ...(politicsSeries.tags || [])],
+        isInternationalPolitics: true
+      } : normalized;
+      const classifications = classifyPoliticsLocations(politicsSnapshot);
+      if (classifications.length) {
+        politicsEvents[politicsSnapshot.eventTicker] = {
+          ...politicsSnapshot,
+          politics: classifications[0],
+          politicsLocations: classifications
+        };
+      } else if (politicsSeries) {
+        politicsUnmapped.push({
+          eventTicker: politicsSnapshot.eventTicker,
+          seriesTicker: politicsSnapshot.seriesTicker,
+          title: politicsSnapshot.title,
+          seriesTitle: politicsSnapshot.seriesTitle,
+          volume: politicsSnapshot.volume
+        });
+      }
+
+      const weatherSeries = climateSeries.get(seriesTicker);
+      if (weatherSeries) {
+        weatherEvents[normalized.eventTicker] = {
+          ...normalized,
+          seriesTitle: weatherSeries.title || "",
+          seriesTags: weatherSeries.tags || [],
+          seriesFrequency: weatherSeries.frequency || ""
+        };
+      }
+    }
+    cursor = payload.cursor || "";
+    if (requestCount >= 100) throw new Error("Geographic discovery exceeded the pagination safety limit");
+  } while (cursor);
+  politicsUnmapped.sort((left, right) => right.volume - left.volume);
+  return {
+    politicsEvents,
+    politicsUnmapped: politicsUnmapped.slice(0, 80),
+    weatherEvents,
+    weatherSeriesCount: climateSeries.size,
+    requestCount
+  };
+}
+
 export function weatherPollInterval(snapshot, now = Date.now()) {
   const frequency = String(snapshot.seriesFrequency || "").toLowerCase();
   const endsAt = new Date(snapshot.endsAt || 0).getTime();
@@ -541,7 +632,7 @@ export function weatherPollInterval(snapshot, now = Date.now()) {
   return 60 * 60 * 1000;
 }
 
-export async function runWeatherPoll(env, now = Date.now()) {
+export async function runWeatherPoll(env, now = Date.now(), options = {}) {
   const prior = await env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
   prior.events ||= {};
   const discoveryDue = now - number(prior.lastDiscoveryAt, 0) >= 60 * 60 * 1000 || !Object.keys(prior.events).length;
@@ -551,7 +642,7 @@ export async function runWeatherPoll(env, now = Date.now()) {
     number(env.KALSHI_MAX_READ_REQUESTS_PER_SECOND, 10),
     number(env.KALSHI_WEATHER_READ_REQUESTS_PER_SECOND, Math.min(1.25, tokenBudget / requestCost))
   );
-  const gate = createRateGate(requestsPerSecond);
+  const gate = options.gate || createRateGate(requestsPerSecond);
   let requestCount = 0;
   let successCount = 0;
   try {
@@ -755,17 +846,133 @@ export function applyHouseRaceRevealScales(bundles = []) {
   return bundles;
 }
 
-export async function runPoliticsPoll(env, now = Date.now()) {
+function weatherUnmappedEvents(events) {
+  return Object.values(events).filter(snapshot => !resolveWeatherLocations(
+    `${snapshot.seriesTitle || ""} ${snapshot.title || ""} ${snapshot.subtitle || ""} ${(snapshot.markets || []).map(market => `${market.label || ""} ${market.title || ""}`).join(" ")}`
+  ).length).sort((left, right) => right.volume - left.volume).slice(0, 80).map(snapshot => ({
+    eventTicker: snapshot.eventTicker,
+    seriesTicker: snapshot.seriesTicker,
+    title: snapshot.title,
+    seriesTitle: snapshot.seriesTitle,
+    volume: snapshot.volume
+  }));
+}
+
+function geographicRequestsPerSecond(env) {
+  const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
+  const tokenBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
+  const categoryCeiling = Math.max(
+    number(env.KALSHI_UNAUTHENTICATED_GAME_READ_REQUESTS_PER_SECOND, 1.5),
+    number(env.KALSHI_POLITICS_READ_REQUESTS_PER_SECOND, 1.25),
+    number(env.KALSHI_WEATHER_READ_REQUESTS_PER_SECOND, 1.25)
+  );
+  return Math.max(0.2, Math.min(
+    number(env.KALSHI_MAX_READ_REQUESTS_PER_SECOND, 10),
+    number(env.KALSHI_SCHEDULED_READ_REQUESTS_PER_SECOND, Math.min(categoryCeiling, tokenBudget / requestCost))
+  ));
+}
+
+export async function runGeographicPoll(env, now = Date.now(), options = {}) {
+  const [politicsPriorValue, weatherPriorValue] = await Promise.all([
+    env.MARKET_ATLAS_CACHE.get(POLITICS_STATE_KEY, "json"),
+    env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json")
+  ]);
+  const politicsPrior = politicsPriorValue || { lastDiscoveryAt: 0, events: {} };
+  const weatherPrior = weatherPriorValue || { lastDiscoveryAt: 0, events: {} };
+  politicsPrior.events ||= {};
+  weatherPrior.events ||= {};
+  const discoveryDue = Boolean(options.forceDiscovery)
+    || now - number(politicsPrior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
+    || now - number(weatherPrior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
+    || !Object.keys(politicsPrior.events).length
+    || !Object.keys(weatherPrior.events).length;
+  const gate = options.gate || createRateGate(geographicRequestsPerSecond(env));
+
+  if (!discoveryDue) {
+    const politics = await runPoliticsPoll(env, now, { gate });
+    const weather = await runWeatherPoll(env, now, { gate });
+    return { discoveryDue: false, requestCount: politics.requestCount + weather.requestCount, politics, weather };
+  }
+
+  try {
+    const discovery = await discoverGeographicEvents(env, gate, now);
+    const politicsState = {
+      ...politicsPrior,
+      events: discovery.politicsEvents,
+      unmapped: discovery.politicsUnmapped,
+      lastDiscoveryAt: now,
+      lastRunAt: now,
+      lastSuccessfulPollAt: now,
+      lastRequestCount: discovery.requestCount,
+      lastRequestSuccessCount: discovery.requestCount,
+      lastError: null
+    };
+    const weatherState = {
+      ...weatherPrior,
+      events: discovery.weatherEvents,
+      seriesCount: discovery.weatherSeriesCount,
+      lastDiscoveryAt: now,
+      lastRunAt: now,
+      lastSuccessfulPollAt: now,
+      lastRequestCount: discovery.requestCount,
+      lastRequestSuccessCount: discovery.requestCount,
+      lastError: null
+    };
+    const sharedCache = {
+      lastPollAt: new Date(now).toISOString(),
+      lastDiscoveryAt: new Date(now).toISOString(),
+      discoveryIntervalMinutes: 60,
+      combinedDiscovery: true,
+      requestCount: discovery.requestCount,
+      source: "Kalshi public trade API"
+    };
+    const politicsPublic = buildPoliticsPublicSnapshot(
+      Object.values(politicsState.events), now, sharedCache, politicsState.unmapped
+    );
+    const weatherPublic = buildWeatherPublicSnapshot(
+      Object.values(weatherState.events), now, {
+        ...sharedCache,
+        hourlyRefreshSeconds: 60,
+        dailyRefreshSeconds: 120,
+        seasonalRefreshMinutes: 15
+      }, weatherUnmappedEvents(weatherState.events)
+    );
+    await Promise.all([
+      env.MARKET_ATLAS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(politicsState)),
+      env.MARKET_ATLAS_CACHE.put(POLITICS_PUBLIC_KEY, JSON.stringify(politicsPublic)),
+      env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(weatherState)),
+      env.MARKET_ATLAS_CACHE.put(WEATHER_PUBLIC_KEY, JSON.stringify(weatherPublic))
+    ]);
+    return {
+      discoveryDue: true,
+      requestCount: discovery.requestCount,
+      politics: { bundleCount: politicsPublic.bundleCount, marketCount: politicsPublic.marketCount },
+      weather: { seriesCount: weatherState.seriesCount, bundleCount: weatherPublic.bundleCount, marketCount: weatherPublic.marketCount }
+    };
+  } catch (error) {
+    const message = error?.message || String(error);
+    const failedPolitics = { ...politicsPrior, lastRunAt: now, lastErrorAt: now, lastError: message };
+    const failedWeather = { ...weatherPrior, lastRunAt: now, lastErrorAt: now, lastError: message };
+    await Promise.all([
+      env.MARKET_ATLAS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(failedPolitics)),
+      env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(failedWeather))
+    ]);
+    throw error;
+  }
+}
+
+export async function runPoliticsPoll(env, now = Date.now(), options = {}) {
   const prior = await env.MARKET_ATLAS_CACHE.get(POLITICS_STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
   prior.events ||= {};
-  const discoveryDue = now - number(prior.lastDiscoveryAt, 0) >= 60 * 60 * 1000;
+  const discoveryDue = now - number(prior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
+    || !Object.keys(prior.events).length;
   const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
   const tokenBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
   const requestsPerSecond = Math.min(
     number(env.KALSHI_MAX_READ_REQUESTS_PER_SECOND, 10),
     number(env.KALSHI_POLITICS_READ_REQUESTS_PER_SECOND, Math.min(1.25, tokenBudget / requestCost))
   );
-  const gate = createRateGate(requestsPerSecond);
+  const gate = options.gate || createRateGate(requestsPerSecond);
   let requestCount = 0;
   let successCount = 0;
   try {
@@ -824,17 +1031,26 @@ export async function runPoliticsPoll(env, now = Date.now()) {
 async function mapWithConcurrency(items, concurrency, operation) {
   const queue = items.slice();
   const results = [];
+  let rateLimited = false;
+  let attempted = 0;
   const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
-    while (queue.length) {
+    while (queue.length && !rateLimited) {
       const item = queue.shift();
+      attempted += 1;
       try {
         results.push(await operation(item));
       } catch (error) {
         console.warn("Kalshi poll failed", item, error?.message || error);
+        if (error?.code === "KALSHI_RATE_LIMITED") {
+          rateLimited = true;
+          queue.length = 0;
+        }
       }
     }
   });
   await Promise.all(workers);
+  results.rateLimited = rateLimited;
+  results.attempted = attempted;
   return results;
 }
 
@@ -1254,7 +1470,7 @@ export async function runTeamFuturesPoll(env, now = Date.now(), preloaded = null
   }
 }
 
-export async function runFuturesMaintenance(env, now = Date.now()) {
+export async function runFuturesMaintenance(env, now = Date.now(), options = {}) {
   const pipeline = await env.MARKET_ATLAS_CACHE.get(FUTURES_PIPELINE_STATE_KEY, "json") || {};
   if (now - number(pipeline.pollStartedAt, 0) < FUTURES_POLL_LOCK_MS) return { refreshed: false, inProgress: true };
   const [teamPrior, mlbPrior] = await Promise.all([
@@ -1274,7 +1490,7 @@ export async function runFuturesMaintenance(env, now = Date.now()) {
       number(env.KALSHI_MAX_READ_REQUESTS_PER_SECOND, 10),
       number(env.KALSHI_FUTURES_READ_REQUESTS_PER_SECOND, Math.min(0.5, tokenBudget / requestCost))
     );
-    const gate = createRateGate(requestsPerSecond);
+    const gate = options.gate || createRateGate(requestsPerSecond);
     const descriptors = teamDue ? await currentTeamFuturesDescriptors(env, gate, teamPrior || {}) : [];
     const requestedSeries = new Set([
       ...(teamDue ? descriptors.map(descriptor => descriptor.ticker) : []),
@@ -1316,14 +1532,16 @@ function publicSnapshot(state, now) {
   };
 }
 
-export async function runPoll(env, now = Date.now()) {
+export async function runPoll(env, now = Date.now(), options = {}) {
   const state = await env.MARKET_ATLAS_CACHE.get(STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
   state.events ||= {};
   const requestCost = number(env.KALSHI_READ_REQUEST_COST, 10);
   const configuredSeries = parseSeries(env);
   const previouslyDiscovered = new Set((state.discoveredSeries || []).map(ticker => String(ticker).toUpperCase()));
-  const discoveryDue = now - number(state.lastDiscoveryAt, 0) >= DISCOVERY_INTERVAL_MS
-    || configuredSeries.some(ticker => !previouslyDiscovered.has(ticker));
+  const lastDiscoveryAt = number(state.lastDiscoveryAt, 0);
+  const baselineDiscoveryDue = lastDiscoveryAt > 0 && now - lastDiscoveryAt >= DISCOVERY_INTERVAL_MS;
+  const missingSeries = configuredSeries.filter(ticker => !previouslyDiscovered.has(ticker));
+  const discoveryDue = !lastDiscoveryAt || baselineDiscoveryDue || missingSeries.length > 0;
   const explicitBudget = number(env.KALSHI_READ_TOKENS_PER_SECOND, NaN);
   const fallbackBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
   const budgetFraction = Math.max(0.05, Math.min(1, number(env.KALSHI_RATE_BUDGET_FRACTION, 0.25)));
@@ -1336,7 +1554,7 @@ export async function runPoll(env, now = Date.now()) {
   if (!Number.isFinite(explicitBudget) && !env.KALSHI_API_KEY_ID) {
     requestsPerSecond = Math.min(requestsPerSecond, number(env.KALSHI_UNAUTHENTICATED_GAME_READ_REQUESTS_PER_SECOND, 1.5));
   }
-  let gate = createRateGate(requestsPerSecond);
+  let gate = options.gate || createRateGate(requestsPerSecond);
 
   if (discoveryDue && env.KALSHI_API_KEY_ID && env.KALSHI_PRIVATE_KEY && !Number.isFinite(explicitBudget)) {
     try {
@@ -1346,7 +1564,7 @@ export async function runPoll(env, now = Date.now()) {
         state.accountReadRefillRate = refillRate;
         state.accountLimitsCheckedAt = now;
         requestsPerSecond = Math.min(maximumRps, refillRate * budgetFraction / requestCost);
-        gate = createRateGate(requestsPerSecond);
+        if (!options.gate) gate = createRateGate(requestsPerSecond);
       }
     } catch (error) {
       console.warn("Could not read Kalshi account limits; using cached or conservative budget", error?.message || error);
@@ -1354,23 +1572,25 @@ export async function runPoll(env, now = Date.now()) {
   }
 
   if (discoveryDue) {
-    const series = configuredSeries;
-    const discovered = await mapWithConcurrency(series, Math.min(4, number(env.KALSHI_POLL_CONCURRENCY, 4)),
-      ticker => discoverSeries(env, ticker, gate, now));
-    for (const snapshots of discovered) {
-      for (const snapshot of snapshots) state.events[snapshot.eventTicker] = snapshot;
+    const targets = baselineDiscoveryDue || !previouslyDiscovered.size ? configuredSeries : missingSeries;
+    const discovered = await mapWithConcurrency(targets, Math.min(4, number(env.KALSHI_POLL_CONCURRENCY, 4)),
+      async ticker => ({ ticker, snapshots: await discoverSeries(env, ticker, gate, now) }));
+    for (const result of discovered) {
+      previouslyDiscovered.add(result.ticker);
+      for (const snapshot of result.snapshots) state.events[snapshot.eventTicker] = snapshot;
     }
-    if (discovered.length === series.length) {
+    state.discoveredSeries = configuredSeries.filter(ticker => previouslyDiscovered.has(ticker));
+    const remainingSeries = configuredSeries.filter(ticker => !previouslyDiscovered.has(ticker));
+    if (!remainingSeries.length) {
       state.lastDiscoveryAt = now;
-      state.discoveredSeries = series;
       state.lastSuccessfulPollAt = now;
       state.lastError = null;
     } else {
       state.lastErrorAt = now;
-      state.lastError = `Discovery completed ${discovered.length}/${series.length} series`;
+      state.lastError = `Discovery added ${discovered.length}/${targets.length} series; ${remainingSeries.length} remaining`;
       console.warn(`Kalshi ${state.lastError}; retrying on the next scheduled run`);
     }
-    state.lastRequestCount = series.length;
+    state.lastRequestCount = discovered.attempted;
     state.lastRequestSuccessCount = discovered.length;
   } else {
     const due = Object.values(state.events)
@@ -1382,7 +1602,7 @@ export async function runPoll(env, now = Date.now()) {
     const refreshed = await mapWithConcurrency(due, Math.min(4, number(env.KALSHI_POLL_CONCURRENCY, 4)),
       snapshot => refreshEvent(env, snapshot.eventTicker, gate, now));
     for (const snapshot of refreshed) state.events[snapshot.eventTicker] = snapshot;
-    state.lastRequestCount = due.length;
+    state.lastRequestCount = refreshed.attempted;
     state.lastRequestSuccessCount = refreshed.length;
     if (refreshed.length === due.length) {
       state.lastSuccessfulPollAt = now;
@@ -1406,6 +1626,145 @@ export async function runPoll(env, now = Date.now()) {
     env.MARKET_ATLAS_CACHE.put(PUBLIC_KEY, JSON.stringify(publicData))
   ]);
   return { discoveryDue, eventCount: publicData.eventCount };
+}
+
+export async function runScheduledRefresh(env, now = Date.now(), options = {}) {
+  const requestedStep = String(options.step || "geographic").toLowerCase();
+  const step = SCHEDULED_REFRESH_STEPS.includes(requestedStep) ? requestedStep : "geographic";
+  const gate = options.gate || createRateGate(geographicRequestsPerSecond(env));
+  const results = {};
+  const errors = {};
+  const runStep = async (name, operation) => {
+    try {
+      results[name] = await operation();
+    } catch (error) {
+      errors[name] = error?.message || String(error);
+      console.error(JSON.stringify({
+        level: "error",
+        message: "Market Atlas scheduled refresh step failed",
+        environment: env.ENVIRONMENT || "unknown",
+        step: name,
+        error: errors[name]
+      }));
+    }
+  };
+
+  const operations = {
+    // Politics and Weather share one event-catalog pass and lead every cold
+    // start so the global map becomes useful before the larger sports sweep.
+    geographic: () => runGeographicPoll(env, now, { gate }),
+    sports: () => runPoll(env, now, { gate }),
+    futures: () => runFuturesMaintenance(env, now, { gate })
+  };
+  await runStep(step, operations[step]);
+
+  const summary = {
+    environment: env.ENVIRONMENT || "unknown",
+    step,
+    nextStep: nextScheduledRefreshStep(step),
+    scheduledAt: new Date(now).toISOString(),
+    completedAt: new Date().toISOString(),
+    ok: Object.keys(errors).length === 0,
+    results,
+    errors
+  };
+  console.log(JSON.stringify({ level: summary.ok ? "info" : "warn", message: "Market Atlas scheduled refresh completed", ...summary }));
+  return summary;
+}
+
+export class RefreshCoordinator {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+    this.refreshPromise = null;
+  }
+
+  async fetch(request) {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 });
+    const payload = await request.json().catch(() => ({}));
+    const result = await this.refresh(number(payload.scheduledTime, Date.now()));
+    return json(result);
+  }
+
+  async refresh(scheduledTime = Date.now()) {
+    if (this.refreshPromise) return { skipped: true, reason: "refresh-in-progress" };
+    this.refreshPromise = this.performRefresh(scheduledTime);
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  async performRefresh(scheduledTime) {
+    const lastRun = await this.ctx.storage.get("last-run");
+    const now = Date.now();
+    if (now - number(lastRun?.completedAt, 0) < SCHEDULED_REFRESH_COOLDOWN_MS) {
+      return { skipped: true, reason: "refresh-cooldown", completedAt: lastRun.completedAt };
+    }
+    const storedStep = await this.ctx.storage.get("next-step");
+    const step = SCHEDULED_REFRESH_STEPS.includes(storedStep) ? storedStep : "geographic";
+    const nextStep = nextScheduledRefreshStep(step);
+    const runId = crypto.randomUUID();
+    await this.ctx.storage.put("last-run", { runId, step, startedAt: now, completedAt: null, ok: null });
+    try {
+      const result = await runScheduledRefresh(this.env, scheduledTime, { step });
+      await Promise.all([
+        this.ctx.storage.put("next-step", nextStep),
+        this.ctx.storage.put("last-run", {
+          runId,
+          step,
+          nextStep,
+          startedAt: now,
+          completedAt: Date.now(),
+          ok: result.ok,
+          errors: result.errors
+        })
+      ]);
+      return result;
+    } catch (error) {
+      await Promise.all([
+        this.ctx.storage.put("next-step", nextStep),
+        this.ctx.storage.put("last-run", {
+          runId,
+          step,
+          nextStep,
+          startedAt: now,
+          completedAt: Date.now(),
+          ok: false,
+          errors: { coordinator: error?.message || String(error) }
+        })
+      ]);
+      throw error;
+    }
+  }
+}
+
+function requestCoordinatedRefresh(env, now = Date.now()) {
+  if (!env.REFRESH_COORDINATOR) return runScheduledRefresh(env, now, { step: scheduledRefreshStepForTime(now) });
+  return env.REFRESH_COORDINATOR.getByName(`scheduled:${env.ENVIRONMENT || "default"}`)
+    .fetch("https://refresh.internal/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scheduledTime: now })
+    }).then(async response => {
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Refresh coordinator returned ${response.status}`);
+      return payload;
+    });
+}
+
+function warmHostedCache(env, ctx, category) {
+  if (!ctx) return;
+  ctx.waitUntil(requestCoordinatedRefresh(env, Date.now()).catch(error => {
+    console.error(JSON.stringify({
+      level: "error",
+      message: "Market Atlas on-demand cache warm failed",
+      environment: env.ENVIRONMENT || "unknown",
+      category,
+      error: error?.message || String(error)
+    }));
+  }));
 }
 
 function startLocalPoll(env, now = Date.now()) {
@@ -1519,9 +1878,14 @@ async function handleRequest(request, env, ctx) {
       return !Number.isFinite(updatedAt) || now - updatedAt > Math.max(2 * pollInterval(snapshot, now), 2 * 60 * 1000);
     });
     const eventTimes = events.map(event => new Date(event.updatedAt || 0).getTime()).filter(Number.isFinite);
+    const sportsReady = Boolean(state && publicData) && !state?.lastError;
+    const politicsReady = Boolean(politicsState && politicsPublic) && !politicsState?.lastError;
+    const weatherReady = Boolean(weatherState && weatherPublic) && !weatherState?.lastError;
     return json({
       environment: env.ENVIRONMENT || "unknown",
-      ok: Boolean(state && publicData) && !state?.lastError,
+      ok: sportsReady && politicsReady && weatherReady,
+      ready: { sports: sportsReady, politics: politicsReady, weather: weatherReady },
+      refreshCoordinator: env.REFRESH_COORDINATOR ? "durable-object" : "in-process",
       lastRunAt: state?.lastRunAt ? new Date(state.lastRunAt).toISOString() : null,
       lastSuccessfulPollAt: state?.lastSuccessfulPollAt ? new Date(state.lastSuccessfulPollAt).toISOString() : null,
       publicCacheGeneratedAt: publicData?.generatedAt || null,
@@ -1574,10 +1938,13 @@ async function handleRequest(request, env, ctx) {
         }
       }
     }
-    if (!payload) return json({ schemaVersion: 1, generatedAt: null, bundleCount: 0, marketCount: 0, periods: [], bundles: [], warming: true }, {
+    if (!payload) {
+      warmHostedCache(env, ctx, "politics");
+      return json({ schemaVersion: 1, generatedAt: null, bundleCount: 0, marketCount: 0, periods: [], bundles: [], warming: true }, {
       status: 503,
       headers: { "cache-control": "no-store", "retry-after": "15" }
-    });
+      });
+    }
     applyHouseRaceRevealScales(payload.bundles || []);
     const etag = `W/\"politics-${Date.parse(payload.generatedAt).toString(36)}-${payload.marketCount}\"`;
     if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
@@ -1609,10 +1976,13 @@ async function handleRequest(request, env, ctx) {
         }
       }
     }
-    if (!payload) return json({ schemaVersion: 1, generatedAt: null, bundleCount: 0, marketCount: 0, horizons: [], bundles: [], warming: true }, {
+    if (!payload) {
+      warmHostedCache(env, ctx, "weather");
+      return json({ schemaVersion: 1, generatedAt: null, bundleCount: 0, marketCount: 0, horizons: [], bundles: [], warming: true }, {
       status: 503,
       headers: { "cache-control": "no-store", "retry-after": "15" }
-    });
+      });
+    }
     const etag = `W/"weather-${Date.parse(payload.generatedAt).toString(36)}-${payload.marketCount}"`;
     if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
     return json(payload, {
@@ -1789,10 +2159,13 @@ async function handleRequest(request, env, ctx) {
   const cached = await edgeCache?.match(cacheRequest);
   if (cached) return cached;
 
-  if (!payload) return json({ generatedAt: null, eventCount: 0, events: [], warming: true }, {
-    status: 503,
-    headers: { "cache-control": "no-store", "retry-after": "30" }
-  });
+  if (!payload) {
+    warmHostedCache(env, ctx, "sports");
+    return json({ generatedAt: null, eventCount: 0, events: [], warming: true }, {
+      status: 503,
+      headers: { "cache-control": "no-store", "retry-after": "30" }
+    });
+  }
   const filtered = removeStaleEvents(filterForDate(payload, date));
   const etag = `W/\"${Date.parse(payload.generatedAt).toString(36)}-${filtered.eventCount}-${filtered.cache?.staleEventCount || 0}\"`;
   if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
@@ -1811,20 +2184,15 @@ export default {
   fetch: handleRequest,
   async scheduled(controller, env, ctx) {
     const now = controller.scheduledTime || Date.now();
-    ctx.waitUntil((async () => {
-      try {
-        await runPoll(env, now);
-      } finally {
-        try {
-          await runPoliticsPoll(env, now);
-        } finally {
-          try {
-            await runWeatherPoll(env, now);
-          } finally {
-            await runFuturesMaintenance(env, now);
-          }
-        }
-      }
-    })());
+    const refresh = requestCoordinatedRefresh(env, now);
+    ctx.waitUntil(refresh.catch(error => {
+      console.error(JSON.stringify({
+        level: "error",
+        message: "Market Atlas scheduled refresh coordinator failed",
+        environment: env.ENVIRONMENT || "unknown",
+        error: error?.message || String(error)
+      }));
+      throw error;
+    }));
   }
 };

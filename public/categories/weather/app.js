@@ -14,6 +14,8 @@ const detailCode = app.querySelector(".detail-code");
 const detailLocation = app.querySelector(".detail-location");
 const detailMeta = app.querySelector(".detail-meta");
 const detailList = app.querySelector(".detail-market-list");
+const detailPanel = app.querySelector(".election-detail");
+const mobileDetailClose = app.querySelector(".mobile-market-sheet-close");
 const hud = app.querySelector(".hud-summary");
 const filterCount = app.querySelector(".filter-summary-number");
 const range = app.querySelector(".timeline-range");
@@ -28,7 +30,7 @@ const CENTER = [WIDTH / 2, HEIGHT / 2];
 const MIN_SCALE = 235;
 const MAX_SCALE = 7600;
 const GLOBAL_ANCHOR_SCALE = 620;
-const GLOBAL_ANCHOR_POINT = [WIDTH - 38, 48];
+const GLOBAL_ANCHOR_POINT = [WIDTH - 26, 28];
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sphere = { type: "Sphere" };
 const projection = geoOrthographic().translate(CENTER).scale(MIN_SCALE).clipAngle(90).precision(.35).rotate([92, -31, 0]);
@@ -53,6 +55,12 @@ let zoomFrame = null;
 let integratedActive = !app.closest("[data-category-view]");
 let feedEtag = "";
 let feedTimer = null;
+
+const mobileMarketViewport = () => window.matchMedia("(max-width: 700px), (hover: none)").matches;
+const preciseHoverViewport = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+function openMobileDetail() { if (mobileMarketViewport()) detailPanel?.classList.add("is-mobile-open"); }
+function closeMobileDetail() { detailPanel?.classList.remove("is-mobile-open"); }
+mobileDetailClose?.addEventListener("click", closeMobileDetail);
 
 function appendSvg(parent, name, className = "") {
   const node = document.createElementNS(NS, name);
@@ -128,7 +136,7 @@ function outcomeMarkup(outcome, tooltipMode = false) {
 function marketMarkup(market, kind, tooltipMode = false) {
   const color = accents[kind];
   if (tooltipMode) return `<section class="tooltip-market" style="--weather-accent:${color}"><a class="tooltip-market-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a>${market.outcomes.slice(0, 6).map(item => outcomeMarkup(item, true)).join("")}<div class="tooltip-stamp">${compactVolume(market.volume)} contracts · ${escapeHtml(market.eventTicker)}</div></section>`;
-  return `<article class="market-card" style="--weather-accent:${color}"><div class="market-card-heading"><a class="market-card-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a><span class="market-volume">${compactVolume(market.volume)} vol</span></div><div class="market-outcomes">${market.outcomes.map(item => outcomeMarkup(item)).join("")}</div><div class="market-footer"><span>${escapeHtml(market.eventTicker)}</span><span>Kalshi · ${market.updatedAt ? `cached ${snapshotAge(market.updatedAt)}` : "verified fallback"}</span></div></article>`;
+  return `<article class="market-card" data-outcome-count="${market.outcomes.length}" style="--weather-accent:${color}"><div class="market-card-heading"><a class="market-card-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a><span class="market-volume">${compactVolume(market.volume)} vol</span></div><div class="market-outcomes">${market.outcomes.map(item => outcomeMarkup(item)).join("")}</div><div class="market-footer"><span>${escapeHtml(market.eventTicker)}</span><span>Kalshi · ${market.updatedAt ? `cached ${snapshotAge(market.updatedAt)}` : "verified fallback"}</span></div></article>`;
 }
 
 function renderDetail(bundle) {
@@ -183,6 +191,7 @@ function positionTooltip(point) {
 }
 
 function showTooltip(bundle, point) {
+  if (!preciseHoverViewport()) return;
   cancelTooltipHide();
   tooltipId = bundle.id;
   tooltip.innerHTML = `<div class="tooltip-heading"><div><div class="tooltip-title">${escapeHtml(bundle.name)}</div><div class="tooltip-subtitle">${escapeHtml(bundle.location)} · ${bundle.horizon}</div></div><span class="weather-category-badge" style="--weather-accent:${accents[bundle.kind]}">${escapeHtml(bundle.kind)}</span></div><div class="tooltip-market-list">${bundle.markets.map(market => marketMarkup(market, market.kind || bundle.kind, true)).join("")}</div>`;
@@ -200,11 +209,6 @@ function makeMarker(bundle) {
   group.setAttribute("role", "button");
   group.setAttribute("tabindex", "0");
   group.setAttribute("aria-label", `${bundle.name}: ${bundle.markets.length} ${bundle.kind} market${bundle.markets.length === 1 ? "" : "s"}`);
-  const viewportTag = appendSvg(group, "g", "viewport-anchor-tag");
-  const viewportTagBackground = appendSvg(viewportTag, "rect");
-  viewportTagBackground.setAttribute("x", "-124"); viewportTagBackground.setAttribute("y", "-18"); viewportTagBackground.setAttribute("width", "142"); viewportTagBackground.setAttribute("height", "36"); viewportTagBackground.setAttribute("rx", "18");
-  const viewportTagLabel = appendSvg(viewportTag, "text");
-  viewportTagLabel.setAttribute("x", "-19"); viewportTagLabel.setAttribute("y", "3.5"); viewportTagLabel.setAttribute("text-anchor", "end"); viewportTagLabel.textContent = "Global climate";
   const hit = appendSvg(group, "circle", "marker-hit"); hit.setAttribute("r", String(radius + 9));
   const halo = appendSvg(group, "circle", "marker-halo"); halo.setAttribute("r", String(radius + 3));
   const core = appendSvg(group, "circle", "marker-core"); core.setAttribute("r", String(radius));
@@ -213,9 +217,9 @@ function makeMarker(bundle) {
     const count = appendSvg(group, "circle", "market-count"); count.setAttribute("cx", String(radius)); count.setAttribute("cy", String(-radius)); count.setAttribute("r", "5.3");
     const countText = appendSvg(group, "text", "market-count-text"); countText.setAttribute("x", String(radius)); countText.setAttribute("y", String(-radius)); countText.textContent = String(bundle.markets.length);
   }
-  const select = () => { pinnedSearchId = null; delete app.dataset.searchSelectedId; selectedId = bundle.id; renderDetail(bundle); draw(); };
+  const select = () => { pinnedSearchId = null; delete app.dataset.searchSelectedId; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); draw(); };
   group.addEventListener("pointerdown", event => event.stopPropagation());
-  group.addEventListener("mouseenter", () => { const point = markerPoint(bundle); if (point) showTooltip(bundle, point); });
+  group.addEventListener("mouseenter", () => { if (!preciseHoverViewport()) return; const point = markerPoint(bundle); if (point) showTooltip(bundle, point); });
   group.addEventListener("mouseleave", scheduleTooltipHide);
   group.addEventListener("click", select);
   group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
@@ -255,11 +259,7 @@ function placeMarkers() {
   const accepted = [];
   for (const node of candidates) {
     const [x, y] = node.point;
-    const collision = accepted.some(other => (
-      other.anchored
-        ? x > other.x - 136 && x < other.x + 26 && Math.abs(y - other.y) < 25
-        : Math.hypot(x - other.x, y - other.y) < markerSpacing() + Math.min(node.radius, other.radius) * .45
-    ));
+    const collision = accepted.some(other => Math.hypot(x - other.x, y - other.y) < markerSpacing() + Math.min(node.radius, other.radius) * .45);
     if (collision && node.bundle.id !== selectedId) continue;
     const horizonRoom = Math.PI / 2 - node.distance;
     const opacity = node.anchored ? 1 : Math.max(0, Math.min(1, horizonRoom / .08));
@@ -477,6 +477,6 @@ window.__integratedWeatherView = {
     const bundle = activeWeatherBundles.find(item => item.id === result?.bundleId)
       || activeWeatherBundles.find(item => item.markets.some(market => market.eventTicker === result?.eventTicker));
     if (!bundle) return false;
-    app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); projection.rotate([-bundle.lon, -bundle.lat, 0]); projection.scale(Math.max(420, Math.min(900, projection.scale()))); draw(); return true;
+    app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); projection.rotate([-bundle.lon, -bundle.lat, 0]); projection.scale(Math.max(420, Math.min(900, projection.scale()))); draw(); return true;
   }
 };

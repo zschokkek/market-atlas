@@ -876,6 +876,10 @@ body.integration-body {
   display: none;
 }
 
+.mobile-market-sheet-close {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .integration-header {
     grid-template-columns: 1fr minmax(14rem, 0.8fr);
@@ -1029,7 +1033,8 @@ body.integration-body {
     top: 8px;
     left: 8px;
     display: block !important;
-    width: calc(56% - 12px);
+    width: calc(50% - 12px);
+    height: 44px;
     min-width: 0;
     max-height: calc(100% - 7.5rem);
     padding: 0 !important;
@@ -1049,7 +1054,8 @@ body.integration-body {
     grid-template-columns: auto minmax(0, 1fr) 12px;
     align-items: center;
     width: 100%;
-    min-height: 42px;
+    height: 44px;
+    min-height: 44px;
     gap: 8px;
     padding: 7px 11px;
     border: 0;
@@ -1103,13 +1109,17 @@ body.integration-body {
     border-top: 1px solid var(--integration-border);
   }
 
+  .category-view .mobile-filter-dropdown.is-open {
+    height: auto;
+  }
+
   .mobile-calendar-picker {
     position: absolute;
     z-index: 47;
     top: 8px;
     right: 8px;
     display: block;
-    width: calc(44% - 12px);
+    width: calc(50% - 12px);
   }
 
   .mobile-calendar-picker.is-open {
@@ -1121,6 +1131,7 @@ body.integration-body {
     grid-template-columns: 15px minmax(0, 1fr) 8px;
     align-items: center;
     width: 100%;
+    height: 44px;
     min-height: 44px;
     gap: 7px;
     padding: 0 10px;
@@ -1180,6 +1191,28 @@ body.integration-body {
     transform: translateY(-2px) rotate(45deg);
     pointer-events: none;
     transition: transform 160ms ease;
+  }
+
+  .ios-native-controls .mobile-native-filter-select,
+  .ios-native-controls .mobile-native-calendar-select {
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0.001;
+    font-size: 16px;
+    cursor: pointer;
+    -webkit-appearance: menulist;
+    appearance: auto;
+  }
+
+  .ios-native-controls .mobile-native-filter-select {
+    border-radius: 13px;
   }
 
   .mobile-calendar-picker.is-open .mobile-calendar-chevron {
@@ -1354,8 +1387,8 @@ body.integration-body {
     display: grid;
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     width: auto;
-    height: min(42dvh, 22rem);
-    max-height: none;
+    height: auto;
+    max-height: min(42dvh, 22rem);
     padding: 14px;
     overflow: hidden;
   }
@@ -1365,6 +1398,8 @@ body.integration-body {
     display: grid;
     grid-auto-columns: 100%;
     grid-auto-flow: column;
+    align-items: start;
+    height: var(--mobile-market-card-height, auto);
     min-height: 0;
     gap: 10px;
     margin-top: 10px;
@@ -1375,6 +1410,7 @@ body.integration-body {
     scrollbar-width: none;
     overscroll-behavior-x: contain;
     touch-action: pan-x;
+    transition: height 160ms ease;
   }
 
   [data-category-view="politics"] .politics-app .detail-market-list::-webkit-scrollbar,
@@ -1437,6 +1473,507 @@ body.integration-body {
     height: 100%;
     min-height: 0;
     overflow: hidden;
+  }
+
+  /* Mobile markets are click-only, compact bottom sheets. The page itself never scrolls. */
+  .integration-stage,
+  .category-view {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  [data-category-view="sports"] > #market-atlas-sports,
+  [data-category-view="politics"] .politics-app,
+  [data-category-view="weather"] .weather-app {
+    height: 100%;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-layout,
+  [data-category-view="politics"] .politics-app .politics-layout,
+  [data-category-view="weather"] .weather-app .politics-layout {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    grid-template-areas: "globe" !important;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .category-view .globe-stage,
+  [data-category-view="sports"] #market-atlas-sports .globe-stage {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+  }
+
+  .category-view .sports-globe,
+  .category-view .politics-globe {
+    width: 100%;
+    height: 100%;
+  }
+
+  .category-view .map-tooltip,
+  .category-view .globe-hint {
+    display: none !important;
+  }
+
+  .mobile-market-sheet-close {
+    position: absolute;
+    z-index: 4;
+    top: 7px;
+    right: 8px;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    color: var(--integration-muted);
+    background: color-mix(in srgb, var(--integration-foreground) 7%, transparent);
+    font: inherit;
+    font-size: 19px;
+    line-height: 1;
+    touch-action: manipulation;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-detail,
+  [data-category-view="politics"] .politics-app .election-detail,
+  [data-category-view="weather"] .weather-app .election-detail {
+    position: fixed !important;
+    z-index: 70;
+    top: auto !important;
+    right: 6px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    left: 6px;
+    width: auto;
+    min-height: 0;
+    max-height: min(38dvh, 17rem);
+    margin: 0;
+    padding: 10px 11px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border));
+    border-radius: 17px;
+    background: linear-gradient(180deg, color-mix(in srgb, #242b27 97%, var(--integration-green) 3%), #171c19);
+    box-shadow: 0 -18px 52px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(calc(100% + 16px));
+    transition: transform 180ms ease, opacity 150ms ease, visibility 0s linear 180ms;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-detail.is-mobile-open,
+  [data-category-view="politics"] .politics-app .election-detail.is-mobile-open,
+  [data-category-view="weather"] .weather-app .election-detail.is-mobile-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition-delay: 0s;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-detail {
+    display: flex;
+    max-height: min(40dvh, 17rem);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-detail > .detail-view > .panel-heading,
+  [data-category-view="sports"] #market-atlas-sports .event-detail .form-select,
+  [data-category-view="sports"] #market-atlas-sports .event-ticker,
+  [data-category-view="sports"] #market-atlas-sports .contract-ticker {
+    display: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .game-detail-view {
+    width: 100%;
+    gap: 3px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .detail-topline {
+    min-height: 20px;
+    margin: 0;
+    padding-right: 34px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sport-badge {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-dates {
+    max-width: 72%;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-name {
+    display: -webkit-box;
+    margin: 1px 0 0;
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 1.15;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-location {
+    margin: 2px 0 4px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .price-header {
+    min-height: 28px;
+    margin-top: 2px;
+    padding: 5px 8px;
+    border-radius: 9px 9px 0 0;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .price-header-label,
+  [data-category-view="sports"] #market-atlas-sports .contract-count {
+    font-size: 10px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .price-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 0 0 9px 9px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .price-list[data-outcome-count="2"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .price-row {
+    min-height: 31px;
+    padding: 5px 7px;
+    border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .price-label {
+    gap: 5px;
+    font-size: 11px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .market-meta {
+    margin-top: 4px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .event-detail.is-market-pending .market-meta {
+    display: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .market-tools {
+    margin-top: 3px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .market-link {
+    min-height: 28px;
+    padding: 4px 9px;
+    font-size: 10px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser[hidden],
+  [data-category-view="sports"] #market-atlas-sports .game-detail-view[hidden] {
+    display: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading {
+    display: flex;
+    min-height: 28px;
+    padding: 0 34px 4px 2px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading strong {
+    font-size: 16px;
+    line-height: 1.15;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-count {
+    color: var(--integration-muted);
+    font-size: 10px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-detail-market-list {
+    display: grid;
+    height: var(--mobile-market-card-height, auto);
+    min-height: 0;
+    margin-top: 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: start;
+    gap: 7px;
+    grid-auto-columns: 100%;
+    grid-auto-flow: column;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    transition: height 160ms ease;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-detail-market-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card {
+    min-width: 0;
+    height: auto;
+    max-height: none;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--integration-surface) 94%, transparent);
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-heading {
+    display: flex;
+    min-height: 34px;
+    padding: 6px 7px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-title {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--integration-foreground);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.2;
+    text-decoration: none;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-volume {
+    flex: none;
+    color: var(--integration-muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcomes {
+    display: grid;
+    border-top: 1px solid var(--integration-border);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card[data-outcome-count="2"] .market-outcomes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcome {
+    position: relative;
+    display: flex;
+    min-height: 27px;
+    padding: 4px 7px;
+    overflow: hidden;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-right: 1px solid rgba(255, 255, 255, 0.055);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    font-size: 10.5px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card[data-outcome-count="2"] .market-outcome {
+    border-right: 0;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--integration-green) 20%, transparent), transparent);
+    pointer-events: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card :is(.outcome-name, .outcome-price) {
+    position: relative;
+    z-index: 1;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-price {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-footer {
+    display: none;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-market-pending {
+    grid-column: 1 / -1;
+    padding: 12px 8px;
+    color: var(--integration-muted);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  [data-category-view="politics"] .politics-app .election-detail,
+  [data-category-view="weather"] .weather-app .election-detail {
+    display: grid;
+    grid-template-rows: auto auto auto;
+    height: auto;
+    max-height: min(40dvh, 17rem);
+  }
+
+  [data-category-view="politics"] .politics-app .detail-heading-row,
+  [data-category-view="weather"] .weather-app .detail-heading-row {
+    min-height: 30px;
+    padding-right: 35px;
+  }
+
+  [data-category-view="politics"] .politics-app .detail-kicker,
+  [data-category-view="politics"] .politics-app .detail-code,
+  [data-category-view="politics"] .politics-app .detail-location,
+  [data-category-view="politics"] .politics-app .detail-meta,
+  [data-category-view="politics"] .politics-app .market-footer,
+  [data-category-view="weather"] .weather-app .detail-kicker,
+  [data-category-view="weather"] .weather-app .detail-code,
+  [data-category-view="weather"] .weather-app .detail-location,
+  [data-category-view="weather"] .weather-app .detail-meta,
+  [data-category-view="weather"] .weather-app .market-footer {
+    display: none;
+  }
+
+  [data-category-view="politics"] .politics-app .detail-jurisdiction,
+  [data-category-view="weather"] .weather-app .detail-jurisdiction {
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-category-view="politics"] .politics-app .detail-market-list,
+  [data-category-view="weather"] .weather-app .detail-market-list {
+    gap: 7px;
+    margin-top: 5px;
+  }
+
+  [data-category-view="politics"] .politics-app .detail-market-list > .market-card,
+  [data-category-view="weather"] .weather-app .detail-market-list > .market-card {
+    height: auto;
+    max-height: none;
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  [data-category-view="politics"] .politics-app .market-card-heading,
+  [data-category-view="weather"] .weather-app .market-card-heading {
+    padding: 6px 7px;
+  }
+
+  [data-category-view="politics"] .politics-app .market-card-title,
+  [data-category-view="weather"] .weather-app .market-card-title {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.2;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  [data-category-view="politics"] .politics-app .market-volume,
+  [data-category-view="weather"] .weather-app .market-volume {
+    font-size: 9px;
+  }
+
+  [data-category-view="politics"] .politics-app .market-outcomes,
+  [data-category-view="weather"] .weather-app .market-outcomes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-category-view="politics"] .politics-app .market-card[data-outcome-count="2"] .market-outcomes,
+  [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcomes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-category-view="politics"] .politics-app .market-outcome,
+  [data-category-view="weather"] .weather-app .market-outcome {
+    min-height: 27px;
+    padding: 4px 7px;
+    border-right: 1px solid rgba(255, 255, 255, 0.055);
+    font-size: 10.5px;
+  }
+
+  [data-category-view="politics"] .politics-app .market-card[data-outcome-count="2"] .market-outcome,
+  [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcome {
+    border-right: 0;
+  }
+
+  [data-category-view="politics"] .politics-app .market-outcome:nth-child(n + 9),
+  [data-category-view="weather"] .weather-app .market-outcome:nth-child(n + 9) {
+    display: none;
+  }
+
+  [data-category-view="politics"] .politics-app .outcome-price,
+  [data-category-view="weather"] .weather-app .outcome-price {
+    font-size: 10.5px;
+  }
+
+  [data-category-view="politics"] .politics-app .party-badge {
+    width: 15px;
+    height: 15px;
+    font-size: 8px;
+  }
+
+  .mobile-market-carousel-nav {
+    min-height: 30px;
+    padding-top: 3px;
+    grid-template-columns: 30px minmax(0, 1fr) 30px;
+  }
+
+  .mobile-market-carousel-step {
+    width: 30px;
+    height: 28px;
+    font-size: 18px;
   }
 
   .integration-search-shell .market-search-panel {

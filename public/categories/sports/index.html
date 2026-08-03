@@ -875,9 +875,10 @@ html,body{min-height:100%;background:#111713}
 body{overflow-x:hidden}
 </style>
 <link rel="stylesheet" href="/assets/search.css">
+<link rel="stylesheet" href="/assets/globe-shell.css">
 </head>
 <body>
-<section id="market-atlas-sports" aria-label="Global sports schedule and Kalshi market prices">
+<section id="market-atlas-sports" class="market-globe-shell sports-market-shell" aria-label="Global sports schedule and Kalshi market prices">
   <header class="sports-app-header">
     <div class="powered-by-kalshi" aria-label="Powered by Kalshi">
       <span class="powered-label">Powered by</span>
@@ -911,37 +912,41 @@ body{overflow-x:hidden}
     </div>
   </header>
 
-  <div class="sports-layout">
-    <aside class="filter-sidebar orbital-panel" aria-label="Map filters">
+  <div class="sports-layout market-globe-layout">
+    <aside class="filter-sidebar orbital-panel market-filter-panel" aria-label="Map filters">
       <fieldset class="sport-filter-panel">
         <legend><span class="panel-heading"><span class="panel-orb" aria-hidden="true"></span>Sports</span></legend>
-        <div class="sport-check-grid">
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="ALL" checked><span>All sports</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="BASEBALL-GROUP" checked><span>Baseball</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="NFL" checked><span>NFL</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="CFB" checked><span>College football</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="AFL" checked><span>AFL</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="NBA" checked><span>NBA</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="WNBA" checked><span>WNBA</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="NHL" checked><span>NHL</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="ATP" checked><span>ATP</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="WTA" checked><span>WTA</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="GOLF-GROUP" checked><span>Golf</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="SOCCER-GROUP" checked><span>Soccer</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="CRK" checked><span>Cricket</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="IPL" checked><span>IPL</span></label>
-          <label class="sport-check-option"><input class="sport-check" type="checkbox" data-sport="F1" checked><span>Formula 1</span></label>
+        <div class="sport-check-grid check-list">
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="ALL" checked><span>All sports</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="BASEBALL-GROUP" checked><span>Baseball</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="NFL" checked><span>NFL</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="CFB" checked><span>College football</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="AFL" checked><span>AFL</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="NBA" checked><span>NBA</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="WNBA" checked><span>WNBA</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="NHL" checked><span>NHL</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="ATP" checked><span>ATP</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="WTA" checked><span>WTA</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="GOLF-GROUP" checked><span>Golf</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="SOCCER-GROUP" checked><span>Soccer</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="CRK" checked><span>Cricket</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="IPL" checked><span>IPL</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="F1" checked><span>Formula 1</span></label>
         </div>
       </fieldset>
 
+      <div class="filter-summary" aria-live="polite">
+        <span class="filter-summary-number">0</span>
+        <span class="filter-summary-copy">events visible</span>
+      </div>
+
     </aside>
 
-    <div class="globe-stage">
+    <div class="globe-stage market-globe-stage">
       <div class="globe-hud text-small">
         <span class="hud-summary">Loading events</span>
-        <span class="globe-legend"><span class="legend-volume-small" aria-hidden="true"></span><span class="legend-volume" aria-hidden="true"></span>Bubble size = volume</span>
       </div>
-      <svg class="sports-globe" viewBox="0 0 620 560" role="img" aria-label="Interactive global sports event map" aria-describedby="market-atlas-desc">
+      <svg class="sports-globe market-globe" viewBox="0 0 620 560" role="img" aria-label="Interactive global sports event map" aria-describedby="market-atlas-desc">
         <desc id="market-atlas-desc">A draggable, deeply zoomable globe showing baseball, basketball, hockey, professional and college football, tennis, golf, global soccer leagues, cricket, IPL, and Formula 1 events by date. Bubble size represents individual market volume, while compact matchup labels appear only after selection or deep zoom. Hovering any marker previews its prices, and clicking a grouped count opens every underlying market as an individual price card. Baseball games appear only on game day; selected other team sports can appear as muted upcoming markers during the two days before the game. Moving the date slider preserves the current globe position and zoom.</desc>
         <defs>
           <radialGradient id="market-atlas-ocean-gradient" cx="34%" cy="28%" r="72%">
@@ -964,13 +969,14 @@ body{overflow-x:hidden}
       </svg>
       <div class="map-tooltip" role="tooltip" hidden></div>
       <div class="zoom-controls" aria-label="Globe zoom controls">
-        <button class="btn zoom-in" type="button" aria-label="Zoom in">+</button>
-        <button class="btn zoom-out" type="button" aria-label="Zoom out">−</button>
+        <button class="btn market-zoom-button zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button class="btn market-zoom-button zoom-out" type="button" aria-label="Zoom out">−</button>
       </div>
-      <div class="globe-hint text-small text-muted">Drag to rotate · scroll to zoom · hover for prices · click a count to browse</div>
+      <div class="globe-hint text-small text-muted">Drag to rotate · scroll to zoom · hover for prices</div>
     </div>
 
-    <aside class="event-detail card orbital-panel" aria-live="polite">
+    <aside class="event-detail card orbital-panel market-detail-panel" aria-live="polite">
+      <button class="mobile-market-sheet-close" type="button" aria-label="Close market details">&#215;</button>
       <div class="detail-view game-detail-view">
         <label class="form-label panel-heading" for="market-atlas-event-select"><span class="panel-orb" aria-hidden="true"></span>Event</label>
         <select class="form-select" id="market-atlas-event-select"></select>
@@ -1002,6 +1008,14 @@ body{overflow-x:hidden}
           <a class="market-link btn" target="_blank" rel="noopener">Open Kalshi</a>
         </div>
       </div>
+
+      <section class="sports-mobile-market-browser" aria-label="Sports markets at this location" hidden>
+        <div class="sports-mobile-market-heading">
+          <strong>Markets here</strong>
+          <span class="sports-mobile-market-count text-small"></span>
+        </div>
+        <div class="detail-market-list sports-detail-market-list"></div>
+      </section>
 
       <section class="team-market-window orbital-panel" role="dialog" aria-modal="false" aria-labelledby="team-market-window-title" aria-live="polite" hidden>
         <div class="team-view-heading">
@@ -1046,7 +1060,7 @@ body{overflow-x:hidden}
       </section>
     </aside>
 
-    <section class="date-dock orbital-panel" aria-label="Schedule timeline">
+    <section class="date-dock orbital-panel market-timeline-dock" aria-label="Schedule timeline">
       <div class="date-dock-header">
         <div class="date-kicker text-small"><span class="date-orb" aria-hidden="true"></span><span>Schedule timeline</span></div>
         <div class="date-readout" aria-live="polite">
@@ -3215,7 +3229,7 @@ function assertNearTermMarketCoverage(events, {
 
   const svg = root.querySelector(".sports-globe");
   const ns = "http://www.w3.org/2000/svg";
-  const center = [310, 270];
+  const center = [310, 280];
   const projection = geoOrthographic().translate(center).scale(248).clipAngle(90).precision(0.4).rotate([98, -38, 0]);
   const path = geoPath(projection);
   const sphere = { type: "Sphere" };
@@ -3230,6 +3244,7 @@ function assertNearTermMarketCoverage(events, {
   const dateMonths = root.querySelector(".date-months");
   const datePrevious = root.querySelector(".date-prev");
   const dateNext = root.querySelector(".date-next");
+  const filterSummaryNumber = root.querySelector(".filter-summary-number");
   const eventSelect = root.querySelector("#market-atlas-event-select");
   const tooltip = root.querySelector(".map-tooltip");
   const sphereClipPath = root.querySelector(".sphere-clip-path");
@@ -3243,6 +3258,11 @@ function assertNearTermMarketCoverage(events, {
   const clustersLayer = root.querySelector(".clusters-layer");
   const markersLayer = root.querySelector(".markers-layer");
   const detail = root.querySelector(".event-detail");
+  const mobileDetailClose = root.querySelector(".mobile-market-sheet-close");
+  const gameDetailView = root.querySelector(".game-detail-view");
+  const mobileMarketBrowser = root.querySelector(".sports-mobile-market-browser");
+  const mobileMarketList = root.querySelector(".sports-detail-market-list");
+  const mobileMarketCount = root.querySelector(".sports-mobile-market-count");
   const marketLink = root.querySelector(".market-link");
   const teamMarketWindow = root.querySelector(".team-market-window");
   const teamFuturesList = root.querySelector(".team-futures-list");
@@ -3333,6 +3353,20 @@ function assertNearTermMarketCoverage(events, {
   let zoomAnchor = null;
   let zoomAnchorGeo = null;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const mobileMarketViewport = () => window.matchMedia("(max-width: 700px), (hover: none)").matches;
+  const preciseHoverViewport = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  function openMobileDetail() {
+    if (mobileMarketViewport()) detail.classList.add("is-mobile-open");
+  }
+  function hideMobileMarketBrowser() {
+    mobileMarketBrowser.hidden = true;
+    gameDetailView.hidden = false;
+  }
+  function closeMobileDetail() {
+    detail.classList.remove("is-mobile-open");
+    hideMobileMarketBrowser();
+  }
+  mobileDetailClose.addEventListener("click", closeMobileDetail);
 
   function compactTeamCode(name) {
     const cleaned = String(name || "").replace(/[^A-Za-z0-9 ]+/g, " ").trim();
@@ -3713,9 +3747,8 @@ function assertNearTermMarketCoverage(events, {
   }
 
   function volumeRadius(value) {
-    if (!value) return 12;
-    const normalized = Math.max(0, Math.min(1, (Math.log10(value + 1) - 2) / 6));
-    return 12 + normalized * 9;
+    const normalized = Math.max(0, Math.log10(Math.max(1000, value)) - 3);
+    return Math.max(7, Math.min(15, 6.5 + normalized * 2.75));
   }
 
   function marketUrl(ticker) {
@@ -3809,7 +3842,7 @@ function assertNearTermMarketCoverage(events, {
           line.setAttribute("y2", node.anchorY);
           leadersLayer.appendChild(line);
         }
-        const showMatchup = node.matchupTag && (node.event.id === selectedId || projection.scale() >= 1100);
+        const showMatchup = node.matchupTag && node.event.id === selectedId;
         if (showMatchup) {
           const placeLeft = node.anchorX + node.radius + 8 + node.matchupTagWidth > 612;
           const offsetX = placeLeft ? -(node.matchupTagWidth + node.radius + 8) : node.radius + 8;
@@ -3827,7 +3860,7 @@ function assertNearTermMarketCoverage(events, {
 
       const events = cluster.members.map(member => member.event);
       const largestMarketVolume = Math.max(...events.map(event => event.volume));
-      const radius = volumeRadius(largestMarketVolume) + 4;
+      const radius = volumeRadius(largestMarketVolume);
       const sport = events.every(event => event.sport === events[0].sport) ? events[0].sport : "MIX";
       const upcomingCount = events.filter(event => event.upcoming).length;
       const group = document.createElementNS(ns, "g");
@@ -3854,8 +3887,16 @@ function assertNearTermMarketCoverage(events, {
       clustersLayer.appendChild(group);
 
       group.addEventListener("pointerdown", pointerEvent => pointerEvent.stopPropagation());
-      group.addEventListener("click", () => showClusterTooltip(events, group, true));
-      group.addEventListener("mouseenter", () => showClusterTooltip(events, group, false));
+      group.addEventListener("click", () => {
+        if (!mobileMarketViewport()) {
+          showClusterTooltip(events, group, true);
+          return;
+        }
+        showMobileMarketBrowser(events);
+      });
+      group.addEventListener("mouseenter", () => {
+        if (preciseHoverViewport()) showClusterTooltip(events, group, false);
+      });
       group.addEventListener("mouseleave", scheduleTooltipHide);
     });
   }
@@ -4005,8 +4046,14 @@ function assertNearTermMarketCoverage(events, {
     markersLayer.appendChild(group);
 
     group.addEventListener("pointerdown", pointerEvent => pointerEvent.stopPropagation());
-    group.addEventListener("click", () => selectEvent(event.id, true));
-    group.addEventListener("mouseenter", () => showTooltip(event, group));
+    group.addEventListener("click", () => {
+      hideMobileMarketBrowser();
+      selectEvent(event.id, true);
+      openMobileDetail();
+    });
+    group.addEventListener("mouseenter", () => {
+      if (preciseHoverViewport()) showTooltip(event, group);
+    });
     group.addEventListener("mouseleave", scheduleTooltipHide);
     return { event, group, radius, matchupTag, matchupTagWidth };
   }
@@ -4249,19 +4296,24 @@ function assertNearTermMarketCoverage(events, {
   function renderPriceList(event) {
     const list = root.querySelector(".price-list");
     list.replaceChildren();
+    delete list.dataset.outcomeCount;
     if (!event.marketPosted) {
       const empty = document.createElement("div");
       empty.className = "text-small text-muted";
       const expectedTicker = specificEventTicker(event);
-      empty.textContent = expectedTicker
-        ? `${pendingMarketLabel(event)} · ${expectedTicker} was not returned by the cache`
-        : `${pendingMarketLabel(event)} · no listed Kalshi event ticker`;
+      empty.textContent = mobileMarketViewport()
+        ? pendingMarketLabel(event)
+        : expectedTicker
+          ? `${pendingMarketLabel(event)} · ${expectedTicker} was not returned by the cache`
+          : `${pendingMarketLabel(event)} · no listed Kalshi event ticker`;
       list.appendChild(empty);
       selectedTicker = expectedTicker;
       return;
     }
 
-    event.prices.forEach((price, index) => {
+    const displayedPrices = mobileMarketViewport() ? event.prices.slice(0, 6) : event.prices;
+    list.dataset.outcomeCount = String(displayedPrices.length);
+    displayedPrices.forEach((price, index) => {
       const [name, last, bid, ask, ticker] = price;
       const row = document.createElement("div");
       row.className = `price-row${index === 0 ? " is-selected" : ""}`;
@@ -4322,6 +4374,30 @@ function assertNearTermMarketCoverage(events, {
     selectedTicker = event.prices[0][4];
   }
 
+  function sportsMobileMarketCard(event) {
+    const prices = event.marketPosted && Array.isArray(event.prices) ? event.prices.slice(0, 6) : [];
+    const ticker = specificEventTicker(event) || event.eventTicker || event.expectedEventTicker || prices[0]?.[4] || "";
+    const title = `${event.markerCode || event.sport} · ${event.name}`;
+    const titleMarkup = ticker
+      ? `<a class="market-card-title" href="${marketUrl(ticker)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>`
+      : `<span class="market-card-title">${escapeHtml(title)}</span>`;
+    const outcomes = prices.length
+      ? prices.map(price => `<div class="market-outcome"><span class="outcome-fill" style="width:${Math.max(0, Number(price[1]) || 0)}%"></span><span class="outcome-name">${escapeHtml(price[0])}</span><strong class="outcome-price">${priceLabel(price[1])}</strong></div>`).join("")
+      : `<div class="sports-market-pending">${escapeHtml(pendingMarketLabel(event))}</div>`;
+    return `<article class="market-card sports-market-card" data-event-id="${escapeHtml(event.id)}" data-outcome-count="${prices.length}"><div class="market-card-heading">${titleMarkup}<span class="market-volume">${escapeHtml(formatVolumeCompact(event.volume).replace(" volume", ""))}</span></div><div class="market-outcomes">${outcomes}</div><div class="market-footer"><span>${escapeHtml(event.venue)}</span><span>${escapeHtml(event.city)}</span></div></article>`;
+  }
+
+  function showMobileMarketBrowser(events) {
+    const ranked = events.slice().sort((left, right) => right.volume - left.volume);
+    if (!ranked.length) return;
+    selectEvent(ranked[0].id, true);
+    mobileMarketList.innerHTML = ranked.map(sportsMobileMarketCard).join("");
+    mobileMarketCount.textContent = `${ranked.length} market${ranked.length === 1 ? "" : "s"}`;
+    gameDetailView.hidden = true;
+    mobileMarketBrowser.hidden = false;
+    openMobileDetail();
+  }
+
   function selectEvent(id, rotateToEvent = false, focusScale = null) {
     const event = activeEvents.find(item => item.id === id);
     if (!event) return;
@@ -4335,6 +4411,7 @@ function assertNearTermMarketCoverage(events, {
     eventSelect.value = event.id;
     detail.dataset.sport = event.sport;
     detail.classList.toggle("is-upcoming", Boolean(event.upcoming));
+    detail.classList.toggle("is-market-pending", !event.marketPosted);
     const sportLabel = event.markerCode || event.sport;
     root.querySelector(".sport-badge").textContent = event.upcoming ? `${sportLabel} · T-${event.daysUntil}` : sportLabel;
     root.querySelector(".event-dates").textContent = event.upcoming
@@ -4433,6 +4510,7 @@ function assertNearTermMarketCoverage(events, {
     tennisMarketsTrigger.hidden = true;
     detail.dataset.sport = "";
     detail.classList.remove("is-upcoming");
+    detail.classList.remove("is-market-pending");
     root.querySelector(".sport-badge").textContent = "—";
     root.querySelector(".event-dates").textContent = "";
     root.querySelector(".event-name").textContent = "No sports selected";
@@ -4469,6 +4547,7 @@ function assertNearTermMarketCoverage(events, {
     const posted = activeEvents.filter(event => event.marketPosted).length;
     const upcoming = activeEvents.filter(event => event.upcoming).length;
     const today = activeEvents.length - upcoming;
+    filterSummaryNumber.textContent = String(activeEvents.length);
     root.querySelector(".hud-summary").textContent = `${today} today${upcoming ? ` · ${upcoming} upcoming` : ""} · ${posted} markets posted`;
     dateActivity.textContent = `${today} today${upcoming ? ` · ${upcoming} upcoming` : ""} · ${posted} posted`;
     const selectionChanged = !activeEvents.some(event => event.id === selectedId);
@@ -4561,6 +4640,7 @@ function assertNearTermMarketCoverage(events, {
   }
 
   function showTooltip(event, group) {
+    if (!preciseHoverViewport()) return;
     cancelTooltipHide();
     const source = `event:${event.id}`;
     if (tooltipSource === source && !tooltip.hidden) return;
@@ -4581,6 +4661,7 @@ function assertNearTermMarketCoverage(events, {
   }
 
   function showClusterTooltip(events, group, clicked = false) {
+    if (!preciseHoverViewport()) return;
     cancelTooltipHide();
     const source = `cluster:${events.map(event => event.id).sort().join("|")}`;
     if (clicked && tooltipSource === source && !tooltip.hidden) {
@@ -4810,7 +4891,10 @@ function assertNearTermMarketCoverage(events, {
     }
     renderEvents();
   }));
-  eventSelect.addEventListener("change", event => selectEvent(event.target.value, true));
+  eventSelect.addEventListener("change", event => {
+    hideMobileMarketBrowser();
+    selectEvent(event.target.value, true);
+  });
   dateRange.addEventListener("input", event => renderDate(event.target.value, { preserveView: true }));
   datePrevious.addEventListener("click", () => renderDate(activeDateIndex - 1, { preserveView: true }));
   dateNext.addEventListener("click", () => renderDate(activeDateIndex + 1, { preserveView: true }));
@@ -4851,7 +4935,9 @@ function assertNearTermMarketCoverage(events, {
         .some(ticker => String(ticker || "").toUpperCase() === targetTicker))
         || activeEvents.find(item => targetTitle && normalizedMatchText(item.name) === targetTitle);
       if (!event) return false;
+      hideMobileMarketBrowser();
       selectEvent(event.id, true, Math.max(520, Math.min(900, projection.scale())));
+      openMobileDetail();
       return true;
     },
     apply(payload) {

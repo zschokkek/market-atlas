@@ -5,6 +5,14 @@ uses a five-minute cron and reduced Kalshi read budget. Production uses the
 one-minute live-event scheduler. Each environment must have its own KV
 namespace and Worker secrets.
 
+The production cron is intentionally a paced three-stage rotation rather than
+one burst: Geography (Politics and Weather), Sports, then Futures. The Durable
+Object persists the next stage, permits only one refresh at a time, and advances
+even after a failed stage so a single `429` cannot restart the entire cold
+discovery sweep every minute. Production schedules at most one Kalshi request
+every four seconds with one poller; expect a cold cache to become progressively
+useful and finish warming in roughly three to five minutes.
+
 ## Release flow
 
 - Every pull request to `main` runs the locked install, dependency audit, tests,

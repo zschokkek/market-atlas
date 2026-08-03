@@ -13,14 +13,18 @@ import {
   DEFAULT_SERIES,
   filterForDate,
   normalizeEvent,
+  nextScheduledRefreshStep,
   parseSeries,
   pollInterval,
   runFuturesMaintenance,
+  runGeographicPoll,
   runPoliticsPoll,
   runPoll,
+  runScheduledRefresh,
   runWeatherPoll,
   runTeamFuturesPoll,
   SUPPORTED_TEAM_FUTURES_SPORTS,
+  scheduledRefreshStepForTime,
   teamFuturesCacheKey,
   validateTeamFuturesRecord,
   weatherPollInterval
@@ -29,6 +33,36 @@ import { classifyPoliticsEvent, classifyPoliticsLocations, HOUSE_RACE_MIN_SCALE,
 import { HOUSE_DISTRICT_CENTROIDS } from "../src/congressional-district-centroids.js";
 import { interpretMarketQuery, searchMarkets } from "../src/market-search.js";
 import { buildWeatherPublicSnapshot, weatherMarketUrl } from "../src/weather-registry.js";
+
+test("paces hosted refreshes as a durable three-step rotation", async () => {
+  assert.equal(nextScheduledRefreshStep("geographic"), "sports");
+  assert.equal(nextScheduledRefreshStep("sports"), "futures");
+  assert.equal(nextScheduledRefreshStep("futures"), "geographic");
+  assert.equal(nextScheduledRefreshStep("unknown"), "geographic");
+  const minute = 60_000;
+  assert.equal(scheduledRefreshStepForTime(0 * minute), "geographic");
+  assert.equal(scheduledRefreshStepForTime(1 * minute), "sports");
+  assert.equal(scheduledRefreshStepForTime(2 * minute), "futures");
+
+  const now = Date.parse("2026-08-02T12:00:00Z");
+  const cache = new Map([
+    ["kalshi:team-futures:manifest:v3", JSON.stringify({ lastRunAt: now })],
+    ["kalshi:team-futures:manifest:v2:MLB", JSON.stringify({ lastRunAt: now })]
+  ]);
+  const env = {
+    ENVIRONMENT: "test",
+    MARKET_ATLAS_CACHE: {
+      async get(key, type) { const value = cache.get(key); return type === "json" && value ? JSON.parse(value) : value || null; },
+      async put(key, value) { cache.set(key, value); }
+    },
+    KALSHI_SCHEDULED_READ_REQUESTS_PER_SECOND: "1000000"
+  };
+  const result = await runScheduledRefresh(env, now, { step: "futures" });
+  assert.equal(result.step, "futures");
+  assert.equal(result.nextStep, "geographic");
+  assert.deepEqual(Object.keys(result.results), ["futures"]);
+  assert.equal(result.ok, true);
+});
 
 test("redirects legacy preview URLs to the canonical Market Atlas routes", async () => {
   const integrated = await worker.fetch(new Request("https://example.com/integrated-test/?category=politics"), {}, {});
@@ -110,6 +144,54 @@ test("discovers the full Climate and Weather category and serves a stale-while-r
     const response = await worker.fetch(new Request("https://example.com/api/weather"), env, { waitUntil() {} });
     assert.equal(response.status, 200);
     assert.match(response.headers.get("cache-control"), /stale-while-revalidate/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("warms Politics and Weather from one shared Kalshi event-catalog pass", async () => {
+  const cache = new Map();
+  const env = {
+    MARKET_ATLAS_CACHE: {
+      async get(key, type) { const value = cache.get(key); return type === "json" && value ? JSON.parse(value) : value || null; },
+      async put(key, value) { cache.set(key, value); }
+    },
+    KALSHI_SCHEDULED_READ_REQUESTS_PER_SECOND: "1000000",
+    KALSHI_MAX_READ_REQUESTS_PER_SECOND: "1000000"
+  };
+  const originalFetch = globalThis.fetch;
+  let eventCatalogRequests = 0;
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    if (url.pathname.endsWith("/series")) {
+      if (url.searchParams.get("category") === "Climate and Weather") {
+        return Response.json({ series: [{ ticker: "KXHIGHPHIL", title: "Highest temperature in Philadelphia", frequency: "daily", tags: ["Daily temperature"] }] });
+      }
+      return Response.json({ series: [{ ticker: "KXHORMUZNORM", title: "Strait of Hormuz traffic", tags: ["International"] }] });
+    }
+    eventCatalogRequests += 1;
+    return Response.json({ events: [
+      {
+        event_ticker: "SENATETX-26", series_ticker: "SENATETX", title: "Texas Senate winner?", status: "open",
+        markets: [
+          { ticker: "SENATETX-26-R", yes_sub_title: "Republican Party", last_price_dollars: "0.5400", volume_fp: "4000000.00" },
+          { ticker: "SENATETX-26-D", yes_sub_title: "Democratic Party", last_price_dollars: "0.4700", volume_fp: "3000000.00" }
+        ]
+      },
+      {
+        event_ticker: "KXHIGHPHIL-26AUG02", series_ticker: "KXHIGHPHIL", title: "Highest temperature in Philadelphia today?", status: "open",
+        markets: [{ ticker: "KXHIGHPHIL-26AUG02-B84", yes_sub_title: "84° to 85°", last_price_dollars: "0.5200", volume_fp: "1200.00" }]
+      }
+    ], cursor: "" });
+  };
+  try {
+    const result = await runGeographicPoll(env, Date.parse("2026-08-02T12:00:00Z"));
+    assert.equal(result.discoveryDue, true);
+    assert.equal(eventCatalogRequests, 1, "Politics and Weather must share one open-events scan");
+    assert.equal(result.politics.bundleCount, 1);
+    assert.equal(result.weather.bundleCount, 1);
+    assert.equal(JSON.parse(cache.get("kalshi:politics:public:v1")).bundles[0].jurisdiction, "Texas");
+    assert.equal(JSON.parse(cache.get("kalshi:weather:public:v1")).bundles[0].name, "Philadelphia");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -745,6 +827,54 @@ test("migrates a stale series manifest and publishes AFL prices", async () => {
     ["Melbourne Demons", 62],
     ["Gold Coast Suns", 39]
   ]);
+});
+
+test("stops a rate-limited sports stage and resumes only missing series", async () => {
+  const now = Date.parse("2026-08-02T20:00:00Z");
+  const missing = DEFAULT_SERIES.slice(-2);
+  const cache = new Map([["kalshi:sports:state:v2", JSON.stringify({
+    lastDiscoveryAt: now,
+    discoveredSeries: DEFAULT_SERIES.slice(0, -2),
+    events: {}
+  })]]);
+  const env = {
+    MARKET_ATLAS_CACHE: {
+      async get(key, type) { const value = cache.get(key); return type === "json" && value ? JSON.parse(value) : value || null; },
+      async put(key, value) { cache.set(key, value); }
+    },
+    KALSHI_READ_TOKENS_PER_SECOND: "1000000",
+    KALSHI_MAX_READ_REQUESTS_PER_SECOND: "1000000",
+    KALSHI_POLL_CONCURRENCY: "1",
+    KALSHI_MAX_RETRY_ATTEMPTS: "0"
+  };
+  const originalFetch = globalThis.fetch;
+  const requested = [];
+  let releaseRateLimit = false;
+  globalThis.fetch = async input => {
+    const ticker = new URL(input).searchParams.get("series_ticker");
+    requested.push(ticker);
+    if (ticker === missing[1] && !releaseRateLimit) return new Response('{"error":"too many requests"}', { status: 429 });
+    return Response.json({ events: [], cursor: "" });
+  };
+  try {
+    await runPoll(env, now);
+    const partial = JSON.parse(cache.get("kalshi:sports:state:v2"));
+    assert.ok(partial.discoveredSeries.includes(missing[0]));
+    assert.ok(!partial.discoveredSeries.includes(missing[1]));
+    assert.equal(partial.lastRequestSuccessCount, 1);
+    assert.match(partial.lastError, /1 remaining/);
+    assert.deepEqual(requested, missing);
+
+    releaseRateLimit = true;
+    requested.length = 0;
+    await runPoll(env, now + 3 * 60_000);
+    const complete = JSON.parse(cache.get("kalshi:sports:state:v2"));
+    assert.equal(complete.discoveredSeries.length, DEFAULT_SERIES.length);
+    assert.equal(complete.lastError, null);
+    assert.deepEqual(requested, [missing[1]], "the successful series should not be requested again");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("never presents a bare Kalshi series ticker as a specific event code", () => {

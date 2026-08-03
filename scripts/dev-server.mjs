@@ -2,18 +2,18 @@ import { createServer } from "node:http";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import worker, { runFuturesMaintenance, runPoliticsPoll, runPoll, runWeatherPoll } from "../src/worker.js";
+import worker, { runFuturesMaintenance, runGeographicPoll, runPoll } from "../src/worker.js";
 
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDirectory = path.join(projectDirectory, "public");
-const listenPort = Number(process.env.MARKET_ATLAS_PORT || 8766);
+const preferredListenPort = Number(process.env.MARKET_ATLAS_PORT || process.env.SPORTS_GLOBE_PORT || 8766);
+let listenPort = preferredListenPort;
 const cache = new Map();
-const cacheFile = path.resolve(process.env.MARKET_ATLAS_CACHE_FILE || path.join(projectDirectory, ".local-cache", "kalshi-kv.json"));
+const cacheFile = path.resolve(process.env.MARKET_ATLAS_CACHE_FILE || process.env.SPORTS_GLOBE_CACHE_FILE || path.join(projectDirectory, ".local-cache", "kalshi-kv.json"));
 const cacheDirectory = path.dirname(cacheFile);
 let pollPromise = null;
 let futuresPromise = null;
-let politicsPromise = null;
-let weatherPromise = null;
+let geographicPromise = null;
 let persistTimer = null;
 let persistPromise = Promise.resolve();
 
@@ -143,40 +143,22 @@ function updateFuturesCaches() {
   return futuresPromise;
 }
 
-function updatePoliticsCache() {
-  if (!politicsPromise) {
-    politicsPromise = runPoliticsPoll(env, Date.now())
+function updateGeographicCaches() {
+  if (!geographicPromise) {
+    geographicPromise = runGeographicPoll(env, Date.now())
       .then(result => {
-        console.log(`Kalshi politics cache ready (${result.bundleCount} capitals, ${result.marketCount} markets)`);
+        console.log(`Kalshi geographic cache ready (${result.politics.bundleCount} politics locations, ${result.politics.marketCount} politics markets; ${result.weather.bundleCount} weather locations, ${result.weather.marketCount} weather markets)`);
         return result;
       })
       .catch(error => {
-        console.warn("Kalshi politics cache update failed", error?.message || error);
+        console.warn("Kalshi geographic cache update failed", error?.message || error);
         throw error;
       })
       .finally(() => {
-        politicsPromise = null;
+        geographicPromise = null;
       });
   }
-  return politicsPromise;
-}
-
-function updateWeatherCache() {
-  if (!weatherPromise) {
-    weatherPromise = runWeatherPoll(env, Date.now())
-      .then(result => {
-        console.log(`Kalshi weather cache ready (${result.seriesCount} series, ${result.bundleCount} locations, ${result.marketCount} markets)`);
-        return result;
-      })
-      .catch(error => {
-        console.warn("Kalshi weather cache update failed", error?.message || error);
-        throw error;
-      })
-      .finally(() => {
-        weatherPromise = null;
-      });
-  }
-  return weatherPromise;
+  return geographicPromise;
 }
 
 const server = createServer(async (incoming, outgoing) => {
@@ -201,21 +183,35 @@ const server = createServer(async (incoming, outgoing) => {
   }
 });
 
-server.listen(listenPort, "127.0.0.1", () => {
+function startListening() {
+  server.listen(listenPort, "127.0.0.1");
+}
+
+server.on("listening", () => {
   console.log(`Market Atlas: http://localhost:${listenPort}`);
+  if (listenPort !== preferredListenPort) console.log(`Port ${preferredListenPort} was occupied; selected ${listenPort} instead`);
   console.log("Kalshi cache: hourly baseline · 15m game day · 5m pregame · 1m live");
-  updateOddsCache().catch(() => null)
-    .finally(() => updatePoliticsCache().catch(() => null))
-    .finally(() => updateWeatherCache().catch(() => null))
+  updateGeographicCaches().catch(() => null)
+    .finally(() => updateOddsCache().catch(() => null))
     .finally(() => updateFuturesCaches().catch(() => null));
 });
 
+server.on("error", error => {
+  if (error?.code === "EADDRINUSE" && listenPort < preferredListenPort + 20) {
+    listenPort += 1;
+    startListening();
+    return;
+  }
+  console.error("Market Atlas server failed", error);
+  process.exitCode = 1;
+});
+
+startListening();
+
 const pollTimer = setInterval(() => updateOddsCache().catch(() => null), 60 * 1000);
 pollTimer.unref();
-const politicsTimer = setInterval(() => updatePoliticsCache().catch(() => null), 60 * 1000);
-politicsTimer.unref();
-const weatherTimer = setInterval(() => updateWeatherCache().catch(() => null), 60 * 1000);
-weatherTimer.unref();
+const geographicTimer = setInterval(() => updateGeographicCaches().catch(() => null), 60 * 1000);
+geographicTimer.unref();
 const futuresTimer = setInterval(() => {
   updateOddsCache().catch(() => null).finally(() => updateFuturesCaches().catch(() => null));
 }, 60 * 60 * 1000);
@@ -223,8 +219,7 @@ futuresTimer.unref();
 
 async function stopServer() {
   clearInterval(pollTimer);
-  clearInterval(politicsTimer);
-  clearInterval(weatherTimer);
+  clearInterval(geographicTimer);
   clearInterval(futuresTimer);
   clearTimeout(persistTimer);
   await persistPromise;
