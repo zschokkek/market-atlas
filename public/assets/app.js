@@ -359,18 +359,62 @@ function installSharedGlobePinch(view, lifecycle) {
   if (!globe || globe.dataset.sharedPinch === "true" || typeof lifecycle?.getMapView !== "function" || typeof lifecycle?.setMapView !== "function") return;
   globe.dataset.sharedPinch = "true";
 
+  const supportsNativeTouchEvents = "ontouchstart" in window;
   const touchPointers = new Map();
-  let pinch = null;
-  let pinchSessionActive = false;
+  let pointerPinch = null;
+  let pointerPinchSessionActive = false;
+  let nativePinch = null;
+  let nativePinchSessionActive = false;
 
   const pointFor = event => ({ x: event.clientX, y: event.clientY });
-  const metrics = () => {
+  const pointerMetrics = () => {
     const [first, second] = [...touchPointers.values()];
     if (!first || !second) return null;
     return {
       distance: Math.hypot(second.x - first.x, second.y - first.y),
       midpoint: { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 },
     };
+  };
+  const nativeTouchMetrics = touches => {
+    const first = touches[0];
+    const second = touches[1];
+    if (!first || !second) return null;
+    return {
+      distance: Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY),
+      midpoint: { x: (first.clientX + second.clientX) / 2, y: (first.clientY + second.clientY) / 2 },
+    };
+  };
+  const pinchBaseline = gesture => {
+    const mapView = lifecycle.getMapView();
+    if (!gesture || !mapView || !Array.isArray(mapView.rotate)) return null;
+    return {
+      distance: Math.max(24, gesture.distance),
+      midpoint: gesture.midpoint,
+      rotation: mapView.rotate.slice(0, 3),
+      scale: Number(mapView.scale) || 248,
+    };
+  };
+  const applyPinch = (gesture, baseline) => {
+    if (!gesture || !baseline) return;
+    const ratio = Math.pow(Math.max(0.2, gesture.distance / baseline.distance), 0.9);
+    const nextScale = Math.max(170, Math.min(4200, baseline.scale * ratio));
+    const movementSensitivity = 0.2 * Math.max(0.08, Math.min(1, 520 / baseline.scale));
+    lifecycle.setMapView({
+      scale: nextScale,
+      rotate: [
+        baseline.rotation[0] + (gesture.midpoint.x - baseline.midpoint.x) * movementSensitivity,
+        Math.max(-84, Math.min(84, baseline.rotation[1] - (gesture.midpoint.y - baseline.midpoint.y) * movementSensitivity)),
+        baseline.rotation[2],
+      ],
+    });
+  };
+  const markPinching = () => {
+    globe.classList.remove("is-dragging");
+    globe.classList.add("is-pinching");
+  };
+  const consumePinchEvent = event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
   };
   const capturePointers = () => {
     touchPointers.forEach((_, pointerId) => {
@@ -381,66 +425,84 @@ function installSharedGlobePinch(view, lifecycle) {
       }
     });
   };
-  const beginPinch = () => {
-    const gesture = metrics();
-    const mapView = lifecycle.getMapView();
-    if (!gesture || !mapView || !Array.isArray(mapView.rotate)) return;
-    pinch = {
-      distance: Math.max(24, gesture.distance),
-      midpoint: gesture.midpoint,
-      rotation: mapView.rotate.slice(0, 3),
-      scale: Number(mapView.scale) || 248,
-    };
-    pinchSessionActive = true;
-    globe.classList.remove("is-dragging");
-    globe.classList.add("is-pinching");
+  const beginPointerPinch = () => {
+    pointerPinch = pinchBaseline(pointerMetrics());
+    if (!pointerPinch) return;
+    pointerPinchSessionActive = true;
+    markPinching();
     capturePointers();
   };
-  const consumePinchEvent = event => {
-    event.preventDefault();
-    event.stopImmediatePropagation();
+
+  globe.addEventListener("touchstart", event => {
+    if (event.touches.length < 2) return;
+    consumePinchEvent(event);
+    nativePinch = pinchBaseline(nativeTouchMetrics(event.touches));
+    if (!nativePinch) return;
+    nativePinchSessionActive = true;
+    markPinching();
+  }, { capture: true, passive: false });
+
+  globe.addEventListener("touchmove", event => {
+    if (!nativePinchSessionActive && event.touches.length < 2) return;
+    consumePinchEvent(event);
+    if (event.touches.length < 2) return;
+    if (!nativePinch) nativePinch = pinchBaseline(nativeTouchMetrics(event.touches));
+    applyPinch(nativeTouchMetrics(event.touches), nativePinch);
+  }, { capture: true, passive: false });
+
+  const finishNativePinch = event => {
+    if (!nativePinchSessionActive) return;
+    consumePinchEvent(event);
+    if (event.touches.length >= 2) {
+      nativePinch = pinchBaseline(nativeTouchMetrics(event.touches));
+      return;
+    }
+    nativePinch = null;
+    if (event.touches.length) return;
+    nativePinchSessionActive = false;
+    globe.classList.remove("is-dragging", "is-pinching");
   };
+  globe.addEventListener("touchend", finishNativePinch, { capture: true, passive: false });
+  globe.addEventListener("touchcancel", finishNativePinch, { capture: true, passive: false });
 
   globe.addEventListener("pointerdown", event => {
-    if (event.pointerType !== "touch") return;
+    if (supportsNativeTouchEvents || event.pointerType !== "touch") return;
     touchPointers.set(event.pointerId, pointFor(event));
     if (touchPointers.size < 2) return;
     consumePinchEvent(event);
-    beginPinch();
+    beginPointerPinch();
   }, { capture: true, passive: false });
 
   globe.addEventListener("pointermove", event => {
-    if (event.pointerType !== "touch" || !touchPointers.has(event.pointerId)) return;
+    if (event.pointerType !== "touch") return;
+    if (nativePinchSessionActive) {
+      consumePinchEvent(event);
+      return;
+    }
+    if (supportsNativeTouchEvents || !touchPointers.has(event.pointerId)) return;
     touchPointers.set(event.pointerId, pointFor(event));
-    if (!pinchSessionActive) return;
+    if (!pointerPinchSessionActive) return;
     consumePinchEvent(event);
-    if (touchPointers.size < 2 || !pinch) return;
-    const gesture = metrics();
-    if (!gesture) return;
-    const ratio = Math.pow(Math.max(0.2, gesture.distance / pinch.distance), 0.9);
-    const nextScale = Math.max(170, Math.min(4200, pinch.scale * ratio));
-    const movementSensitivity = 0.2 * Math.max(0.08, Math.min(1, 520 / pinch.scale));
-    lifecycle.setMapView({
-      scale: nextScale,
-      rotate: [
-        pinch.rotation[0] + (gesture.midpoint.x - pinch.midpoint.x) * movementSensitivity,
-        Math.max(-84, Math.min(84, pinch.rotation[1] - (gesture.midpoint.y - pinch.midpoint.y) * movementSensitivity)),
-        pinch.rotation[2],
-      ],
-    });
+    if (touchPointers.size < 2 || !pointerPinch) return;
+    applyPinch(pointerMetrics(), pointerPinch);
   }, { capture: true, passive: false });
 
   const finishPointer = event => {
-    if (event.pointerType !== "touch" || !touchPointers.has(event.pointerId)) return;
-    if (pinchSessionActive) consumePinchEvent(event);
-    touchPointers.delete(event.pointerId);
-    if (touchPointers.size >= 2) {
-      beginPinch();
+    if (event.pointerType !== "touch") return;
+    if (nativePinchSessionActive) {
+      consumePinchEvent(event);
       return;
     }
-    pinch = null;
+    if (supportsNativeTouchEvents || !touchPointers.has(event.pointerId)) return;
+    if (pointerPinchSessionActive) consumePinchEvent(event);
+    touchPointers.delete(event.pointerId);
+    if (touchPointers.size >= 2) {
+      beginPointerPinch();
+      return;
+    }
+    pointerPinch = null;
     if (touchPointers.size) return;
-    pinchSessionActive = false;
+    pointerPinchSessionActive = false;
     globe.classList.remove("is-dragging", "is-pinching");
   };
   globe.addEventListener("pointerup", finishPointer, { capture: true, passive: false });

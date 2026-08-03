@@ -114,18 +114,75 @@ test("mobile markets use click-only compact bottom sheets without page scrolling
   assert.match(weather, /preciseHoverViewport[\s\S]*openMobileDetail/);
 });
 
-test("all three mobile globes share two-finger pinch zoom without breaking one-finger input", async () => {
+test("all three mobile globes use native two-touch pinch zoom with a pointer fallback", async () => {
   const source = await read("public/assets/app.js");
   const shellCss = await read("public/assets/globe-shell.css");
   assert.match(source, /function installSharedGlobePinch\(view, lifecycle\)/);
+  assert.match(source, /const supportsNativeTouchEvents = "ontouchstart" in window/);
+  assert.match(source, /touchstart[\s\S]*event\.touches\.length < 2[\s\S]*passive: false/);
+  assert.match(source, /touchmove[\s\S]*applyPinch\(nativeTouchMetrics\(event\.touches\), nativePinch\)[\s\S]*passive: false/);
+  assert.match(source, /touchend[\s\S]*touchcancel/);
   assert.match(source, /const touchPointers = new Map\(\)/);
-  assert.match(source, /event\.pointerType !== "touch"/);
+  assert.match(source, /supportsNativeTouchEvents \|\| event\.pointerType !== "touch"/);
   assert.match(source, /if \(touchPointers\.size < 2\) return/);
-  assert.match(source, /Math\.pow\(Math\.max\(0\.2, gesture\.distance \/ pinch\.distance\), 0\.9\)/);
+  assert.match(source, /Math\.pow\(Math\.max\(0\.2, gesture\.distance \/ baseline\.distance\), 0\.9\)/);
   assert.match(source, /lifecycle\.setMapView\(\{[\s\S]*scale: nextScale,[\s\S]*rotate:/);
   assert.match(source, /pointermove[\s\S]*capture: true, passive: false/);
   assert.match(source, /installSharedGlobePinch\(view, lifecycle\);[\s\S]*loadedViews\.set\(category, lifecycle\)/);
   assert.match(shellCss, /\.market-globe\.is-pinching/);
+});
+
+test("native two-touch movement changes the shared globe scale", async () => {
+  const source = await read("public/assets/app.js");
+  const start = source.indexOf("function installSharedGlobePinch");
+  const end = source.indexOf("\nfunction setLoadingError", start);
+  assert.ok(start >= 0 && end > start, "shared pinch implementation is extractable");
+
+  const listeners = new Map();
+  const classes = new Set();
+  const globe = {
+    dataset: {},
+    classList: {
+      add: (...names) => names.forEach(name => classes.add(name)),
+      remove: (...names) => names.forEach(name => classes.delete(name)),
+    },
+    addEventListener(type, listener, options) {
+      listeners.set(type, { listener, options });
+    },
+  };
+  const mapView = { rotate: [10, -20, 0], scale: 300 };
+  const appliedViews = [];
+  const lifecycle = {
+    getMapView: () => ({ rotate: [...mapView.rotate], scale: mapView.scale }),
+    setMapView(nextView) {
+      appliedViews.push(nextView);
+      mapView.rotate = [...nextView.rotate];
+      mapView.scale = nextView.scale;
+    },
+  };
+  const installer = new Function("window", `${source.slice(start, end)}; return installSharedGlobePinch;`)({ ontouchstart: null });
+  installer({ querySelector: () => globe }, lifecycle);
+
+  const touchEvent = touches => {
+    const state = { prevented: false, stopped: false };
+    return {
+      touches,
+      state,
+      preventDefault: () => { state.prevented = true; },
+      stopImmediatePropagation: () => { state.stopped = true; },
+    };
+  };
+  const startEvent = touchEvent([{ clientX: 100, clientY: 200 }, { clientX: 200, clientY: 200 }]);
+  listeners.get("touchstart").listener(startEvent);
+  const moveEvent = touchEvent([{ clientX: 50, clientY: 200 }, { clientX: 250, clientY: 200 }]);
+  listeners.get("touchmove").listener(moveEvent);
+
+  assert.equal(listeners.get("touchmove").options.passive, false);
+  assert.equal(startEvent.state.prevented, true);
+  assert.equal(moveEvent.state.stopped, true);
+  assert.equal(classes.has("is-pinching"), true);
+  assert.equal(appliedViews.length, 1);
+  assert.ok(appliedViews[0].scale > 500, `expected pinch scale above 500, received ${appliedViews[0].scale}`);
 });
 
 test("Market Atlas app composes the real source views and preserves them while switching", async () => {
