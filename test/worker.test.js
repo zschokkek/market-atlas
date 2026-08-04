@@ -15,6 +15,7 @@ import {
   filterForDate,
   normalizeEvent,
   nextScheduledRefreshStep,
+  nextFastLivePollDelay,
   parseSeries,
   pollInterval,
   runFuturesMaintenance,
@@ -1907,6 +1908,29 @@ test("uses adaptive intervals around a live event", () => {
   assert.equal(pollInterval(snapshot, start - 6 * 60 * 60 * 1000), 15 * 60 * 1000);
   assert.equal(pollInterval(snapshot, start - 60 * 60 * 1000), 5 * 60 * 1000);
   assert.equal(pollInterval(snapshot, start + 30 * 60 * 1000), 60 * 1000);
+});
+
+test("polls live baseball, soccer, football, and basketball faster without accelerating tennis or cricket", () => {
+  const start = Date.parse("2026-08-04T20:00:00Z");
+  const live = { startsAt: new Date(start).toISOString(), status: "active", volume: 10_000 };
+  for (const seriesTicker of ["KXLMBGAME", "KXMLSGAME", "KXAFLGAME"]) {
+    assert.equal(pollInterval({ ...live, seriesTicker }, start + 10_000), 20_000, seriesTicker);
+  }
+  for (const seriesTicker of ["KXMLBGAME", "KXNFLGAME", "KXNBAGAME", "KXEPLGAME"]) {
+    assert.equal(pollInterval({ ...live, seriesTicker }, start + 10_000), 10_000, seriesTicker);
+  }
+  assert.equal(pollInterval({ ...live, seriesTicker: "KXLMBGAME", volume: 300_000 }, start + 10_000), 10_000);
+  assert.equal(pollInterval({ ...live, seriesTicker: "KXATPMATCH" }, start + 10_000), 60_000);
+  assert.equal(pollInterval({ ...live, seriesTicker: "KXT20MATCH" }, start + 10_000), 60_000);
+  assert.equal(pollInterval({ ...live, seriesTicker: "KXNHLGAME" }, start + 10_000), 60_000);
+});
+
+test("arms the fast scheduler only while an eligible event is live", () => {
+  const start = Date.parse("2026-08-04T20:00:00Z");
+  const snapshot = seriesTicker => ({ startsAt: new Date(start).toISOString(), status: "active", seriesTicker });
+  assert.equal(nextFastLivePollDelay({ mlb: snapshot("KXMLBGAME"), tennis: snapshot("KXATPMATCH") }, start + 1_000), 10_000);
+  assert.equal(nextFastLivePollDelay({ tennis: snapshot("KXATPMATCH"), cricket: snapshot("KXT20MATCH") }, start + 1_000), null);
+  assert.equal(nextFastLivePollDelay({ future: { ...snapshot("KXMLBGAME"), startsAt: new Date(start + 60_000).toISOString() } }, start), null);
 });
 
 test("keeps multi-day events on the live cadence until their expiration", () => {

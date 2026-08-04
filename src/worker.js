@@ -41,6 +41,9 @@ const DISCOVERY_INTERVAL_MS = 60 * 60 * 1000;
 const PREGAME_WINDOW_MS = 2 * 60 * 60 * 1000;
 const LIVE_WINDOW_MS = 5 * 60 * 60 * 1000;
 const LIVE_INTERVAL_MS = 60 * 1000;
+const FAST_LIVE_INTERVAL_MS = 20 * 1000;
+const MAJOR_LIVE_INTERVAL_MS = 10 * 1000;
+const MAJOR_LIVE_VOLUME = 250_000;
 const PREGAME_INTERVAL_MS = 5 * 60 * 1000;
 const TODAY_INTERVAL_MS = 15 * 60 * 1000;
 const BASE_INTERVAL_MS = 60 * 60 * 1000;
@@ -53,6 +56,24 @@ let localPollPromise = null;
 let localPoliticsPollPromise = null;
 let localWeatherPollPromise = null;
 let localBusinessPollPromise = null;
+
+const FAST_LIVE_SPORTS_SERIES = new Set([
+  // Baseball
+  "KXMLBGAME", "KXLMBGAME", "KXKBOGAME", "KXNPBGAME",
+  // American and Australian football
+  "KXNFLGAME", "KXNCAAFGAME", "KXAFLGAME",
+  // Basketball
+  "KXNBAGAME", "KXWNBAGAME",
+  // Soccer
+  "KXEPLGAME", "KXUCLGAME", "KXLALIGAGAME", "KXBUNDESLIGAGAME", "KXSERIEAGAME", "KXLIGUE1GAME",
+  "KXBRASILEIROGAME", "KXLIGAMXGAME", "KXARGPREMDIVGAME", "KXMLSGAME", "KXCOPADOBRASILGAME",
+  "KXCHNSLGAME", "KXKLEAGUEGAME", "KXALLSVENSKANGAME", "KXELITESERIENGAME"
+]);
+
+const PREMIER_LIVE_SERIES = new Set([
+  "KXMLBGAME", "KXNFLGAME", "KXNCAAFGAME", "KXNBAGAME", "KXWNBAGAME",
+  "KXEPLGAME", "KXUCLGAME", "KXLALIGAGAME", "KXBUNDESLIGAGAME", "KXSERIEAGAME", "KXLIGUE1GAME"
+]);
 
 export const MLB_TEAMS = {
   AZ: ["Arizona Diamondbacks", "Arizona", "Diamondbacks"], ATL: ["Atlanta Braves", "Atlanta", "Braves"],
@@ -404,6 +425,10 @@ export function normalizeEvent(event, markets, now = Date.now()) {
   };
 }
 
+export function isFastLiveSportsEvent(snapshot) {
+  return FAST_LIVE_SPORTS_SERIES.has(String(snapshot?.seriesTicker || "").toUpperCase());
+}
+
 export function pollInterval(snapshot, now = Date.now()) {
   const start = effectiveEventStart(snapshot);
   const suppliedEnd = new Date(snapshot.endsAt || 0).getTime();
@@ -412,10 +437,24 @@ export function pollInterval(snapshot, now = Date.now()) {
     : start + LIVE_WINDOW_MS;
   const terminal = new Set(["closed", "determined", "settled", "finalized"]).has(snapshot.status);
   if (!Number.isFinite(start) || start <= 0) return BASE_INTERVAL_MS;
-  if (now >= start && now <= liveEnd && !terminal) return LIVE_INTERVAL_MS;
+  if (now >= start && now <= liveEnd && !terminal) {
+    if (!isFastLiveSportsEvent(snapshot)) return LIVE_INTERVAL_MS;
+    const ticker = String(snapshot.seriesTicker || "").toUpperCase();
+    return PREMIER_LIVE_SERIES.has(ticker) || number(snapshot.volume, 0) >= MAJOR_LIVE_VOLUME
+      ? MAJOR_LIVE_INTERVAL_MS
+      : FAST_LIVE_INTERVAL_MS;
+  }
   if (now >= start - PREGAME_WINDOW_MS && now < start) return PREGAME_INTERVAL_MS;
   if (now >= start - 24 * 60 * 60 * 1000 && now < start) return TODAY_INTERVAL_MS;
   return BASE_INTERVAL_MS;
+}
+
+export function nextFastLivePollDelay(events, now = Date.now()) {
+  const intervals = Object.values(events || {})
+    .filter(isFastLiveSportsEvent)
+    .map(snapshot => pollInterval(snapshot, now))
+    .filter(interval => interval < LIVE_INTERVAL_MS);
+  return intervals.length ? Math.min(...intervals) : null;
 }
 
 function shouldRetain(snapshot, now) {
@@ -1800,7 +1839,7 @@ export async function runPoll(env, now = Date.now(), options = {}) {
   const lastDiscoveryAt = number(state.lastDiscoveryAt, 0);
   const baselineDiscoveryDue = lastDiscoveryAt > 0 && now - lastDiscoveryAt >= DISCOVERY_INTERVAL_MS;
   const missingSeries = configuredSeries.filter(ticker => !previouslyDiscovered.has(ticker));
-  const discoveryDue = !lastDiscoveryAt || baselineDiscoveryDue || missingSeries.length > 0;
+  const discoveryDue = !options.skipDiscovery && (!lastDiscoveryAt || baselineDiscoveryDue || missingSeries.length > 0);
   const explicitBudget = number(env.KALSHI_READ_TOKENS_PER_SECOND, NaN);
   const fallbackBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
   const budgetFraction = Math.max(0.05, Math.min(1, number(env.KALSHI_RATE_BUDGET_FRACTION, 0.25)));
@@ -1884,7 +1923,11 @@ export async function runPoll(env, now = Date.now(), options = {}) {
     env.MARKET_ATLAS_CACHE.put(STATE_KEY, JSON.stringify(state)),
     env.MARKET_ATLAS_CACHE.put(PUBLIC_KEY, JSON.stringify(publicData))
   ]);
-  return { discoveryDue, eventCount: publicData.eventCount };
+  return {
+    discoveryDue,
+    eventCount: publicData.eventCount,
+    nextFastLivePollInMs: nextFastLivePollDelay(state.events, now)
+  };
 }
 
 export async function runScheduledRefresh(env, now = Date.now(), options = {}) {
@@ -1966,6 +2009,47 @@ export class RefreshCoordinator {
     }
   }
 
+  fastLivePollingEnabled() {
+    return String(this.env.KALSHI_FAST_LIVE_POLLING || "false").toLowerCase() === "true";
+  }
+
+  async scheduleFastLiveAlarm(delay) {
+    if (!this.fastLivePollingEnabled() || !Number.isFinite(delay)) {
+      if (this.ctx.storage.deleteAlarm) await this.ctx.storage.deleteAlarm();
+      return;
+    }
+    const target = Date.now() + Math.max(MAJOR_LIVE_INTERVAL_MS, delay);
+    const existing = this.ctx.storage.getAlarm ? await this.ctx.storage.getAlarm() : null;
+    if (!Number.isFinite(existing) || existing > target + 1_000) {
+      await this.ctx.storage.setAlarm(target);
+    }
+  }
+
+  async alarm() {
+    if (!this.fastLivePollingEnabled()) return;
+    if (this.refreshPromise) {
+      await this.scheduleFastLiveAlarm(MAJOR_LIVE_INTERVAL_MS);
+      return;
+    }
+    this.refreshPromise = runPoll(this.env, Date.now(), { skipDiscovery: true });
+    try {
+      const result = await this.refreshPromise;
+      await this.scheduleFastLiveAlarm(result.nextFastLivePollInMs);
+      console.log(JSON.stringify({
+        level: "info",
+        message: "Market Atlas fast live sports refresh completed",
+        environment: this.env.ENVIRONMENT || "unknown",
+        eventCount: result.eventCount,
+        nextPollInMs: result.nextFastLivePollInMs
+      }));
+    } catch (error) {
+      await this.scheduleFastLiveAlarm(FAST_LIVE_INTERVAL_MS);
+      throw error;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
   async performRefresh(scheduledTime) {
     const lastRun = await this.ctx.storage.get("last-run");
     const now = Date.now();
@@ -1979,6 +2063,9 @@ export class RefreshCoordinator {
     await this.ctx.storage.put("last-run", { runId, step, startedAt: now, completedAt: null, ok: null });
     try {
       const result = await runScheduledRefresh(this.env, scheduledTime, { step });
+      if (Object.hasOwn(result.results, "sports")) {
+        await this.scheduleFastLiveAlarm(result.results.sports?.nextFastLivePollInMs);
+      }
       const nextStep = SCHEDULED_REFRESH_STEPS.includes(result.nextStep) ? result.nextStep : fallbackNextStep;
       await Promise.all([
         this.ctx.storage.put("next-step", nextStep),
