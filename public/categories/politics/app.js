@@ -1,4 +1,5 @@
 import { feature, geoDistance, geoGraticule10, geoOrthographic, geoPath, usCounties as us, world } from "/assets/map-runtime.js";
+import { globePanSensitivity, globeZoomMultiplier, isFrontHemisphere, markerIntersectsViewport, preferredZoomAnchor, publishGlobeDiagnostics } from "/assets/globe-interaction.js";
 import { majorWorldCapitals, stateCapitals } from "./data.js";
 
 const app = document.querySelector(".politics-app");
@@ -382,33 +383,25 @@ function markerSpacing() {
   return 8;
 }
 
-function viewportEdgeOpacity(node) {
-  const [x, y] = node.point;
-  const edgeRoom = Math.min(x, y, WIDTH - x, HEIGHT - y);
-  const fadeStart = -Math.min(6, node.radius * 0.65);
-  const progress = Math.max(0, Math.min(1, (edgeRoom - fadeStart) / 10));
-  return progress * progress * (3 - 2 * progress);
-}
-
 function placeMarkers() {
   const centerGeo = projection.invert(CENTER);
   const zoomEligibleNodes = markerNodes.filter(node => projection.scale() >= Number(node.bundle.minZoomScale || 0));
   const zoomEligibleBundles = zoomEligibleNodes.map(node => node.bundle);
   filterSummary.textContent = String(zoomEligibleBundles.length);
   timelineActivity.textContent = `${zoomEligibleBundles.length} jurisdictions · ${uniqueMarketCount(zoomEligibleBundles)} markets`;
-  const candidates = zoomEligibleNodes.map(node => {
+  const projectedNodes = zoomEligibleNodes.map(node => {
     const distance = geoDistance(centerGeo, [node.bundle.lon, node.bundle.lat]);
-    const edgeRoom = Math.PI / 2 - distance;
     const point = projection([node.bundle.lon, node.bundle.lat]);
-    const frameOpacity = point ? viewportEdgeOpacity({ ...node, point }) : 0;
-    return { ...node, distance, edgeRoom, point, frameOpacity, volume: bundleVolume(node.bundle) };
-  }).filter(node => node.point && node.edgeRoom > 0.015 && node.frameOpacity > 0.02)
+    return { ...node, distance, point, volume: bundleVolume(node.bundle) };
+  });
+  const horizonNodes = projectedNodes.filter(node => node.point && isFrontHemisphere(node.distance));
+  const candidates = horizonNodes.filter(node => markerIntersectsViewport(node.point, node.radius + 5, WIDTH, HEIGHT))
     .sort((left, right) => {
       const selectedDifference = Number(right.bundle.id === selectedBundleId) - Number(left.bundle.id === selectedBundleId);
       if (selectedDifference) return selectedDifference;
       const nationalDifference = Number(right.bundle.scope === "National") - Number(left.bundle.scope === "National");
       if (nationalDifference) return nationalDifference;
-      return right.volume - left.volume;
+      return right.volume - left.volume || left.bundle.id.localeCompare(right.bundle.id);
     });
 
   markerNodes.forEach(node => {
@@ -424,17 +417,36 @@ function placeMarkers() {
     const collides = accepted.some(other => Math.hypot(x - other.x, y - other.y) < spacing + Math.min(node.radius, other.radius) * 0.45);
     if (collides && node.bundle.id !== selectedBundleId) continue;
 
-    const horizonOpacity = Math.max(0, Math.min(1, node.edgeRoom / 0.09));
-    const edgeOpacity = horizonOpacity * node.frameOpacity;
     node.group.removeAttribute("display");
     node.group.setAttribute("transform", `translate(${x},${y})`);
-    node.group.style.opacity = String(edgeOpacity);
-    node.group.style.pointerEvents = edgeOpacity < 0.12 ? "none" : "auto";
+    node.group.style.opacity = "1";
+    node.group.style.pointerEvents = "auto";
     accepted.push({ x, y, radius: node.radius, id: node.bundle.id });
   }
 
   const marketsVisible = uniqueMarketCount(candidates.map(node => node.bundle));
   hudSummary.textContent = `${accepted.length} markers in frame · ${marketsVisible} individual markets`;
+  publishGlobeDiagnostics("politics", {
+    scale: projection.scale(),
+    total: markerNodes.length,
+    zoomGated: markerNodes.length - zoomEligibleNodes.length,
+    behindGlobe: projectedNodes.length - horizonNodes.length,
+    offscreen: horizonNodes.length - candidates.length,
+    collisionHidden: candidates.length - accepted.length,
+    visible: accepted.length,
+  });
+}
+
+function politicsPreferredZoomAnchor() {
+  const centerGeo = projection.invert(CENTER);
+  const nodes = markerNodes.filter(node => projection.scale() >= Number(node.bundle.minZoomScale || 0)).map(node => ({
+    id: node.bundle.id,
+    point: projection([node.bundle.lon, node.bundle.lat]),
+    radius: node.radius + 5,
+    volume: bundleVolume(node.bundle),
+    distance: geoDistance(centerGeo, [node.bundle.lon, node.bundle.lat]),
+  })).filter(node => isFrontHemisphere(node.distance));
+  return preferredZoomAnchor(nodes, { selectedId: selectedBundleId, fallback: CENTER, width: WIDTH, height: HEIGHT });
 }
 
 function capitalLabelCandidates() {
@@ -570,7 +582,7 @@ svg.addEventListener("pointermove", event => {
   if (!dragState || dragState.pointerId !== event.pointerId) return;
   const dx = event.clientX - dragState.x;
   const dy = event.clientY - dragState.y;
-  const scaleSensitivity = 0.22 * Math.pow(MIN_SCALE / projection.scale(), 0.76);
+  const scaleSensitivity = globePanSensitivity(projection.scale());
   projection.rotate([
     dragState.rotation[0] + dx * scaleSensitivity,
     Math.max(-84, Math.min(84, dragState.rotation[1] - dy * scaleSensitivity)),
@@ -625,7 +637,7 @@ svg.addEventListener("wheel", event => {
   zoomAt(scale * factor, localSvgPoint(event.clientX, event.clientY));
 }, { passive: false });
 
-function animateZoom(multiplier) {
+function animateZoom(multiplier, anchor = CENTER) {
   cancelAnimationFrame(zoomFrame);
   const startScale = projection.scale();
   const targetScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, startScale * multiplier));
@@ -634,7 +646,7 @@ function animateZoom(multiplier) {
   const frame = now => {
     const progress = Math.min(1, (now - startedAt) / duration);
     const eased = 1 - Math.pow(1 - progress, 3);
-    zoomAt(startScale + (targetScale - startScale) * eased);
+    zoomAt(startScale + (targetScale - startScale) * eased, anchor);
     if (progress < 1) zoomFrame = requestAnimationFrame(frame);
     else zoomFrame = null;
   };
@@ -673,8 +685,8 @@ function animateToLocation(lon, lat, targetScale = 1050, duration = 380) {
   return true;
 }
 
-app.querySelector(".zoom-in").addEventListener("click", () => animateZoom(projection.scale() >= 3000 ? 1.3 : 1.55));
-app.querySelector(".zoom-out").addEventListener("click", () => animateZoom(projection.scale() > 3000 ? 1 / 1.3 : 1 / 1.55));
+app.querySelector(".zoom-in").addEventListener("click", () => animateZoom(globeZoomMultiplier(projection.scale()), politicsPreferredZoomAnchor()));
+app.querySelector(".zoom-out").addEventListener("click", () => animateZoom(1 / globeZoomMultiplier(projection.scale())));
 
 window.addEventListener("resize", () => {
   hideTooltip();

@@ -39,7 +39,7 @@
 }
 
 .market-globe-shell .market-globe.is-pinching {
-  cursor: zoom-in;
+  cursor: default;
 }
 
 .market-globe-shell .event-marker,

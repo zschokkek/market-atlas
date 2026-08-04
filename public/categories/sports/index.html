@@ -1281,13 +1281,13 @@ body{overflow-x:hidden}
     display: block;
     width: 100%;
     height: auto;
-    cursor: grab;
+    cursor: default;
     touch-action: none;
     overflow: hidden;
   }
 
   #market-atlas-sports .sports-globe.is-dragging {
-    cursor: grabbing;
+    cursor: default;
   }
 
   #market-atlas-sports .globe-hud {
@@ -2901,6 +2901,7 @@ body{overflow-x:hidden}
 
 <script type="module">
   import { feature, geoDistance, geoGraticule10, geoOrthographic, geoPath, usCounties as us, world } from "/assets/map-runtime.js";
+  import { globePanSensitivity, globeZoomMultiplier, isFrontHemisphere, markerIntersectsViewport, preferredZoomAnchor, publishGlobeDiagnostics, stableDistanceClusters } from "/assets/globe-interaction.js";
   import { canonicalSportsMatchupTitle, canonicalSportsOutcomeName } from "/assets/sports-team-names.js";
 
   const MISSING_MARKET_ERROR_CODE = "MISSING_NEAR_TERM_KALSHI_MARKETS";
@@ -4073,15 +4074,21 @@ function assertNearTermMarketCoverage(events, {
   }
 
   function isVisible(event) {
-    return geoDistance(projection.invert(center), [event.lon, event.lat]) < Math.PI / 2;
+    return isFrontHemisphere(geoDistance(projection.invert(center), [event.lon, event.lat]));
   }
 
   function isMarkerInsideStage(node) {
-    const deepZoomProgress = Math.max(0, Math.min(1, (projection.scale() - 600) / 500));
-    const easedProgress = deepZoomProgress * deepZoomProgress * (3 - 2 * deepZoomProgress);
-    const hitRadius = node.radius + 9;
-    const edgeInset = -hitRadius + (hitRadius * 2 + 4) * easedProgress;
-    return node.anchorX >= edgeInset && node.anchorX <= 620 - edgeInset && node.anchorY >= edgeInset && node.anchorY <= 560 - edgeInset;
+    return markerIntersectsViewport([node.anchorX, node.anchorY], node.radius + 5, 620, 560);
+  }
+
+  function sportsPreferredZoomAnchor() {
+    const nodes = markerNodes.filter(node => isVisible(node.event)).map(node => ({
+      id: node.event.id,
+      point: projection([node.event.lon, node.event.lat]),
+      radius: node.radius + 5,
+      volume: node.event.volume,
+    }));
+    return preferredZoomAnchor(nodes, { selectedId, fallback: center, width: 620, height: 560 });
   }
 
   function placeMarkers() {
@@ -4093,9 +4100,10 @@ function assertNearTermMarketCoverage(events, {
       if (node.matchupTag) node.matchupTag.setAttribute("display", "none");
     });
 
-    const inFrame = markerNodes.filter(node => isVisible(node.event)).map(node => {
+    const horizonNodes = markerNodes.filter(node => isVisible(node.event));
+    const inFrame = horizonNodes.map(node => {
       const anchor = projection([node.event.lon, node.event.lat]);
-      return { ...node, mapX: anchor[0], mapY: anchor[1], anchorX: anchor[0], anchorY: anchor[1], x: anchor[0], y: anchor[1], isExpanded: false };
+      return { ...node, id: node.event.id, mapX: anchor[0], mapY: anchor[1], anchorX: anchor[0], anchorY: anchor[1], x: anchor[0], y: anchor[1], isExpanded: false };
     }).filter(isMarkerInsideStage)
       .sort((left, right) => right.event.volume - left.event.volume);
 
@@ -4126,22 +4134,21 @@ function assertNearTermMarketCoverage(events, {
     // pushed beyond an edge by the fan-out itself.
     const edgeSafePoints = inFrame.filter(isMarkerInsideStage);
     const distanceThreshold = Math.max(9, Math.min(60, 76 - projection.scale() * 0.06));
-    const clusters = [];
-    edgeSafePoints.forEach(point => {
-      const nearby = clusters.find(cluster => Math.hypot(point.anchorX - cluster.x, point.anchorY - cluster.y) < distanceThreshold);
-      if (!nearby) {
-        clusters.push({ members: [point], x: point.anchorX, y: point.anchorY });
-        return;
-      }
-      nearby.members.push(point);
-      nearby.x = nearby.members.reduce((sum, member) => sum + member.anchorX, 0) / nearby.members.length;
-      nearby.y = nearby.members.reduce((sum, member) => sum + member.anchorY, 0) / nearby.members.length;
-    });
+    const clusters = stableDistanceClusters(edgeSafePoints, distanceThreshold);
 
     const upcomingTotal = activeEvents.filter(event => event.upcoming).length;
     const todayTotal = activeEvents.length - upcomingTotal;
     root.querySelector(".hud-summary").textContent = `${clusters.length} markers · ${todayTotal} today${upcomingTotal ? ` · ${upcomingTotal} upcoming` : ""}`;
     clusters.sort((left, right) => Number(right.members.some(member => member.event.id === selectedId)) - Number(left.members.some(member => member.event.id === selectedId)));
+    publishGlobeDiagnostics("sports", {
+      scale: projection.scale(),
+      total: markerNodes.length,
+      behindGlobe: markerNodes.length - horizonNodes.length,
+      offscreen: horizonNodes.length - edgeSafePoints.length,
+      represented: edgeSafePoints.length,
+      clustered: clusters.reduce((sum, cluster) => sum + (cluster.members.length > 1 ? cluster.members.length : 0), 0),
+      symbols: clusters.length,
+    });
     const acceptedMatchupTags = [];
 
     clusters.forEach(cluster => {
@@ -5194,7 +5201,7 @@ function assertNearTermMarketCoverage(events, {
     dragging = true;
     dragStart = [event.clientX, event.clientY];
     startRotation = projection.rotate();
-    dragSensitivity = 0.28 * Math.max(0.14, Math.min(1, 520 / projection.scale()));
+    dragSensitivity = globePanSensitivity(projection.scale());
     svg.classList.add("is-dragging");
     svg.setPointerCapture(event.pointerId);
     hideTooltip(true);
@@ -5229,16 +5236,13 @@ function assertNearTermMarketCoverage(events, {
     point.x = event.clientX;
     point.y = event.clientY;
     const anchor = point.matrixTransform(svg.getScreenCTM().inverse());
-    const zoomGain = Math.max(0.28, Math.min(1, 600 / projection.scale()));
-    queueZoom(1 + 0.55 * zoomGain, [anchor.x, anchor.y]);
+    queueZoom(globeZoomMultiplier(projection.scale()), [anchor.x, anchor.y]);
   });
   root.querySelector(".zoom-in").addEventListener("click", () => {
-    const zoomGain = Math.max(0.28, Math.min(1, 600 / projection.scale()));
-    queueZoom(1 + 0.42 * zoomGain);
+    queueZoom(globeZoomMultiplier(projection.scale()), sportsPreferredZoomAnchor());
   });
   root.querySelector(".zoom-out").addEventListener("click", () => {
-    const zoomGain = Math.max(0.28, Math.min(1, 600 / projection.scale()));
-    queueZoom(1 / (1 + 0.42 * zoomGain));
+    queueZoom(1 / globeZoomMultiplier(projection.scale()));
   });
 
   root.querySelectorAll(".sport-check").forEach(input => input.addEventListener("change", () => {

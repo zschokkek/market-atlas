@@ -13,6 +13,7 @@ const requiredFiles = [
   "public/_headers",
   "public/og.png",
   "public/assets/map-runtime.js",
+  "public/assets/globe-interaction.js",
   "public/assets/sports-team-names.js",
   "public/categories/sports/index.html",
   "public/categories/politics/index.html",
@@ -25,6 +26,7 @@ const textFiles = [
   "public/assets/app.js",
   "public/assets/search.js",
   "public/assets/map-runtime.js",
+  "public/assets/globe-interaction.js",
   "public/assets/sports-team-names.js",
   "public/categories/sports/index.html",
   "public/categories/politics/index.html",
@@ -73,6 +75,9 @@ if (!appShell.includes('new URL("/assets/map-runtime.js", window.location.origin
 }
 if (!appShell.includes('new URL("/assets/sports-team-names.js", window.location.origin).href')) {
   failures.push("public/assets/app.js does not resolve canonical sports names before Blob-module imports");
+}
+if (!appShell.includes('new URL("/assets/globe-interaction.js", window.location.origin).href')) {
+  failures.push("public/assets/app.js does not resolve shared globe interaction helpers before Blob-module imports");
 }
 
 const wranglerConfig = await readFile(join(root, "wrangler.toml"), "utf8");

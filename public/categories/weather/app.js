@@ -1,4 +1,5 @@
 import { feature, geoDistance, geoGraticule10, geoOrthographic, geoPath, usStates as us, world } from "/assets/map-runtime.js";
+import { globePanSensitivity, globeZoomMultiplier, isFrontHemisphere, markerIntersectsViewport, preferredZoomAnchor, publishGlobeDiagnostics } from "/assets/globe-interaction.js";
 import { weatherBundles, weatherHorizons } from "./data.js";
 
 const app = document.querySelector(".weather-app");
@@ -32,7 +33,6 @@ const MIN_SCALE = 235;
 const MAX_SCALE = 7600;
 const GLOBAL_ANCHOR_SCALE = 620;
 const GLOBAL_ANCHOR_POINT = [WIDTH - 26, 28];
-const BUSINESS_HORIZON_BUFFER = 6 * Math.PI / 180;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sphere = { type: "Sphere" };
 const projection = geoOrthographic().translate(CENTER).scale(MIN_SCALE).clipAngle(90).precision(.35).rotate([92, -31, 0]);
@@ -67,7 +67,6 @@ let zoomFrame = null;
 let integratedActive = !app.closest("[data-category-view]");
 let feedEtag = "";
 let feedTimer = null;
-let lastBusinessPlacedIds = new Set();
 
 const mobileMarketViewport = () => window.matchMedia("(max-width: 700px), (hover: none)").matches;
 const preciseHoverViewport = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
@@ -361,17 +360,17 @@ function placeMarkers() {
   const center = projection.invert(CENTER);
   const currentScale = projection.scale();
   const businessFullDetail = namedMarkerLabels && currentScale >= 700;
-  const horizonLimit = Math.PI / 2 + (namedMarkerLabels ? BUSINESS_HORIZON_BUFFER : .0005);
-  const previouslyPlaced = lastBusinessPlacedIds;
-  const candidates = markerNodes.map(node => {
+  const projectedNodes = markerNodes.map(node => {
     const anchored = isGlobalClimate(node.bundle) && projection.scale() >= GLOBAL_ANCHOR_SCALE;
     return { ...node, anchored, point: markerPoint(node.bundle), distance: anchored ? 0 : geoDistance(center, [node.bundle.lon, node.bundle.lat]), volume: bundleVolume(node.bundle) };
-  })
-    .filter(node => node.point && (node.anchored || node.distance <= horizonLimit))
+  });
+  const horizonNodes = projectedNodes.filter(node => node.point && (node.anchored || isFrontHemisphere(node.distance)));
+  const candidates = horizonNodes
+    .filter(node => node.anchored || markerIntersectsViewport(node.point, node.radius + 5, WIDTH, HEIGHT))
     .sort((a, b) => Number(b.anchored) - Number(a.anchored)
       || Number(b.bundle.id === selectedId) - Number(a.bundle.id === selectedId)
-      || Number(previouslyPlaced.has(b.bundle.id)) - Number(previouslyPlaced.has(a.bundle.id))
-      || b.volume - a.volume);
+      || b.volume - a.volume
+      || a.bundle.id.localeCompare(b.bundle.id));
   markerNodes.forEach(node => {
     node.group.setAttribute("display", "none");
     node.group.classList.toggle("is-selected", node.bundle.id === selectedId);
@@ -380,11 +379,8 @@ function placeMarkers() {
   const accepted = [];
   for (const node of candidates) {
     const [x, y] = node.point;
-    if (namedMarkerLabels && (x < -node.radius || x > WIDTH + node.radius || y < -node.radius || y > HEIGHT + node.radius)) continue;
-    const wasPlaced = namedMarkerLabels && previouslyPlaced.has(node.bundle.id);
     const collision = accepted.some(other => Math.hypot(x - other.x, y - other.y) < markerSpacing() + Math.min(node.radius, other.radius) * .45);
-    if (collision && !businessFullDetail && !wasPlaced && node.bundle.id !== selectedId) continue;
-    const preservePlacement = wasPlaced;
+    if (collision && !businessFullDetail && node.bundle.id !== selectedId) continue;
     const labelBox = namedMarkerLabels ? businessLabelPlacement(node, x, y, accepted, true) : null;
     if (namedMarkerLabels && !labelBox && node.bundle.id !== selectedId) continue;
     if (node.nameLabel) {
@@ -407,10 +403,31 @@ function placeMarkers() {
       labelBox: labelBox || { x, y, width: 0, height: 0 }
     });
   }
-  if (namedMarkerLabels) {
-    lastBusinessPlacedIds = new Set(accepted.map(node => node.id));
-  }
   hud.textContent = `${accepted.length} locations in frame · ${uniqueMarketCount(candidates.map(node => node.bundle))} individual markets`;
+  publishGlobeDiagnostics(namedMarkerLabels ? "business" : "weather", {
+    scale: projection.scale(),
+    total: markerNodes.length,
+    behindGlobe: projectedNodes.length - horizonNodes.length,
+    offscreen: horizonNodes.length - candidates.length,
+    collisionHidden: candidates.length - accepted.length,
+    visible: accepted.length,
+  });
+}
+
+function preferredMarketZoomAnchor() {
+  const center = projection.invert(CENTER);
+  const nodes = markerNodes.map(node => {
+    const anchored = isGlobalClimate(node.bundle) && projection.scale() >= GLOBAL_ANCHOR_SCALE;
+    return {
+      id: node.bundle.id,
+      point: markerPoint(node.bundle),
+      radius: node.radius + 5,
+      volume: bundleVolume(node.bundle),
+      distance: anchored ? 0 : geoDistance(center, [node.bundle.lon, node.bundle.lat]),
+      anchored,
+    };
+  }).filter(node => node.anchored || isFrontHemisphere(node.distance));
+  return preferredZoomAnchor(nodes, { selectedId, fallback: CENTER, width: WIDTH, height: HEIGHT });
 }
 
 function placeLabels() {
@@ -465,7 +482,6 @@ function rebuild() {
   hideTooltip();
   const bundles = visibleBundles();
   markerLayer.replaceChildren();
-  if (namedMarkerLabels) lastBusinessPlacedIds = new Set();
   markerNodes = bundles.map(makeMarker);
   filterCount.textContent = String(bundles.length);
   activity.textContent = `${bundles.length} locations · ${uniqueMarketCount(bundles)} markets`;
@@ -508,13 +524,12 @@ app.querySelector(".timeline-next").addEventListener("click", () => { horizonInd
 svg.addEventListener("pointerdown", event => {
   if (event.button !== 0) return;
   event.preventDefault(); hideTooltip(); cancelAnimationFrame(zoomFrame); zoomFrame = null;
-  if (namedMarkerLabels) lastBusinessPlacedIds = new Set();
   drag = { id: event.pointerId, x: event.clientX, y: event.clientY, rotation: projection.rotate() };
   svg.setPointerCapture(event.pointerId);
 });
 svg.addEventListener("pointermove", event => {
   if (!drag || drag.id !== event.pointerId) return;
-  const sensitivity = .22 * Math.pow(MIN_SCALE / projection.scale(), .76);
+  const sensitivity = globePanSensitivity(projection.scale());
   projection.rotate([drag.rotation[0] + (event.clientX - drag.x) * sensitivity, Math.max(-84, Math.min(84, drag.rotation[1] - (event.clientY - drag.y) * sensitivity)), drag.rotation[2]]);
   scheduleDraw();
 });
@@ -529,9 +544,9 @@ function zoomAt(nextScale, anchor = CENTER) {
   draw();
 }
 svg.addEventListener("wheel", event => { event.preventDefault(); hideTooltip(); const scale = projection.scale(); const damping = Math.max(.18, Math.min(1, 520 / scale)); zoomAt(scale * Math.exp(-event.deltaY * .00135 * damping), localPoint(event)); }, { passive: false });
-function animateZoom(multiplier) {
+function animateZoom(multiplier, anchor = CENTER) {
   cancelAnimationFrame(zoomFrame); const start = projection.scale(); const target = Math.max(MIN_SCALE, Math.min(MAX_SCALE, start * multiplier)); const began = performance.now();
-  const frame = now => { const p = Math.min(1, (now - began) / 180); zoomAt(start + (target - start) * (1 - Math.pow(1 - p, 3))); if (p < 1) zoomFrame = requestAnimationFrame(frame); else zoomFrame = null; };
+  const frame = now => { const p = Math.min(1, (now - began) / 180); zoomAt(start + (target - start) * (1 - Math.pow(1 - p, 3)), anchor); if (p < 1) zoomFrame = requestAnimationFrame(frame); else zoomFrame = null; };
   zoomFrame = requestAnimationFrame(frame);
 }
 function animateToLocation(lon, lat, targetScale = 1050, duration = 380) {
@@ -540,7 +555,6 @@ function animateToLocation(lon, lat, targetScale = 1050, duration = 380) {
   if (!Number.isFinite(boundedLon) || !Number.isFinite(boundedLat)) return false;
   cancelAnimationFrame(zoomFrame);
   hideTooltip();
-  if (namedMarkerLabels) lastBusinessPlacedIds = new Set();
   const startRotation = projection.rotate();
   const targetRotation = [-boundedLon, -boundedLat, 0];
   const longitudeDelta = ((targetRotation[0] - startRotation[0] + 540) % 360) - 180;
@@ -566,8 +580,8 @@ function animateToLocation(lon, lat, targetScale = 1050, duration = 380) {
   zoomFrame = requestAnimationFrame(frame);
   return true;
 }
-app.querySelector(".zoom-in").addEventListener("click", () => animateZoom(projection.scale() >= 3000 ? 1.3 : 1.55));
-app.querySelector(".zoom-out").addEventListener("click", () => animateZoom(projection.scale() > 3000 ? 1 / 1.3 : 1 / 1.55));
+app.querySelector(".zoom-in").addEventListener("click", () => animateZoom(globeZoomMultiplier(projection.scale()), preferredMarketZoomAnchor()));
+app.querySelector(".zoom-out").addEventListener("click", () => animateZoom(1 / globeZoomMultiplier(projection.scale())));
 window.addEventListener("resize", scheduleDraw);
 
 function snapshotAge(value) {

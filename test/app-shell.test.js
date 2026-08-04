@@ -260,6 +260,13 @@ test("Sports, Politics, and Weather are composed on one shared globe shell", asy
   assert.match(shell, /\.market-timeline-dock[\s\S]*grid-area: timeline/);
 });
 
+test("globe interaction never replaces the normal system cursor", async () => {
+  const shell = await read("public/assets/globe-shell.css");
+  const sports = await read("public/categories/sports/index.html");
+  assert.doesNotMatch(shell, /cursor:\s*zoom-in/);
+  assert.doesNotMatch(sports, /cursor:\s*grab(?:bing)?/);
+});
+
 test("all desktop map detail panels scroll within the shared shell", async () => {
   const shell = await read("public/assets/globe-shell.css");
   assert.match(shell, /:is\(#market-atlas-sports, \.politics-app, \.weather-app, \.business-app\)\.market-globe-shell \.market-detail-panel \{[\s\S]*max-height: min\(570px, calc\(100dvh - 220px\)\);[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
@@ -460,19 +467,52 @@ test("every visible Business marker carries a spaced collision-aware company lab
   assert.match(source, /nameLabel = appendSvg\(group, "text", "marker-name-label"\)/);
   assert.match(source, /businessLabelCandidates[\s\S]*const gap = 5;[\s\S]*makeBox\("right"[\s\S]*makeBox\("left"/);
   assert.match(source, /boxesOverlap\(box, other\.labelBox\)[\s\S]*boxTouchesMarker/);
-  assert.match(source, /lastBusinessPlacedIds[\s\S]*businessFullDetail[\s\S]*preservePlacement = wasPlaced/);
   assert.match(source, /businessFullDetail = namedMarkerLabels && currentScale >= 700/);
   assert.match(source, /if \(collision && !businessFullDetail/);
-  assert.match(source, /BUSINESS_HORIZON_BUFFER = 6 \* Math\.PI \/ 180/);
-  assert.match(source, /horizonLimit = Math\.PI \/ 2 \+ \(namedMarkerLabels \? BUSINESS_HORIZON_BUFFER : \.0005\)/);
-  assert.match(source, /x < -node\.radius \|\| x > WIDTH \+ node\.radius/);
-  assert.doesNotMatch(source, /preserveZoomedMarkers|lastBusinessProjectionScale|rotatingBusinessGlobe/);
+  assert.match(source, /isFrontHemisphere\(node\.distance\)/);
+  assert.match(source, /markerIntersectsViewport\(node\.point, node\.radius \+ 5, WIDTH, HEIGHT\)/);
+  assert.doesNotMatch(source, /lastBusinessPlacedIds|BUSINESS_HORIZON_BUFFER|horizonLimit|preserveZoomedMarkers/);
   assert.match(source, /businessLabelPlacement\(node, x, y, accepted, true\)/);
   assert.match(source, /const opacity = 1;/);
   assert.doesNotMatch(source, /horizonRoom \/ \.08/);
   assert.match(source, /nameLabel\.style\.textAnchor = placement\.anchor/);
   assert.match(source, /if \(namedMarkerLabels\) return;/);
   assert.match(css, /\.business-app \.event-marker \.marker-name-label[\s\S]*font-size:7\.25px[\s\S]*paint-order:stroke/);
+});
+
+test("all four globes share deterministic zoom, pan, edge, and diagnostic rules", async () => {
+  const [shared, shell, sports, politics, weather] = await Promise.all([
+    read("public/assets/globe-interaction.js"),
+    read("public/assets/app.js"),
+    read("public/categories/sports/index.html"),
+    read("public/categories/politics/app.js"),
+    read("public/categories/weather/app.js"),
+  ]);
+  const runtime = await import(new URL("../public/assets/globe-interaction.js", import.meta.url));
+  assert.equal(runtime.markerIntersectsViewport([-8, 8], 9, 620, 560), true);
+  assert.equal(runtime.markerIntersectsViewport([-10, 8], 9, 620, 560), false);
+  assert.equal(runtime.isFrontHemisphere(Math.PI / 2), true);
+  assert.equal(runtime.isFrontHemisphere(Math.PI / 2 + 0.01), false);
+  assert.ok(runtime.globeZoomMultiplier(235) <= 1.3);
+  assert.ok(runtime.globeZoomMultiplier(1500) <= 1.2);
+  const clusters = runtime.stableDistanceClusters([
+    { id: "b", anchorX: 10, anchorY: 0 },
+    { id: "a", anchorX: 0, anchorY: 0 },
+    { id: "c", anchorX: 100, anchorY: 0 },
+  ], 20);
+  assert.deepEqual(clusters.map(cluster => cluster.members.map(member => member.id)), [["a", "b"], ["c"]]);
+  for (const source of [sports, politics, weather]) {
+    assert.match(source, /from "\/assets\/globe-interaction\.js"/);
+    assert.match(source, /globePanSensitivity\(projection\.scale\(\)\)/);
+    assert.match(source, /globeZoomMultiplier\(projection\.scale\(\)\)/);
+    assert.match(source, /publishGlobeDiagnostics/);
+  }
+  assert.match(sports, /stableDistanceClusters\(edgeSafePoints, distanceThreshold\)/);
+  assert.doesNotMatch(sports, /const edgeInset =/);
+  assert.doesNotMatch(politics, /viewportEdgeOpacity|edgeRoom > 0\.015|horizonOpacity/);
+  assert.doesNotMatch(weather, /BUSINESS_HORIZON_BUFFER|lastBusinessPlacedIds/);
+  assert.match(shell, /new URL\("\/assets\/globe-interaction\.js", window\.location\.origin\)\.href/);
+  assert.match(shared, /preferredZoomAnchor[\s\S]*stableDistanceClusters[\s\S]*publishGlobeDiagnostics[\s\S]*data-globe-diagnostics-/);
 });
 
 test("Business consolidates dense corporate cities into searchable metro clusters", async () => {
