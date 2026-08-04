@@ -1,5 +1,6 @@
 import { SEARCH_LOCATIONS } from "./search-locations.js";
 import { politicsMarketUrl } from "./politics-registry.js";
+import { canonicalSportsMatchupTitle, canonicalSportsOutcomeName } from "./client/sports-team-names.js";
 
 const GENERIC_WORDS = new Set([
   "a", "about", "all", "any", "are", "around", "at", "bet", "bets", "can", "could", "event", "events",
@@ -201,7 +202,7 @@ function mlbAliasesForCandidate(candidate) {
 function outcomePreview(markets, queryTerms, seriesTicker = "") {
   const terms = new Set(queryTerms);
   return (markets || []).map(market => ({
-    name: market.name || market.label || market.title || market.ticker,
+    name: canonicalSportsOutcomeName(market.name || market.label || market.title || market.ticker, { seriesTicker, ticker: market.ticker }),
     ticker: market.ticker,
     price: displayPrice(market),
     volume: Number(market.volume || 0),
@@ -230,7 +231,7 @@ function sportsCandidates(payload, futures) {
       type: snapshot.futuresKind ? "future" : "event",
       eventTicker: snapshot.eventTicker,
       seriesTicker: snapshot.seriesTicker,
-      title: snapshot.title || snapshot.eventTicker,
+      title: canonicalSportsMatchupTitle(snapshot.title || snapshot.eventTicker, { seriesTicker: snapshot.seriesTicker }),
       subtitle: snapshot.subtitle || "",
       startsAt: snapshot.startsAt || null,
       endsAt: snapshot.endsAt || null,

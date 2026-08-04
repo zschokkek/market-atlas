@@ -13,6 +13,7 @@ const requiredFiles = [
   "public/_headers",
   "public/og.png",
   "public/assets/map-runtime.js",
+  "public/assets/sports-team-names.js",
   "public/categories/sports/index.html",
   "public/categories/politics/index.html",
   "public/categories/weather/index.html",
@@ -23,6 +24,7 @@ const textFiles = [
   "public/assets/app.js",
   "public/assets/search.js",
   "public/assets/map-runtime.js",
+  "public/assets/sports-team-names.js",
   "public/categories/sports/index.html",
   "public/categories/politics/index.html",
   "public/categories/politics/app.js",
@@ -55,6 +57,9 @@ for (const token of [
 const appShell = await readFile(join(root, "public/assets/app.js"), "utf8");
 if (!appShell.includes('new URL("/assets/map-runtime.js", window.location.origin).href')) {
   failures.push("public/assets/app.js does not resolve the map runtime before Blob-module imports");
+}
+if (!appShell.includes('new URL("/assets/sports-team-names.js", window.location.origin).href')) {
+  failures.push("public/assets/app.js does not resolve canonical sports names before Blob-module imports");
 }
 
 const wranglerConfig = await readFile(join(root, "wrangler.toml"), "utf8");

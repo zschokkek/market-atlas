@@ -2834,6 +2834,7 @@ body{overflow-x:hidden}
 
 <script type="module">
   import { feature, geoDistance, geoGraticule10, geoOrthographic, geoPath, usCounties as us, world } from "/assets/map-runtime.js";
+  import { canonicalSportsMatchupTitle, canonicalSportsOutcomeName } from "/assets/sports-team-names.js";
 
   const MISSING_MARKET_ERROR_CODE = "MISSING_NEAR_TERM_KALSHI_MARKETS";
 
@@ -3314,7 +3315,10 @@ function assertNearTermMarketCoverage(events, {
   });
 
   Object.values(footballSchedule).forEach(events => {
-    events.forEach(event => tourEvents.push(event));
+    events.forEach(event => tourEvents.push({
+      ...event,
+      name: canonicalSportsMatchupTitle(event.name, { sport: event.sport, seriesTicker: event.seriesTicker || event.eventTicker })
+    }));
   });
 
   Object.values(proLeagueSchedule).forEach(events => {
@@ -3750,7 +3754,10 @@ function assertNearTermMarketCoverage(events, {
     const prices = displayMarkets.slice().sort((left, right) => outrightProbability(right) - outrightProbability(left)
       || (right.volume || 0) - (left.volume || 0)).map(market => {
       const midpoint = market.yesBid != null && market.yesAsk != null ? Math.round((market.yesBid + market.yesAsk) / 2) : null;
-      return [market.label, market.lastPrice ?? midpoint, market.yesBid, market.yesAsk, market.ticker, market.volume || 0];
+      const name = canonicalSportsOutcomeName(market.label, {
+        sport: event.sport, seriesTicker: snapshot.seriesTicker, ticker: market.ticker
+      });
+      return [name, market.lastPrice ?? midpoint, market.yesBid, market.yesAsk, market.ticker, market.volume || 0];
     }).filter(price => price[1] != null);
     return {
       ...event,
@@ -3789,7 +3796,7 @@ function assertNearTermMarketCoverage(events, {
     const game = {
       id: `mlb-${row[0]}`, sport: "MLB", code: home[0], utc: row[2], state: row[6], awayScore: row[7], homeScore: row[8],
       awayCode: away[0], awayName: away[1], awayKalshi: away[2], homeCode: home[0], homeName: home[1], homeKalshi: home[2],
-      name: `${away[0]} at ${home[0]}`, venue: venue[0], city: `${venue[1]}, ${venue[2]}`, lat: venue[3], lon: venue[4], contracts: 2
+      name: `${away[1]} at ${home[1]}`, venue: venue[0], city: `${venue[1]}, ${venue[2]}`, lat: venue[3], lon: venue[4], contracts: 2
     };
     game.eventTicker = mlbTicker(game);
     const market = mlb.markets[game.eventTicker] || null;

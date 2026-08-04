@@ -37,6 +37,18 @@ test("Market Atlas app exposes one functional cross-category market search", asy
   assert.match(client, /metaKey \|\| event\.ctrlKey/);
 });
 
+test("Sports uses canonical team names without changing compact map markers", async () => {
+  const sports = await read("public/categories/sports/index.html");
+  const shell = await read("public/assets/app.js");
+  const names = await read("src/client/sports-team-names.js");
+  assert.match(sports, /from "\/assets\/sports-team-names\.js"/);
+  assert.match(sports, /canonicalSportsOutcomeName\(market\.label/);
+  assert.match(sports, /name: `\$\{away\[1\]\} at \$\{home\[1\]\}`/);
+  assert.match(shell, /new URL\("\/assets\/sports-team-names\.js"/);
+  assert.match(names, /NE: \["New England Patriots"/);
+  assert.match(names, /LAD: \["Los Angeles Dodgers"/);
+});
+
 test("geographic search jumps instantly and selects the destination detail market", async () => {
   const shell = await read("public/assets/app.js");
   const sports = await read("public/categories/sports/index.html");

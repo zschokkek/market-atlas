@@ -33,6 +33,7 @@ import {
 import { classifyPoliticsEvent, classifyPoliticsLocations, HOUSE_RACE_MIN_SCALE, HOUSE_RACE_PREVIEW_MIN_SCALE, houseRaceRevealScale, kalshiSeriesSlugFromUrl, politicsMarketUrl, politicsParty, resolveKalshiSeriesSlug, resolvePoliticalLocation } from "../src/politics-registry.js";
 import { HOUSE_DISTRICT_CENTROIDS } from "../src/congressional-district-centroids.js";
 import { interpretMarketQuery, searchMarkets } from "../src/market-search.js";
+import { canonicalSportsMatchupTitle, canonicalSportsOutcomeName } from "../src/client/sports-team-names.js";
 import { buildWeatherPublicSnapshot, weatherMarketUrl } from "../src/weather-registry.js";
 
 test("paces hosted refreshes as a durable three-step rotation", async () => {
@@ -405,7 +406,8 @@ test("search spans Weather and uses location navigation without overriding expli
 
   const nicknameTeam = searchMarkets("Dodgers", { sports, weather }, { activeCategory: "weather" });
   assert.equal(nicknameTeam.results[0].eventTicker, "KXMLBGAME-26AUG012000BOSLAD");
-  assert.equal(nicknameTeam.results[0].outcomes[0].name, "Los Angeles D");
+  assert.equal(nicknameTeam.results[0].title, "Boston Red Sox vs Los Angeles Dodgers");
+  assert.equal(nicknameTeam.results[0].outcomes[0].name, "Los Angeles Dodgers");
 
   const nicknameProp = searchMarkets("Dodgers strikeouts", { sports, weather }, { activeCategory: "politics" });
   assert.equal(nicknameProp.results[0].eventTicker, "KXMLBKS-26AUG012000BOSLAD");
@@ -418,6 +420,22 @@ test("search spans Weather and uses location navigation without overriding expli
   const meaningfulPrefixOnly = searchMarkets("Dodgers", { sports, politics: dcPolitics }, { activeCategory: "politics" });
   assert.ok(meaningfulPrefixOnly.results.length > 0);
   assert.ok(meaningfulPrefixOnly.results.every(result => result.category === "sports"), "one-letter place tokens must not pollute another category");
+});
+
+test("expands team abbreviations consistently across major team sports", () => {
+  assert.equal(canonicalSportsMatchupTitle("NFL · NE at SEA", { sport: "NFL" }),
+    "NFL · New England Patriots at Seattle Seahawks");
+  assert.equal(canonicalSportsMatchupTitle("Arizona St vs Pitt", { sport: "CFB" }),
+    "Arizona State vs Pittsburgh");
+  assert.equal(canonicalSportsOutcomeName("Los Angeles L", {
+    seriesTicker: "KXNBAGAME", ticker: "KXNBAGAME-26OCT06LALGSW-LAL"
+  }), "Los Angeles Lakers");
+  assert.equal(canonicalSportsOutcomeName("New York R", {
+    seriesTicker: "KXNHLGAME", ticker: "KXNHLGAME-26SEP29NYRBOS-NYR"
+  }), "New York Rangers");
+  assert.equal(canonicalSportsOutcomeName("MI", {
+    seriesTicker: "KXIPLGAME", ticker: "KXIPLGAME-26APR201400MIGT-MI"
+  }), "Mumbai Indians");
 });
 
 test("serves cached colloquial search without polling Kalshi", async () => {

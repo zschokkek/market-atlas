@@ -537,9 +537,13 @@ function prefetchCategoryAssets(category) {
 
 async function importSource(source, replacements = []) {
   const mapRuntimeUrl = new URL("/assets/map-runtime.js", window.location.origin).href;
+  const sportsTeamNamesUrl = new URL("/assets/sports-team-names.js", window.location.origin).href;
   let moduleSource = source.replaceAll(
     'from "/assets/map-runtime.js"',
     `from ${JSON.stringify(mapRuntimeUrl)}`
+  ).replaceAll(
+    'from "/assets/sports-team-names.js"',
+    `from ${JSON.stringify(sportsTeamNamesUrl)}`
   );
   replacements.forEach(([pattern, replacement]) => {
     moduleSource = moduleSource.replace(pattern, replacement);
