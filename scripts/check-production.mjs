@@ -53,6 +53,11 @@ for (const token of [
 ]) {
   if (!index.includes(token)) failures.push(`public/index.html is missing ${token}`);
 }
+for (const entrypoint of ["app.js", "search.js"]) {
+  if (!new RegExp(`src="/assets/${entrypoint.replace(".", "\\.")}\\?v=[a-f0-9]{12}"`).test(index)) {
+    failures.push(`public/index.html does not cache-bust ${entrypoint}`);
+  }
+}
 
 const appShell = await readFile(join(root, "public/assets/app.js"), "utf8");
 if (!appShell.includes('new URL("/assets/map-runtime.js", window.location.origin).href')) {

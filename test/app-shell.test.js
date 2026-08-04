@@ -25,6 +25,8 @@ test("Market Atlas app exposes one functional cross-category market search", asy
   assert.match(html, /data-market-search/);
   assert.match(html, /role="listbox"/);
   assert.match(html, /assets\/search\.js/);
+  assert.match(html, /src="\/assets\/app\.js\?v=[a-f0-9]{12}"/);
+  assert.match(html, /src="\/assets\/search\.js\?v=[a-f0-9]{12}"/);
   assert.match(source, /market-search:select/);
   assert.match(source, /revealMarket\(result\)/);
   assert.match(source, /revealLocation\(result\)/);
