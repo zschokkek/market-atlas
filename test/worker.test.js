@@ -1673,6 +1673,16 @@ test("shows every baseball league only on its game date", () => {
   assert.doesNotMatch(html, /advanceWindowSports = new Set\(\["LMB", "KBO", "NPB"/);
 });
 
+test("anchors Sports upcoming labels to the browser date instead of the selected timeline date", () => {
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
+  assert.match(html, /function upcomingEventLabel\(eventStart, browserToday = browserLocalIsoDate\(\)\)/);
+  assert.match(html, /daysFromToday >= 1 && daysFromToday <= ADVANCE_WINDOW_DAYS/);
+  assert.match(html, /const selectedDateLead = isoDayDistance\(date, event\.start\)/);
+  assert.match(html, /upcomingLabel: visible \? upcomingEventLabel\(event\.start\) : ""/);
+  assert.match(html, /event\.upcoming \? `\$\{sportLabel\} · \$\{event\.upcomingLabel\}` : sportLabel/);
+  assert.doesNotMatch(html, /upcomingLabel: visible \? `In \$\{daysUntil\}/);
+});
+
 test("starts the timeline today and removes events after they finish", () => {
   const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
   assert.match(html, /const todayIso = easternIsoDate\(\)/);

@@ -3516,6 +3516,8 @@ function assertNearTermMarketCoverage(events, {
   const dateLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "long", day: "numeric" });
   const dateYearLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric" });
   const dateMonthLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short" });
+  const eventDateLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" });
+  const eventDateYearLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" });
   const timeLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
   const tickerParts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "2-digit", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   const easternOffsetLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "shortOffset" });
@@ -3952,6 +3954,28 @@ function assertNearTermMarketCoverage(events, {
     return Boolean(duration && Number.isFinite(start) && start > 0 && now >= start + duration);
   }
 
+  function browserLocalIsoDate(value = new Date()) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function isoDayDistance(fromIso, toIso) {
+    return Math.round((new Date(`${toIso}T12:00:00Z`) - new Date(`${fromIso}T12:00:00Z`)) / 86400000);
+  }
+
+  function upcomingEventLabel(eventStart, browserToday = browserLocalIsoDate()) {
+    const daysFromToday = isoDayDistance(browserToday, eventStart);
+    if (daysFromToday >= 1 && daysFromToday <= ADVANCE_WINDOW_DAYS) {
+      return `In ${daysFromToday} ${daysFromToday === 1 ? "day" : "days"}`;
+    }
+    const eventDate = new Date(`${eventStart}T12:00:00Z`);
+    return eventStart.slice(0, 4) === browserToday.slice(0, 4)
+      ? eventDateLabel.format(eventDate)
+      : eventDateYearLabel.format(eventDate);
+  }
+
   function eventTemporalState(event, date) {
     if (event.start <= date && date <= event.end) {
       return { visible: true, upcoming: false, daysUntil: 0, upcomingLabel: "" };
@@ -3962,13 +3986,13 @@ function assertNearTermMarketCoverage(events, {
     if (!advanceWindowSports.has(event.sport) || date >= event.start) {
       return { visible: false, upcoming: false, daysUntil: 0, upcomingLabel: "" };
     }
-    const daysUntil = Math.round((new Date(`${event.start}T12:00:00Z`) - new Date(`${date}T12:00:00Z`)) / 86400000);
-    const visible = daysUntil >= 1 && daysUntil <= ADVANCE_WINDOW_DAYS;
+    const selectedDateLead = isoDayDistance(date, event.start);
+    const visible = selectedDateLead >= 1 && selectedDateLead <= ADVANCE_WINDOW_DAYS;
     return {
       visible,
       upcoming: visible,
-      daysUntil,
-      upcomingLabel: visible ? `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` : ""
+      daysUntil: selectedDateLead,
+      upcomingLabel: visible ? upcomingEventLabel(event.start) : ""
     };
   }
 
@@ -4758,9 +4782,9 @@ function assertNearTermMarketCoverage(events, {
     detail.classList.toggle("is-upcoming", Boolean(event.upcoming));
     detail.classList.toggle("is-market-pending", !event.marketPosted);
     const sportLabel = event.markerCode || event.sport;
-    root.querySelector(".sport-badge").textContent = event.upcoming ? `${sportLabel} · T-${event.daysUntil}` : sportLabel;
+    root.querySelector(".sport-badge").textContent = event.upcoming ? `${sportLabel} · ${event.upcomingLabel}` : sportLabel;
     root.querySelector(".event-dates").textContent = event.upcoming
-      ? `Upcoming · ${event.upcomingLabel.toLowerCase()} · ${event.dates}`
+      ? `Upcoming · ${event.upcomingLabel} · ${event.dates}`
       : event.sport === "MLB" ? `${event.dates} · ${event.status}` : event.dates;
     root.querySelector(".event-name").textContent = event.name;
     root.querySelector(".event-location").textContent = `${event.venue} · ${event.city}`;
