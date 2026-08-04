@@ -4755,6 +4755,8 @@ function assertNearTermMarketCoverage(events, {
     if (!ranked.length) return;
     selectEvent(ranked[0].id, false);
     mobileMarketList.innerHTML = ranked.map(event => sportsMobileMarketCard(event, true)).join("");
+    mobileMarketList.scrollTop = 0;
+    mobileMarketList.scrollLeft = 0;
     mobileMarketCount.textContent = `${ranked.length} market${ranked.length === 1 ? "" : "s"}`;
     gameDetailView.hidden = true;
     mobileMarketBrowser.hidden = false;
@@ -4767,6 +4769,8 @@ function assertNearTermMarketCoverage(events, {
     if (!ranked.length) return;
     selectEvent(ranked[0].id, true);
     mobileMarketList.innerHTML = ranked.map(sportsMobileMarketCard).join("");
+    mobileMarketList.scrollTop = 0;
+    mobileMarketList.scrollLeft = 0;
     mobileMarketCount.textContent = `${ranked.length} market${ranked.length === 1 ? "" : "s"}`;
     gameDetailView.hidden = true;
     mobileMarketBrowser.hidden = false;
@@ -4782,6 +4786,8 @@ function assertNearTermMarketCoverage(events, {
     if (eventChanged) {
       hideTeamFutures();
       hideTennisMarkets();
+      detail.scrollTop = 0;
+      gameDetailView.scrollTop = 0;
     }
     markerNodes.forEach(node => node.group.classList.toggle("is-selected", node.event.id === selectedId));
     eventSelect.value = event.id;

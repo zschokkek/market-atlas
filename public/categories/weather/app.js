@@ -183,7 +183,19 @@ function marketMarkup(market, kind, tooltipMode = false) {
   return `<article class="market-card" data-outcome-count="${market.outcomes.length}" style="--weather-accent:${color}"><div class="market-card-heading"><a class="market-card-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a><span class="market-volume">${compactVolume(market.volume)} vol</span></div><div class="market-outcomes">${market.outcomes.map(item => outcomeMarkup(item)).join("")}</div><div class="market-footer"><span>${escapeHtml(market.eventTicker)}</span><span>Kalshi · ${market.updatedAt ? `cached ${snapshotAge(market.updatedAt)}` : "verified fallback"}</span></div></article>`;
 }
 
+let renderedDetailId = null;
+
+function resetDetailScroll(bundle) {
+  const nextId = bundle?.id || null;
+  if (nextId === renderedDetailId) return;
+  renderedDetailId = nextId;
+  detailPanel.scrollTop = 0;
+  detailList.scrollTop = 0;
+  detailList.scrollLeft = 0;
+}
+
 function renderDetail(bundle) {
+  resetDetailScroll(bundle);
   if (!bundle) {
     detailName.textContent = "No weather markets";
     detailCode.textContent = "—";

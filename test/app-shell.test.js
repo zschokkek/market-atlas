@@ -273,6 +273,18 @@ test("all desktop map detail panels scroll within the shared shell", async () =>
   assert.doesNotMatch(shell, /#market-atlas-sports\.market-globe-shell \.market-detail-panel \{[\s\S]*overflow: visible;/);
 });
 
+test("selecting a new event resets every market detail scroller", async () => {
+  const [sports, politics, weather] = await Promise.all([
+    read("public/categories/sports/index.html"),
+    read("public/categories/politics/app.js"),
+    read("public/categories/weather/app.js")
+  ]);
+  assert.match(sports, /if \(eventChanged\) \{[\s\S]*detail\.scrollTop = 0;[\s\S]*gameDetailView\.scrollTop = 0;/);
+  assert.match(sports, /mobileMarketList\.innerHTML = ranked\.map[\s\S]*mobileMarketList\.scrollTop = 0;[\s\S]*mobileMarketList\.scrollLeft = 0;/);
+  assert.match(politics, /function resetDetailScroll\(bundle\)[\s\S]*detailPanel\.scrollTop = 0;[\s\S]*detailMarketList\.scrollTop = 0;[\s\S]*detailMarketList\.scrollLeft = 0;/);
+  assert.match(weather, /function resetDetailScroll\(bundle\)[\s\S]*detailPanel\.scrollTop = 0;[\s\S]*detailList\.scrollTop = 0;[\s\S]*detailList\.scrollLeft = 0;/);
+});
+
 test("Market Atlas app gives hidden views lifecycle-controlled polling", async () => {
   const source = await read("public/assets/app.js");
   assert.match(source, /sportsClient\.deactivate\(\)/);

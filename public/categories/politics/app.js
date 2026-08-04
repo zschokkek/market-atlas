@@ -198,7 +198,19 @@ function marketCardMarkup(market) {
     </article>`;
 }
 
+let renderedDetailId = null;
+
+function resetDetailScroll(bundle) {
+  const nextId = bundle?.id || null;
+  if (nextId === renderedDetailId) return;
+  renderedDetailId = nextId;
+  detailPanel.scrollTop = 0;
+  detailMarketList.scrollTop = 0;
+  detailMarketList.scrollLeft = 0;
+}
+
 function renderDetail(bundle) {
+  resetDetailScroll(bundle);
   if (!bundle) {
     detailJurisdiction.textContent = "No markets in view";
     detailCode.textContent = "—";
