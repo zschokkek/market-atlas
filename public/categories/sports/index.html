@@ -932,6 +932,7 @@ body{overflow-x:hidden}
           <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="CRK" checked><span>Cricket</span></label>
           <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="IPL" checked><span>IPL</span></label>
           <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="F1" checked><span>Formula 1</span></label>
+          <label class="sport-check-option check-option"><input class="sport-check" type="checkbox" data-sport="ESPORTS" checked><span>Esports</span></label>
         </div>
       </fieldset>
 
@@ -1560,7 +1561,9 @@ body{overflow-x:hidden}
   #market-atlas-sports .sport-IPL .marker-price,
   #market-atlas-sports .sport-IPL .marker-core,
   #market-atlas-sports .sport-F1 .marker-price,
-  #market-atlas-sports .sport-F1 .marker-core {
+  #market-atlas-sports .sport-F1 .marker-core,
+  #market-atlas-sports .sport-ESPORTS .marker-price,
+  #market-atlas-sports .sport-ESPORTS .marker-core {
     stroke: var(--viz-series-6);
   }
 
@@ -1813,6 +1816,7 @@ body{overflow-x:hidden}
   #market-atlas-sports .map-tooltip[data-sport="CRK"] .hover-dot { background: var(--viz-series-6); }
   #market-atlas-sports .map-tooltip[data-sport="IPL"] .hover-dot { background: var(--viz-series-6); }
   #market-atlas-sports .map-tooltip[data-sport="F1"] .hover-dot { background: var(--viz-series-6); }
+  #market-atlas-sports .map-tooltip[data-sport="ESPORTS"] .hover-dot { background: var(--viz-series-1); }
   #market-atlas-sports .map-tooltip[data-sport="MIX"] .hover-dot { background: var(--foreground); }
 
   #market-atlas-sports .map-tooltip.is-upcoming .hover-dot {
@@ -2642,6 +2646,10 @@ body{overflow-x:hidden}
     background: var(--viz-series-6);
   }
 
+  #market-atlas-sports .event-detail[data-sport="ESPORTS"] .price-fill {
+    background: var(--viz-series-1);
+  }
+
   #market-atlas-sports .market-meta {
     border-top: 1px solid var(--border);
     padding-top: 0.65rem;
@@ -3277,7 +3285,65 @@ function assertNearTermMarketCoverage(events, {
     contracts: 0, volume: 0, marketPosted: false, prices: [], sortKey: "2027-06-19T12:00:00Z"
   }));
 
-  tourEvents.push(...copaDoBrasilEvents, ...afconHostEvents);
+  // Kalshi has posted Toronto match markets but no tournament outright. Keep the
+  // map at tournament granularity and let the existing tennis sheet expose every
+  // KXWTAMATCH event inside this single marker.
+  const wtaTorontoTournament = {
+    id: "wta-toronto", sport: "WTA", code: "WTA", markerCode: "WTA", name: "National Bank Open · Toronto",
+    eventTicker: "KXWTAMATCH", seriesTicker: "KXWTAMATCH", matchSeriesOnly: true,
+    start: "2026-08-02", end: "2026-08-13", dates: "Aug 2 – 13",
+    venue: "Sobeys Stadium", city: "Toronto, ON", lat: 43.771564, lon: -79.512092,
+    contracts: 0, volume: 0, marketPosted: false, prices: [], sortKey: "2026-08-02"
+  };
+
+  const hundredVenues = {
+    LON: ["Lord’s Cricket Ground", "London, England", 51.5297966, -0.1720384],
+    WEL: ["Sophia Gardens", "Cardiff, Wales", 51.487096, -3.191012],
+    BIR: ["Edgbaston Cricket Ground", "Birmingham, England", 52.4559845, -1.902529],
+    MLO: ["Kia Oval", "London, England", 51.4821031, -0.1117327],
+    SUL: ["Headingley Cricket Ground", "Leeds, England", 53.817, -1.582],
+    TRE: ["Trent Bridge", "Nottingham, England", 52.9368491, -1.1323924],
+    MSG: ["Old Trafford Cricket Ground", "Manchester, England", 53.4564, -2.286],
+    SOU: ["The Rose Bowl", "Southampton, England", 50.924, -1.322]
+  };
+  const hundredMatches = [
+    ["KXWHUNDREDMATCH-26AUG041000LONSUN", "Women", "Sunrisers Leeds vs London Spirit", "LON"],
+    ["KXHUNDREDMATCH-26AUG041330LONSUL", "Men", "Sunrisers Leeds vs London Spirit", "LON"],
+    ["KXWHUNDREDMATCH-26AUG050630WELMAN", "Women", "Manchester Super Giants vs Welsh Fire", "WEL"],
+    ["KXHUNDREDMATCH-26AUG051000WELMSG", "Men", "Manchester Super Giants vs Welsh Fire", "WEL"],
+    ["KXWHUNDREDMATCH-26AUG051000BIRTRE", "Women", "Trent Rockets vs Birmingham Phoenix", "BIR"],
+    ["KXHUNDREDMATCH-26AUG051330BIRTRE", "Men", "Trent Rockets vs Birmingham Phoenix", "BIR"],
+    ["KXWHUNDREDMATCH-26AUG061000MILON", "Women", "London Spirit vs MI London", "MLO"],
+    ["KXHUNDREDMATCH-26AUG061330MLOLON", "Men", "London Spirit vs MI London", "MLO"],
+    ["KXWHUNDREDMATCH-26AUG071000SUNBIR", "Women", "Birmingham Phoenix vs Sunrisers Leeds", "SUL"],
+    ["KXHUNDREDMATCH-26AUG071330SULBIR", "Men", "Birmingham Phoenix vs Sunrisers Leeds", "SUL"],
+    ["KXWHUNDREDMATCH-26AUG080600TREMI", "Women", "MI London vs Trent Rockets", "TRE"],
+    ["KXHUNDREDMATCH-26AUG080930TREMLO", "Men", "MI London vs Trent Rockets", "TRE"],
+    ["KXWHUNDREDMATCH-26AUG080930MANSOU", "Women", "Southern Brave vs Manchester Super Giants", "MSG"],
+    ["KXHUNDREDMATCH-26AUG081300MSGSOU", "Men", "Southern Brave vs Manchester Super Giants", "MSG"],
+    ["KXWHUNDREDMATCH-26AUG090600WELSUN", "Women", "Sunrisers Leeds vs Welsh Fire", "WEL"],
+    ["KXHUNDREDMATCH-26AUG090930WELSUL", "Men", "Sunrisers Leeds vs Welsh Fire", "WEL"],
+    ["KXWHUNDREDMATCH-26AUG090930BIRLON", "Women", "London Spirit vs Birmingham Phoenix", "BIR"],
+    ["KXHUNDREDMATCH-26AUG091300BIRLON", "Men", "London Spirit vs Birmingham Phoenix", "BIR"],
+    ["KXWHUNDREDMATCH-26AUG101000SOUTRE", "Women", "Trent Rockets vs Southern Brave", "SOU"],
+    ["KXHUNDREDMATCH-26AUG101330SOUTRE", "Men", "Trent Rockets vs Southern Brave", "SOU"],
+    ["KXWHUNDREDMATCH-26AUG111000SUNMAN", "Women", "Manchester Super Giants vs Sunrisers Leeds", "SUL"],
+    ["KXHUNDREDMATCH-26AUG111330SULMSG", "Men", "Manchester Super Giants vs Sunrisers Leeds", "SUL"]
+  ].map(([eventTicker, division, matchup, venueCode], index) => {
+    const [, monthDay] = eventTicker.match(/26(AUG\d{2})/) || [];
+    const dayNumber = monthDay ? monthDay.slice(3) : "04";
+    const day = `2026-08-${dayNumber}`;
+    const [venue, city, lat, lon] = hundredVenues[venueCode];
+    return {
+      id: `hundred-${division.toLowerCase()}-${dayNumber}-${index}`, sport: "CRK", code: "CRK", markerCode: "100",
+      name: `The Hundred ${division} · ${matchup}`, eventTicker,
+      seriesTicker: division === "Women" ? "KXWHUNDREDMATCH" : "KXHUNDREDMATCH", expectedEventTicker: eventTicker,
+      start: day, end: day, dates: `Aug ${Number(dayNumber)}`, venue, city, lat, lon,
+      contracts: 0, volume: 0, marketPosted: false, prices: [], sortKey: `${day}-${String(index).padStart(2, "0")}`
+    };
+  });
+
+  tourEvents.push(...copaDoBrasilEvents, ...afconHostEvents, wtaTorontoTournament, ...hundredMatches);
 
   const uclSecondLegs = [
     ["ucl-kauno-dinamo-2", "Kauno Žalgiris vs Dinamo Zagreb", "KXUCLGAME-26AUG11KAZDIN", "S. Dariaus ir S. Girėno Stadium", "Kaunas, Lithuania", 54.8974333, 23.9373332],
@@ -3464,12 +3530,12 @@ function assertNearTermMarketCoverage(events, {
   // Portaling them to the Sports root prevents the shared detail-panel overflow
   // and flex sizing rules from clipping them to a single collapsed row.
   root.append(teamMarketWindow, tennisMarketWindow);
-  const sports = ["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "ATP", "WTA", "PGA", "GOLF", "UCL", "SOC", "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA", "MLS", "COPADOBRASIL", "AFCON", "CRK", "IPL", "F1"];
+  const sports = ["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "ATP", "WTA", "PGA", "GOLF", "UCL", "SOC", "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA", "MLS", "COPADOBRASIL", "AFCON", "CRK", "IPL", "F1", "ESPORTS"];
   const filterGroups = {
     "BASEBALL-GROUP": ["MLB", "LMB", "KBO", "NPB"], NBA: ["NBA"], WNBA: ["WNBA"], NHL: ["NHL"], NFL: ["NFL"], CFB: ["CFB"], AFL: ["AFL"], ATP: ["ATP"], WTA: ["WTA"],
     "GOLF-GROUP": ["PGA", "GOLF"],
     "SOCCER-GROUP": ["UCL", "SOC", "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA", "MLS", "COPADOBRASIL", "AFCON"],
-    CRK: ["CRK"], IPL: ["IPL"], F1: ["F1"]
+    CRK: ["CRK"], IPL: ["IPL"], F1: ["F1"], ESPORTS: ["ESPORTS"]
   };
   const baseballSports = new Set(filterGroups["BASEBALL-GROUP"]);
   const soccerSports = new Set(filterGroups["SOCCER-GROUP"]);
@@ -3485,7 +3551,7 @@ function assertNearTermMarketCoverage(events, {
   ]);
   const completedMarketStatuses = new Set(["closed", "settled", "finalized", "determined", "resolved"]);
   const enabledSports = new Set(sports);
-  const sportOrder = { MLB: 0, LMB: 1, KBO: 2, NPB: 3, NBA: 4, WNBA: 5, NHL: 6, NFL: 7, CFB: 8, AFL: 9, ATP: 10, WTA: 11, PGA: 12, GOLF: 13, UCL: 14, SOC: 15, EPL: 16, LALIGA: 17, BUNDESLIGA: 18, SERIEA: 19, LIGUE1: 20, BRASILEIRAO: 21, LIGAMX: 22, ARGPRIMERA: 23, MLS: 24, COPADOBRASIL: 25, AFCON: 26, CRK: 27, IPL: 28, F1: 29 };
+  const sportOrder = { MLB: 0, LMB: 1, KBO: 2, NPB: 3, NBA: 4, WNBA: 5, NHL: 6, NFL: 7, CFB: 8, AFL: 9, ATP: 10, WTA: 11, PGA: 12, GOLF: 13, UCL: 14, SOC: 15, EPL: 16, LALIGA: 17, BUNDESLIGA: 18, SERIEA: 19, LIGUE1: 20, BRASILEIRAO: 21, LIGAMX: 22, ARGPRIMERA: 23, MLS: 24, COPADOBRASIL: 25, AFCON: 26, CRK: 27, IPL: 28, F1: 29, ESPORTS: 30 };
   const MIN_SCALE = 170;
   const MAX_SCALE = 4200;
   const EXPAND_SHARED_VENUES_SCALE = 1200;
@@ -3828,6 +3894,52 @@ function assertNearTermMarketCoverage(events, {
   }
 
   const tennisMatchSeries = new Map([["ATP", "KXATPMATCH"], ["WTA", "KXWTAMATCH"]]);
+  const esportsSeries = new Set(["KXCS2GAME", "KXVALORANTGAME", "KXLOLGAME"]);
+
+  function esportsHubFor(snapshot) {
+    const text = normalizedMatchText(`${snapshot.title} ${snapshot.subtitle}`);
+    if (/red canids|oddik|guara|yawara|bestia|galorys|gremio|furia|pain gaming|kabum|team solid|red academy|intz|vivo keyd|malvinas/.test(text)) {
+      return ["Brazil esports circuit · online", "São Paulo, Brazil", -23.5505, -46.6333];
+    }
+    if (/trace esports|jd gaming|funplus phoenix|wolves esports|keepbest|tec esports/.test(text)) {
+      return ["China esports circuit · online", "Shanghai, China", 31.2304, 121.4737];
+    }
+    if (/gen g|drx|dplus kia|nongshim|fearx|full sense|team secret|detonation focusme/.test(text)) {
+      return ["Pacific esports circuit · online", "Seoul, South Korea", 37.5665, 126.978];
+    }
+    if (/evil geniuses|cloud9|100 thieves|nrg|team envy/.test(text)) {
+      return ["Americas esports circuit · online", "Los Angeles, CA", 34.0522, -118.2437];
+    }
+    return ["European esports circuit · online", "Berlin, Germany", 52.52, 13.405];
+  }
+
+  function esportsSnapshotDate(snapshot) {
+    const tickerMatch = String(snapshot.eventTicker || "").match(/-(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})/);
+    if (tickerMatch) {
+      const month = String(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].indexOf(tickerMatch[2]) + 1).padStart(2, "0");
+      return `20${tickerMatch[1]}-${month}-${tickerMatch[3]}`;
+    }
+    return Number.isFinite(new Date(snapshot.startsAt).getTime()) ? easternIsoDate(new Date(snapshot.startsAt)) : todayIso;
+  }
+
+  function syncHostedEsportsEvents() {
+    for (let index = tourEvents.length - 1; index >= 0; index -= 1) {
+      if (tourEvents[index].hostedEsports) tourEvents.splice(index, 1);
+    }
+    for (const snapshot of hostedOddsEvents) {
+      if (!esportsSeries.has(snapshot.seriesTicker) || !snapshot.eventTicker) continue;
+      const day = esportsSnapshotDate(snapshot);
+      const [venue, city, lat, lon] = esportsHubFor(snapshot);
+      tourEvents.push({
+        id: `esports-${snapshot.eventTicker}`, sport: "ESPORTS", code: "ES", markerCode: "ES",
+        name: snapshot.title || snapshot.eventTicker, eventTicker: snapshot.eventTicker,
+        expectedEventTicker: snapshot.eventTicker, seriesTicker: snapshot.seriesTicker, hostedEsports: true,
+        start: day, end: day, dates: eventDateLabel.format(new Date(`${day}T12:00:00Z`)),
+        venue, city, lat, lon, contracts: snapshot.markets?.length || 0, volume: snapshot.volume || 0,
+        marketPosted: true, prices: [], sortKey: snapshot.startsAt || day
+      });
+    }
+  }
 
   function tennisPlayerIdentity(value) {
     const normalized = normalizedMatchText(value);
@@ -3835,8 +3947,8 @@ function assertNearTermMarketCoverage(events, {
     return { full: normalized, surname: parts.length > 1 ? parts.at(-1) : "" };
   }
 
-  function tennisMatchBelongsToEvent(match, outrightSnapshot) {
-    if (!outrightSnapshot) return false;
+  function tennisMatchBelongsToEvent(match, outrightSnapshot, event) {
+    if (!outrightSnapshot) return Boolean(event?.matchSeriesOnly);
     const matchText = ` ${normalizedMatchText([
       match.title, match.subtitle, ...(match.markets || []).map(market => market.label)
     ].join(" "))} `;
@@ -3860,21 +3972,23 @@ function assertNearTermMarketCoverage(events, {
       const endsAt = new Date(snapshot.endsAt || 0).getTime();
       if (!Number.isFinite(startsAt) || startsAt < windowStart || startsAt > windowEnd) return false;
       if (Number.isFinite(endsAt) && endsAt > 0 && endsAt <= now) return false;
-      return tennisMatchBelongsToEvent(snapshot, outrightSnapshot);
+      return tennisMatchBelongsToEvent(snapshot, outrightSnapshot, event);
     }).sort((left, right) => (right.volume || 0) - (left.volume || 0));
   }
 
   function withHostedOdds(event) {
     const snapshot = hostedSnapshotFor(event);
     if (!snapshot) {
+      const tennisMatches = tennisMatchSnapshotsFor(event, null);
       return {
         ...event,
         marketPosted: false,
-        contracts: 0,
-        volume: 0,
+        contracts: tennisMatches.length,
+        volume: tennisMatches.reduce((sum, match) => sum + Number(match.volume || 0), 0),
         prices: [],
         oddsUpdatedAt: null,
-        marketStatus: null
+        marketStatus: null,
+        tennisMatches
       };
     }
     const activeMarkets = snapshot.markets.filter(market => !completedMarketStatuses.has(String(market.status || "").toLowerCase()));
@@ -4426,7 +4540,7 @@ function assertNearTermMarketCoverage(events, {
 
   function renderTennisMatches(event) {
     tennisMatchesList.replaceChildren();
-    const matches = (event.tennisMatches || []).slice(0, 8);
+    const matches = (event.tennisMatches || []).slice();
     for (const match of matches) {
       const sortedMarkets = (match.markets || []).slice().sort((left, right) => (right.volume || 0) - (left.volume || 0));
       const link = document.createElement("a");
@@ -5363,6 +5477,7 @@ function assertNearTermMarketCoverage(events, {
       hostedOddsEvents = Array.isArray(payload?.events) ? payload.events : [];
       hostedOddsByTicker.clear();
       hostedOddsEvents.forEach(event => hostedOddsByTicker.set(event.eventTicker, event));
+      syncHostedEsportsEvents();
       const activeDate = calendarDates[activeDateIndex];
       if (activeDate === todayIso || activeDate === addIsoDays(todayIso, 1)) validateNearTermMarketCoverage();
       renderEvents({ preserveView: true });

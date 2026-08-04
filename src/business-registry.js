@@ -25,7 +25,9 @@ const BUSINESS_LOCATIONS = {
   KXNVDAA: ["nvidia", "Nvidia", "NVDA", "Santa Clara, California", 37.3541, -121.9552, "Technology", "United States"],
   KXNFLXA: ["netflix", "Netflix", "NFLX", "Los Gatos, California", 37.2358, -121.9624, "Technology", "United States"],
   KXELECTRICM3: ["bmw", "BMW", "BMW", "Munich, Germany", 48.1351, 11.582, "Mobility", "International"],
-  KXROLEATEVENTCOACHELLA: ["music-coachella", "Coachella", "COA", "Empire Polo Club · Indio, California", 33.6803, -116.237, "Music", "United States"]
+  KXROLEATEVENTCOACHELLA: ["music-coachella", "Coachella", "COA", "Empire Polo Club · Indio, California", 33.6803, -116.237, "Music", "United States"],
+  KXVENUEPERFORMANCESPHERE: ["music-sphere", "Sphere", "SPH", "Sphere · Las Vegas, Nevada", 36.1208, -115.1645, "Music", "United States"],
+  KXVENUEPERFORMANCEMSG: ["music-msg", "Madison Square Garden", "MSG", "Madison Square Garden · New York, New York", 40.7505, -73.9934, "Music", "United States"]
 };
 
 // Active Kalshi Mentions series, mapped to the corporate headquarters, event venue,
@@ -146,9 +148,13 @@ function musicLocationForMarket(market) {
 }
 
 function marketUrl(snapshot, markets) {
-  if (String(snapshot.seriesTicker || "").toUpperCase() === "KXROLEATEVENTCOACHELLA") {
-    return "https://kalshi.com/markets/kxroleateventcoachella/who-will-headline-coachella/kxroleateventcoachella-27dec31";
-  }
+  const seriesTicker = String(snapshot.seriesTicker || "").toUpperCase();
+  const venueUrls = {
+    KXROLEATEVENTCOACHELLA: "https://kalshi.com/markets/kxroleateventcoachella/who-will-headline-coachella/kxroleateventcoachella-27dec31",
+    KXVENUEPERFORMANCESPHERE: "https://kalshi.com/markets/kxvenueperformancesphere/who-will-perform-at-las-vegas-sphere-in-2027/kxvenueperformancesphere-28jan01",
+    KXVENUEPERFORMANCEMSG: "https://kalshi.com/markets/kxvenueperformancemsg/who-will-perform-at-madison-square-garden-2027/kxvenueperformancemsg-27dec31"
+  };
+  if (venueUrls[seriesTicker]) return venueUrls[seriesTicker];
   const ticker = markets.find(market => market.ticker)?.ticker || snapshot.eventTicker;
   return `https://kalshi.com/markets_by_ticker/${String(ticker || "").toLowerCase()}`;
 }

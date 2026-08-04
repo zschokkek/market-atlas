@@ -81,6 +81,13 @@ const coachellaFallbackMarket = {
   outcomes: coachellaFallbackOutcomes
 };
 
+const venueFallbackMarket = (eventTicker, title, markerCode, url, outcomes) => ({
+  id: `${eventTicker}:venue`, eventTicker, seriesTicker: eventTicker.split("-")[0], title,
+  volume: outcomes.reduce((sum, outcome) => sum + outcome.volume, 0), kind: "Music",
+  endsAt: "2027-12-31T23:59:00Z", horizon: "United States", markerCode, url,
+  outcomes: outcomes.sort((left, right) => right.price - left.price || right.volume - left.volume)
+});
+
 const musicBundles = [
   {
     id: "music-toronto", name: "Toronto artists", code: "YYZ", location: "Toronto, Canada · Artist base", lat: 43.6532, lon: -79.3832, kind: "Music", horizon: "International",
@@ -115,17 +122,30 @@ const musicBundles = [
   },
   {
     id: "music-sphere", name: "Sphere", code: "SPH", location: "Sphere · Las Vegas, Nevada", lat: 36.1208, lon: -115.1645, kind: "Music", horizon: "United States",
-    markets: [
-      musicMarket("KXVENUEPERFORMANCESPHERE-28JAN01", "KXVENUEPERFORMANCESPHERE-28JAN01-TAY", "Will Taylor Swift perform at Las Vegas Sphere in 2027?", "Taylor Swift", 7846, 24, "Venue"),
-      musicMarket("KXVENUEPERFORMANCESPHERE-28JAN01", "KXVENUEPERFORMANCESPHERE-28JAN01-BEY", "Will Beyonce perform at Las Vegas Sphere in 2027?", "Beyonce", 5489, 27, "Venue")
-    ]
+    markets: [venueFallbackMarket(
+      "KXVENUEPERFORMANCESPHERE-28JAN01", "Who will perform at Las Vegas Sphere in 2027?", "SPH",
+      "https://kalshi.com/markets/kxvenueperformancesphere/who-will-perform-at-las-vegas-sphere-in-2027/kxvenueperformancesphere-28jan01",
+      [
+        ["JAY", "Jay-Z", 19, 1553], ["YE", "Kanye West (Ye)", 13, 2954], ["SPI", "Spice Girls", 32, 8015],
+        ["TAY", "Taylor Swift", 24, 7846], ["BEY", "Beyoncé", 27, 5489], ["DRA", "Drake", 25, 3137],
+        ["WEE", "The Weeknd", 24, 3221], ["COL", "Coldplay", 32, 8612], ["BAD", "Bad Bunny", 13, 5739],
+        ["U2", "U2", 18, 6756], ["TRA", "Travis Scott", 19, 4711], ["FRE", "Fred again..", 9, 4897]
+      ].map(([suffix, name, price, volume]) => ({ name, ticker: `KXVENUEPERFORMANCESPHERE-28JAN01-${suffix}`, price, volume }))
+    )]
   },
   {
     id: "music-msg", name: "Madison Square Garden", code: "MSG", location: "Madison Square Garden · New York, New York", lat: 40.7505, lon: -73.9934, kind: "Music", horizon: "United States",
-    markets: [
-      musicMarket("KXVENUEPERFORMANCEMSG-27DEC31", "KXVENUEPERFORMANCEMSG-27DEC31-SAB", "Will Sabrina Carpenter perform at Madison Square Garden in 2027?", "Sabrina Carpenter", 325, 49, "Venue"),
-      musicMarket("KXVENUEPERFORMANCEMSG-27DEC31", "KXVENUEPERFORMANCEMSG-27DEC31-DRA", "Will Drake perform at Madison Square Garden in 2027?", "Drake", 88, 47, "Venue")
-    ]
+    markets: [venueFallbackMarket(
+      "KXVENUEPERFORMANCEMSG-27DEC31", "Who will perform at Madison Square Garden 2027?", "MSG",
+      "https://kalshi.com/markets/kxvenueperformancemsg/who-will-perform-at-madison-square-garden-2027/kxvenueperformancemsg-27dec31",
+      [
+        ["TAY", "Taylor Swift", 22, 1363], ["DRA", "Drake", 47, 88], ["WEE", "The Weeknd", 31, 70],
+        ["BAD", "Bad Bunny", 17, 581], ["KAN", "Kanye West (Ye)", 21, 955], ["BRU", "Bruno Mars", 34, 225],
+        ["FRE", "Fred again..", 54, 102], ["TRA", "Travis Scott", 40, 6], ["CHA", "Chappell Roan", 19, 25],
+        ["SAB", "Sabrina Carpenter", 49, 325], ["OLI", "Olivia Rodrigo", 40, 2370], ["TAT", "Tate McRae", 44, 149],
+        ["ICE", "Ice Spice", 10, 113], ["CEN", "Central Cee", 17, 2], ["PLA", "Playboi Carti", 26, 3]
+      ].map(([suffix, name, price, volume]) => ({ name, ticker: `KXVENUEPERFORMANCEMSG-27DEC31-${suffix}`, price, volume }))
+    )]
   },
   {
     id: "music-rolling-loud-miami", name: "Rolling Loud Miami", code: "RLM", location: "Miami, Florida · Festival city", lat: 25.7617, lon: -80.1918, kind: "Music", horizon: "United States",

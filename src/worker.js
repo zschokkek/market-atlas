@@ -21,7 +21,7 @@ const WEATHER_STATE_KEY = "kalshi:weather:state:v1";
 const WEATHER_PUBLIC_KEY = "kalshi:weather:public:v1";
 const BUSINESS_STATE_KEY = "kalshi:business:state:v1";
 const BUSINESS_PUBLIC_KEY = "kalshi:business:public:v1";
-const BUSINESS_REGISTRY_VERSION = 5;
+const BUSINESS_REGISTRY_VERSION = 6;
 const GEOGRAPHIC_DISCOVERY_INTERVAL_MS = 60 * 60 * 1000;
 const SCHEDULED_REFRESH_COOLDOWN_MS = 45 * 1000;
 export const SCHEDULED_REFRESH_STEPS = ["geographic", "sports", "futures"];
@@ -34,10 +34,12 @@ export const DEFAULT_SERIES = [
   "KXCHNSLGAME", "KXKLEAGUEGAME", "KXALLSVENSKANGAME", "KXELITESERIENGAME",
   "KXLMBGAME", "KXKBOGAME", "KXNPBGAME",
   "KXIPLGAME", "KXHUNDREDMATCH", "KXWHUNDREDMATCH", "KXT20MATCH", "KXTESTMATCH",
-  "KXATP", "KXWTA", "KXATPMATCH", "KXWTAMATCH", "KXPGATOUR", "KXLPGATOUR", "KXF1RACE"
+  "KXATP", "KXWTA", "KXATPMATCH", "KXWTAMATCH", "KXPGATOUR", "KXLPGATOUR", "KXF1RACE",
+  "KXCS2GAME", "KXVALORANTGAME", "KXLOLGAME"
 ];
 
 const DISCOVERY_INTERVAL_MS = 60 * 60 * 1000;
+const PLAYER_PROP_DISCOVERY_INTERVAL_MS = 5 * 60 * 1000;
 const PREGAME_WINDOW_MS = 2 * 60 * 60 * 1000;
 const LIVE_WINDOW_MS = 5 * 60 * 60 * 1000;
 const LIVE_INTERVAL_MS = 60 * 1000;
@@ -437,6 +439,12 @@ export function pollInterval(snapshot, now = Date.now()) {
     : start + LIVE_WINDOW_MS;
   const terminal = new Set(["closed", "determined", "settled", "finalized"]).has(snapshot.status);
   if (!Number.isFinite(start) || start <= 0) return BASE_INTERVAL_MS;
+  const playerProps = MLB_PLAYER_PROP_SERIES.has(String(snapshot.seriesTicker || "").toUpperCase());
+  if (playerProps && !terminal) {
+    if (now >= start && now <= liveEnd) return FAST_LIVE_INTERVAL_MS;
+    if (now >= start - 24 * 60 * 60 * 1000 && now < start) return 2 * 60 * 1000;
+    return 10 * 60 * 1000;
+  }
   if (now >= start && now <= liveEnd && !terminal) {
     if (!isFastLiveSportsEvent(snapshot)) return LIVE_INTERVAL_MS;
     const ticker = String(snapshot.seriesTicker || "").toUpperCase();
@@ -1838,8 +1846,10 @@ export async function runPoll(env, now = Date.now(), options = {}) {
   const previouslyDiscovered = new Set((state.discoveredSeries || []).map(ticker => String(ticker).toUpperCase()));
   const lastDiscoveryAt = number(state.lastDiscoveryAt, 0);
   const baselineDiscoveryDue = lastDiscoveryAt > 0 && now - lastDiscoveryAt >= DISCOVERY_INTERVAL_MS;
+  const playerPropDiscoveryDue = now - number(state.lastPlayerPropDiscoveryAt, 0) >= PLAYER_PROP_DISCOVERY_INTERVAL_MS;
   const missingSeries = configuredSeries.filter(ticker => !previouslyDiscovered.has(ticker));
-  const discoveryDue = !options.skipDiscovery && (!lastDiscoveryAt || baselineDiscoveryDue || missingSeries.length > 0);
+  const standardDiscoveryDue = !lastDiscoveryAt || baselineDiscoveryDue || missingSeries.length > 0;
+  const discoveryDue = !options.skipDiscovery && (standardDiscoveryDue || playerPropDiscoveryDue);
   const explicitBudget = number(env.KALSHI_READ_TOKENS_PER_SECOND, NaN);
   const fallbackBudget = number(env.KALSHI_UNAUTHENTICATED_READ_TOKENS_PER_SECOND, 20);
   const budgetFraction = Math.max(0.05, Math.min(1, number(env.KALSHI_RATE_BUDGET_FRACTION, 0.25)));
@@ -1870,7 +1880,11 @@ export async function runPoll(env, now = Date.now(), options = {}) {
   }
 
   if (discoveryDue) {
-    const targets = baselineDiscoveryDue || !previouslyDiscovered.size ? configuredSeries : missingSeries;
+    const standardTargets = baselineDiscoveryDue || !previouslyDiscovered.size ? configuredSeries : missingSeries;
+    const targets = [...new Set([
+      ...(standardDiscoveryDue ? standardTargets : []),
+      ...(playerPropDiscoveryDue ? [...MLB_PLAYER_PROP_SERIES] : [])
+    ])];
     const discovered = await mapWithConcurrency(targets, Math.min(4, number(env.KALSHI_POLL_CONCURRENCY, 4)),
       async ticker => ({ ticker, snapshots: await discoverSeries(env, ticker, gate, now) }));
     for (const result of discovered) {
@@ -1879,14 +1893,18 @@ export async function runPoll(env, now = Date.now(), options = {}) {
     }
     state.discoveredSeries = configuredSeries.filter(ticker => previouslyDiscovered.has(ticker));
     const remainingSeries = configuredSeries.filter(ticker => !previouslyDiscovered.has(ticker));
-    if (!remainingSeries.length) {
+    if (playerPropDiscoveryDue) state.lastPlayerPropDiscoveryAt = now;
+    if (standardDiscoveryDue && !remainingSeries.length) {
       state.lastDiscoveryAt = now;
       state.lastSuccessfulPollAt = now;
       state.lastError = null;
-    } else {
+    } else if (standardDiscoveryDue) {
       state.lastErrorAt = now;
       state.lastError = `Discovery added ${discovered.length}/${targets.length} series; ${remainingSeries.length} remaining`;
       console.warn(`Kalshi ${state.lastError}; retrying on the next scheduled run`);
+    } else {
+      state.lastSuccessfulPollAt = now;
+      state.lastError = null;
     }
     state.lastRequestCount = discovered.attempted;
     state.lastRequestSuccessCount = discovered.length;

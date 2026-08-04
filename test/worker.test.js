@@ -370,6 +370,11 @@ test("maps approved artist contracts and every option in a venue-wide music even
       market("KXVENUEPERFORMANCEMSG-27DEC31-DRA", "Drake", 47, 88),
       market("KXVENUEPERFORMANCEMSG-27DEC31-SAB", "Sabrina Carpenter", 49, 325)
     ]),
+    snapshot("KXVENUEPERFORMANCESPHERE-28JAN01", "KXVENUEPERFORMANCESPHERE", "Who will perform at Las Vegas Sphere in 2027?", [
+      market("KXVENUEPERFORMANCESPHERE-28JAN01-JAY", "Jay-Z", 21, 510),
+      market("KXVENUEPERFORMANCESPHERE-28JAN01-TAY", "Taylor Swift", 24, 7846),
+      market("KXVENUEPERFORMANCESPHERE-28JAN01-BEY", "Beyoncé", 27, 5489)
+    ]),
     snapshot("KXROLEATEVENTCOACHELLA-27DEC31", "KXROLEATEVENTCOACHELLA", "Who will headline Coachella 2027?", [
       market("KXROLEATEVENTCOACHELLA-27DEC31-BAD", "Bad Bunny", 14, 479),
       market("KXROLEATEVENTCOACHELLA-27DEC31-CUA", "Dua Lipa", 52, 14706),
@@ -377,13 +382,17 @@ test("maps approved artist contracts and every option in a venue-wide music even
       market("KXROLEATEVENTCOACHELLA-27DEC31-RAD", "Radiohead", 46, 4338)
     ])
   ], Date.parse("2026-08-04T12:00:00Z"));
-  assert.equal(business.marketCount, 5, "artist contracts stay individual while Coachella becomes one event market");
+  assert.equal(business.marketCount, 5, "artist markets stay individual while each venue becomes one event market");
   const toronto = business.bundles.find(bundle => bundle.id === "music-toronto");
   assert.equal(toronto.markets.length, 2);
   assert.equal(toronto.kind, "Music");
   assert.match(toronto.location, /Artist/);
   const msg = business.bundles.find(bundle => bundle.id === "music-msg");
-  assert.deepEqual(msg.markets.map(item => item.outcomes[0].name).sort(), ["Drake", "Sabrina Carpenter"]);
+  assert.equal(msg.markets.length, 1);
+  assert.deepEqual(msg.markets[0].outcomes.map(outcome => outcome.name), ["Sabrina Carpenter", "Drake"]);
+  const sphere = business.bundles.find(bundle => bundle.id === "music-sphere");
+  assert.equal(sphere.markets.length, 1);
+  assert.deepEqual(sphere.markets[0].outcomes.map(outcome => outcome.name), ["Beyoncé", "Taylor Swift", "Jay-Z"]);
   const coachella = business.bundles.find(bundle => bundle.id === "music-coachella");
   assert.equal(coachella.markets.length, 1);
   assert.deepEqual(coachella.markets[0].outcomes.map(outcome => outcome.name), ["Dua Lipa", "Radiohead", "Fred again..", "Bad Bunny"]);
@@ -1088,6 +1097,9 @@ test("discovers Americas soccer games and the live AFCON future", () => {
   assert.ok(DEFAULT_SERIES.includes("KXCOPADOBRASILGAME"));
   assert.ok(DEFAULT_SERIES.includes("KXCOPADOBRASILADVANCE"));
   assert.ok(DEFAULT_SERIES.includes("KXAFCON"));
+  assert.ok(DEFAULT_SERIES.includes("KXCS2GAME"));
+  assert.ok(DEFAULT_SERIES.includes("KXVALORANTGAME"));
+  assert.ok(DEFAULT_SERIES.includes("KXLOLGAME"));
 });
 
 test("throws a hard coverage error when any unelapsed event today or tomorrow lacks a listed Kalshi market", () => {
@@ -1120,7 +1132,7 @@ test("allows distant unlisted events while requiring every active near-term spor
 });
 
 test("applies near-term market coverage validation to every sport on the globe", () => {
-  const sports = ["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "ATP", "WTA", "PGA", "GOLF", "UCL", "SOC", "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA", "MLS", "COPADOBRASIL", "AFCON", "CRK", "IPL", "F1"];
+  const sports = ["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "ATP", "WTA", "PGA", "GOLF", "UCL", "SOC", "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA", "MLS", "COPADOBRASIL", "AFCON", "CRK", "IPL", "F1", "ESPORTS"];
   const events = sports.map(sport => ({ id: `today-${sport}`, sport, name: `${sport} event`, start: "2026-08-01", end: "2026-08-01" }));
   for (const missingSport of sports) {
     assert.throws(() => assertNearTermMarketCoverage(events, {
@@ -1687,6 +1699,7 @@ test("hides stale odds while revalidating the local MLB cache in the background"
   const cache = new Map([
     ["kalshi:sports:state:v2", JSON.stringify({
       lastDiscoveryAt: now,
+      lastPlayerPropDiscoveryAt: now,
       lastRunAt: now - 24 * 60 * 60 * 1000,
       discoveredSeries: DEFAULT_SERIES,
       events: { [eventTicker]: staleEvent }
@@ -1764,10 +1777,22 @@ test("sorts tennis outrights by probability and opens a matchups-only popup", ()
   assert.match(html, /class="tennis-markets-trigger"[^>]*>[\s\S]*<strong>Matches<\/strong>[\s\S]*Biggest singles matchups/);
   assert.doesNotMatch(html, /data-tennis-market=|Outright winner<\/button>/);
   assert.match(html, /const tennisMatchSeries = new Map\(\[\["ATP", "KXATPMATCH"\], \["WTA", "KXWTAMATCH"\]\]\)/);
-  assert.match(html, /tennisMatchBelongsToEvent\(snapshot, outrightSnapshot\)/);
+  assert.match(html, /id: "wta-toronto"[\s\S]*matchSeriesOnly: true/);
+  assert.doesNotMatch(html, /const wtaTorontoMatches|id: `wta-toronto-\$\{index\}`/);
+  assert.match(html, /tennisMatchBelongsToEvent\(snapshot, outrightSnapshot, event\)/);
   assert.match(html, /const activeMarkets = snapshot\.markets\.filter\(market => !completedMarketStatuses\.has/);
   assert.match(html, /sort\(\(left, right\) => outrightProbability\(right\) - outrightProbability\(left\)/);
-  assert.match(html, /\(event\.tennisMatches \|\| \[\]\)\.slice\(0, 8\)/);
+  assert.match(html, /\(event\.tennisMatches \|\| \[\]\)\.slice\(\)/);
+  assert.doesNotMatch(html, /\(event\.tennisMatches \|\| \[\]\)\.slice\(0, 8\)/);
+});
+
+test("builds esports markers from verified Kalshi series snapshots instead of guessed event tickers", () => {
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
+  assert.match(html, /const esportsSeries = new Set\(\["KXCS2GAME", "KXVALORANTGAME", "KXLOLGAME"\]\)/);
+  assert.match(html, /function syncHostedEsportsEvents\(\)/);
+  assert.match(html, /expectedEventTicker: snapshot\.eventTicker/);
+  assert.match(html, /syncHostedEsportsEvents\(\)/);
+  assert.doesNotMatch(html, /KXCS2GAME-26AUG041300EACFNC/);
 });
 
 test("never displays embedded stale odds when a cache record is absent", () => {
@@ -1775,7 +1800,7 @@ test("never displays embedded stale odds when a cache record is absent", () => {
   const mlbData = JSON.parse(html.match(/<script id="market-atlas-mlb-season-data" type="application\/json">([\s\S]*?)<\/script>/)[1]);
   assert.equal(Object.keys(mlbData.markets || {}).length, 0, "the shipped MLB schedule must not contain fallback odds");
   assert.match(html, /All displayed odds\s*\n\s*\/\/ must come from the server cache through \/api\/odds/);
-  assert.match(html, /if \(!snapshot\) \{\s*return \{\s*\.\.\.event,\s*marketPosted: false,\s*contracts: 0,\s*volume: 0,\s*prices: \[\]/s);
+  assert.match(html, /if \(!snapshot\) \{\s*const tennisMatches = tennisMatchSnapshotsFor\(event, null\);[\s\S]*contracts: tennisMatches\.length,[\s\S]*volume: tennisMatches\.reduce/);
   assert.match(html, /cacheTimestampLabel\(event\.oddsUpdatedAt\)/);
   assert.doesNotMatch(html, /event\.snapshot \|\| "Jul 31, 6:18 PM ET"/);
 });
@@ -1933,6 +1958,14 @@ test("polls live baseball, soccer, football, and basketball faster without accel
   assert.equal(pollInterval({ ...live, seriesTicker: "KXATPMATCH" }, start + 10_000), 60_000);
   assert.equal(pollInterval({ ...live, seriesTicker: "KXT20MATCH" }, start + 10_000), 60_000);
   assert.equal(pollInterval({ ...live, seriesTicker: "KXNHLGAME" }, start + 10_000), 60_000);
+});
+
+test("refreshes MLB player props much faster than ordinary events", () => {
+  const start = Date.parse("2026-08-04T23:00:00Z");
+  const prop = { startsAt: new Date(start).toISOString(), status: "open", seriesTicker: "KXMLBKS" };
+  assert.equal(pollInterval(prop, start - 30 * 60 * 60 * 1000), 10 * 60 * 1000);
+  assert.equal(pollInterval(prop, start - 6 * 60 * 60 * 1000), 2 * 60 * 1000);
+  assert.equal(pollInterval(prop, start + 30 * 60 * 1000), 20 * 1000);
 });
 
 test("arms the fast scheduler only while an eligible event is live", () => {
