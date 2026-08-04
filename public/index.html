@@ -4,24 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <meta name="description" content="Explore live Kalshi sports, politics, and weather markets on one interactive globe.">
+  <meta name="description" content="Explore live Kalshi sports, politics, weather, and business markets on one interactive globe.">
   <meta name="theme-color" content="#0b110e">
   <meta name="color-scheme" content="dark">
   <meta name="application-name" content="Market Atlas">
   <meta name="apple-mobile-web-app-title" content="Market Atlas">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Market Atlas">
-  <meta property="og:description" content="Live sports, politics, and weather markets on one interactive globe.">
+  <meta property="og:description" content="Live sports, politics, weather, and business markets on one interactive globe.">
   <meta property="og:image" content="/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Market Atlas">
-  <meta name="twitter:description" content="Live sports, politics, and weather markets on one interactive globe.">
+  <meta name="twitter:description" content="Live sports, politics, weather, and business markets on one interactive globe.">
   <meta name="twitter:image" content="/og.png">
   <title>Market Atlas</title>
-  <link rel="stylesheet" href="/assets/app.css?v=07d53cb96315">
-  <link rel="stylesheet" href="/assets/globe-shell.css?v=2ab57345f06f">
+  <link rel="stylesheet" href="/assets/app.css?v=64a14f9de6c0">
+  <link rel="stylesheet" href="/assets/globe-shell.css?v=ebac99f43885">
   <link rel="stylesheet" href="/assets/search.css?v=10dd60fbdda9">
 </head>
 <body class="integration-body">
@@ -42,6 +42,7 @@
         <button class="integration-tab is-active" id="category-tab-sports" type="button" role="tab" data-category="sports" aria-selected="true" aria-controls="category-view-sports">Sports</button>
         <button class="integration-tab" id="category-tab-politics" type="button" role="tab" data-category="politics" aria-selected="false" aria-controls="category-view-politics" tabindex="-1">Politics</button>
         <button class="integration-tab" id="category-tab-weather" type="button" role="tab" data-category="weather" aria-selected="false" aria-controls="category-view-weather" tabindex="-1">Weather</button>
+        <button class="integration-tab" id="category-tab-business" type="button" role="tab" data-category="business" aria-selected="false" aria-controls="category-view-business" tabindex="-1">Business</button>
       </nav>
 
       <div class="integration-search-shell" data-market-search>
@@ -68,10 +69,13 @@
       <section class="category-view" id="category-view-weather" role="tabpanel" aria-labelledby="category-tab-weather" data-category-view="weather" aria-hidden="true" inert>
         <div class="category-loading" role="status"><span class="category-loading-orb" aria-hidden="true"></span><span>Preparing weather globe</span></div>
       </section>
+      <section class="category-view" id="category-view-business" role="tabpanel" aria-labelledby="category-tab-business" data-category-view="business" aria-hidden="true" inert>
+        <div class="category-loading" role="status"><span class="category-loading-orb" aria-hidden="true"></span><span>Preparing business globe</span></div>
+      </section>
     </section>
   </main>
 
-  <script type="module" src="/assets/app.js?v=2314be37e400"></script>
-  <script type="module" src="/assets/search.js?v=acfb57292d14"></script>
+  <script type="module" src="/assets/app.js?v=c536a7dbd41a"></script>
+  <script type="module" src="/assets/search.js?v=30e31e760d21"></script>
 </body>
 </html>

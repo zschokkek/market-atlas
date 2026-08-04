@@ -11,7 +11,8 @@ const categoryViews = new Map(
 const viewLoaders = {
   sports: loadSportsView,
   politics: loadPoliticsView,
-  weather: loadWeatherView
+  weather: loadWeatherView,
+  business: loadBusinessView
 };
 const loadedViews = new Map();
 const loadingViews = new Map();
@@ -527,7 +528,8 @@ function prefetchCategoryAssets(category) {
   const assets = {
     sports: ["/categories/sports/"],
     politics: ["/categories/politics/", "/categories/politics/styles.css", "/categories/politics/app.js", "/categories/politics/data.js"],
-    weather: ["/categories/weather/", "/categories/weather/styles.css", "/categories/weather/app.js", "/categories/weather/data.js"]
+    weather: ["/categories/weather/", "/categories/weather/styles.css", "/categories/weather/app.js", "/categories/weather/data.js"],
+    business: ["/categories/business/", "/categories/business/styles.css", "/categories/business/data.js", "/categories/weather/app.js"]
   }[category] || [];
   assets.forEach(href => {
     const link = document.createElement("link");
@@ -848,6 +850,44 @@ async function loadWeatherView(view) {
   return lifecycle;
 }
 
+async function loadBusinessView(view) {
+  const [html, baseCss, businessCss, weatherSource] = await Promise.all([
+    fetchText("/categories/business/"),
+    fetchText("/categories/politics/styles.css"),
+    fetchText("/categories/business/styles.css"),
+    fetchText("/categories/weather/app.js")
+  ]);
+  const documentSource = sourceDocument(html);
+  const app = documentSource.querySelector(".business-app");
+  if (!app) throw new Error("The Business view contract could not be found");
+
+  app.querySelector(".app-header")?.remove();
+  app.querySelector(".feed-status-strip")?.remove();
+  appendStyle("integrated-business-source-styles", `@scope (.business-app) {\n${baseCss}\n}\n${businessCss}`);
+  view.appendChild(document.importNode(app, true));
+  installMobileFilterDropdown(view, { label: "Markets", allLabel: "All business" });
+  installMobileMarketCarousel(view);
+
+  const businessDataUrl = new URL("/categories/business/data.js", window.location.origin).href;
+  const source = weatherSource
+    .replaceAll("weather", "business")
+    .replaceAll("Weather", "Business")
+    .replace(
+      'import { businessBundles, businessHorizons } from "./data.js";',
+      `import { businessBundles, businessHorizons } from ${JSON.stringify(businessDataUrl)};`
+    )
+    .replace(
+      'const accents = { "Temperature": "#f0a15f", "Rain & Snow": "#74b9dc", "Hurricanes": "#b7a4e4", "Natural Disasters": "#dc7a70", "Climate Change": "#79c6a1" };',
+      'const accents = { "Technology": "#8ab4f8", "Consumer": "#d8a66c", "Mobility": "#c29ce8", "Travel": "#69c5b4", "Industrial": "#d17e76", "Music": "#e58ab4", "Mentions": "#b8c58f" };'
+    );
+  await importSource(source);
+  const lifecycle = window.__integratedBusinessView;
+  if (!lifecycle) throw new Error("Business lifecycle initialization failed");
+  installMobileCalendarDropdown(view, lifecycle, { label: "Business region" });
+  view.classList.add("is-ready");
+  return lifecycle;
+}
+
 function closeTransientUi(view) {
   document.body.classList.remove("sports-market-sheet-open");
   view.querySelectorAll(".map-tooltip").forEach(tooltip => {
@@ -903,7 +943,8 @@ function updateShell(category) {
   const shellCopy = {
     sports: { placeholder: "Try ‘Dodgers tonight’", label: "Search markets, teams, and cities", title: "Market Atlas · Sports" },
     politics: { placeholder: "Try ‘close Senate races’", label: "Search elections, states, and countries", title: "Market Atlas · Politics" },
-    weather: { placeholder: "Try ‘rain in New York’", label: "Search weather markets and locations", title: "Market Atlas · Weather" }
+    weather: { placeholder: "Try ‘rain in New York’", label: "Search weather markets and locations", title: "Market Atlas · Weather" },
+    business: { placeholder: "Search ‘Tesla deliveries’", label: "Search companies, artists, venues, and markets", title: "Market Atlas · Business" }
   }[category];
   search.placeholder = shellCopy.placeholder;
   search.setAttribute("aria-label", shellCopy.label);

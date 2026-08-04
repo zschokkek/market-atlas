@@ -1,6 +1,6 @@
 {
   "name": "market-atlas",
-  "description": "Interactive geographic explorer for Kalshi sports, politics, and weather markets.",
+  "description": "Interactive geographic explorer for Kalshi sports, politics, weather, and business markets.",
   "private": true,
   "type": "module",
   "engines": {

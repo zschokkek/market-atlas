@@ -17,6 +17,7 @@ const requiredFiles = [
   "public/categories/sports/index.html",
   "public/categories/politics/index.html",
   "public/categories/weather/index.html",
+  "public/categories/business/index.html",
 ];
 
 const textFiles = [
@@ -30,6 +31,8 @@ const textFiles = [
   "public/categories/politics/app.js",
   "public/categories/weather/index.html",
   "public/categories/weather/app.js",
+  "public/categories/business/index.html",
+  "public/categories/business/data.js",
 ];
 
 const failures = [];

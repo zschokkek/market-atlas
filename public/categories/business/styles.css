@@ -1,0 +1,24 @@
+.business-app { --background:#111713; --surface:#1b211d; --surface-strong:#222a25; --surface-soft:#151b17; --foreground:#f4f6f3; --muted:#949d97; --muted-soft:#6f7972; --muted-foreground:#949d97; --card:color-mix(in oklab,var(--foreground) 5%,var(--background)); --border:rgba(255,255,255,.09); --border-green:color-mix(in srgb,#0ac285 24%,var(--border)); --green:#0ac285; --green-soft:#5bdeb2; --radius:15px; --temperature:#f0a15f; --technology:#8ab4f8; --consumer:#d8a66c; --mobility:#c29ce8; --travel:#69c5b4; --industrial:#d17e76; --music:#e58ab4; --mentions:#b8c58f; --map-ocean-opacity:1; --map-rim-opacity:1; --map-grid-opacity:1; --business-marker-reveal:0%; display:block; width:100%; height:100%; min-height:0; padding:5px; overflow:hidden; color:var(--foreground); background:var(--background); }
+.business-app .business-layout { width:100%; height:100%; }
+.business-app .ocean-light { stop-color:var(--shared-globe-ocean-light); }
+.business-app .ocean-dark { stop-color:var(--shared-globe-ocean-dark); }
+.business-app .country,.business-app .country.is-usa { fill:var(--shared-globe-land); stroke:var(--shared-globe-border); stroke-width:.9; vector-effect:non-scaling-stroke; }
+.business-app .state-boundary { fill:none; stroke:var(--shared-globe-state); stroke-width:.65; vector-effect:non-scaling-stroke; }
+.business-app .business-globe { background:transparent; -webkit-mask-image:none; mask-image:none; }
+.business-app .globe-ocean { fill:url(#business-ocean-gradient); fill-opacity:var(--map-ocean-opacity); stroke-opacity:var(--map-rim-opacity); }
+.business-app .globe-shadow { opacity:var(--map-rim-opacity); }
+.business-app .globe-graticule { opacity:var(--map-grid-opacity); }
+.business-app .event-marker.kind-technology { --business-marker:var(--technology); }
+.business-app .event-marker.kind-consumer { --business-marker:var(--consumer); }
+.business-app .event-marker.kind-mobility { --business-marker:var(--mobility); }
+.business-app .event-marker.kind-travel { --business-marker:var(--travel); }
+.business-app .event-marker.kind-industrial { --business-marker:var(--industrial); }
+.business-app .event-marker.kind-music { --business-marker:var(--music); }
+.business-app .event-marker.kind-mentions { --business-marker:var(--mentions); }
+.business-app .event-marker .marker-core { fill:color-mix(in srgb,var(--business-marker,#8e969a) var(--business-marker-reveal),var(--shared-globe-background)); stroke:var(--business-marker,#8e969a); stroke-width:2; filter:drop-shadow(0 0 7px color-mix(in srgb,var(--business-marker,#8e969a) 38%,transparent)); }
+.business-app .event-marker .marker-halo { fill:none; stroke:color-mix(in srgb,var(--business-marker,#8e969a) 24%,transparent); stroke-width:1; }
+.business-app .event-marker.is-selected .marker-halo { stroke:var(--green-soft); stroke-width:1.5; }
+.business-app .event-marker .market-count { fill:var(--shared-globe-background); stroke:color-mix(in srgb,var(--shared-globe-foreground) 62%,transparent); stroke-width:1; }
+.business-app .event-marker .market-count-text { fill:var(--shared-globe-foreground); }
+.business-app .event-marker .marker-name-label { fill:color-mix(in srgb,var(--shared-globe-foreground) 72%,transparent); font-size:7.25px; font-weight:500; dominant-baseline:central; paint-order:stroke; stroke:color-mix(in srgb,var(--shared-globe-background) 92%,transparent); stroke-width:2.5px; stroke-linejoin:round; }
+.business-app .business-category-badge { color:var(--business-accent,#8ab4f8); border-color:color-mix(in srgb,var(--business-accent,#8ab4f8) 38%,transparent); background:color-mix(in srgb,var(--business-accent,#8ab4f8) 10%,transparent); }

@@ -73,9 +73,10 @@ const MLB_SEARCH_TEAMS = {
 const POLITICS_PATTERN = /\b(?:politics|political|election|elections|president|presidential|senate|senator|house race|congress|congressional|primary|primaries|governor|gubernatorial)\b/;
 const SPORTS_PATTERN = /\b(?:sports?|game|games|match|matches|team|teams|playoffs?|championship|title odds|win total)\b/;
 const WEATHER_PATTERN = /\b(?:weather|climate|temperature|temperatures|forecast|rain|snow|hurricane|hurricanes|tornado|tornadoes|storm|storms|precipitation|heat|cold)\b/;
+const BUSINESS_PATTERN = /\b(?:business|businesses|company|companies|corporate|earnings|revenue|customers|subscribers|deliveries|headcount|sales|production|music|artist|artists|spotify|streaming|concert|concerts|tour|tours|venue|festival|coachella|lollapalooza)\b/;
 const LOCATION_ONLY_WORDS = new Set([
   "all", "around", "at", "center", "centre", "city", "find", "for", "go", "in", "location", "map", "market", "markets",
-  "me", "near", "of", "on", "open", "place", "political", "politics", "show", "sport", "sports", "take", "the", "to", "weather"
+  "me", "near", "of", "on", "open", "place", "political", "politics", "show", "sport", "sports", "take", "the", "to", "weather", "business"
 ]);
 
 export function normalizeSearchText(value) {
@@ -129,10 +130,12 @@ export function interpretMarketQuery(value, now = Date.now()) {
   const politicsIntent = POLITICS_PATTERN.test(query);
   const sportsIntent = SPORTS_PATTERN.test(query) || hasSportTag;
   const weatherIntent = WEATHER_PATTERN.test(query);
+  const businessIntent = BUSINESS_PATTERN.test(query);
   const explicitCategory = /\bsports?\b/.test(query) ? "sports"
     : /\bpolitics?\b|\bpolitical\b/.test(query) ? "politics"
-      : /\bweather\b/.test(query) ? "weather" : null;
-  const inferredCategories = [sportsIntent ? "sports" : null, politicsIntent ? "politics" : null, weatherIntent ? "weather" : null].filter(Boolean);
+      : /\bweather\b/.test(query) ? "weather"
+        : /\b(?:business(?:es)?|music|spotify|concerts?|tours?|festival)\b/.test(query) ? "business" : null;
+  const inferredCategories = [sportsIntent ? "sports" : null, politicsIntent ? "politics" : null, weatherIntent ? "weather" : null, businessIntent ? "business" : null].filter(Boolean);
   const category = explicitCategory || (new Set(inferredCategories).size === 1 ? inferredCategories[0] : null);
   const sort = /\b(?:close|closest|competitive|tight|tightest|coin flip|toss up)\b/.test(query) ? "close"
     : /\b(?:biggest|busiest|high volume|huge|liquid|liquidity|most traded|popular)\b/.test(query) ? "volume"
@@ -144,7 +147,7 @@ export function interpretMarketQuery(value, now = Date.now()) {
     && !GENERIC_WORDS.has(token) && !SORT_WORDS.has(token) && !TIME_WORDS.has(token)
     && !/^20\d{2}$/.test(token));
   const aliasWords = new Set(SPORT_ALIASES.flatMap(alias => normalizeSearchText(alias.pattern.source).split(" ")));
-  const terms = [...new Set(tokens.filter(token => !aliasWords.has(token) && !/^(sports?|politics?|political|weather)$/.test(token)))];
+  const terms = [...new Set(tokens.filter(token => !aliasWords.has(token) && !/^(sports?|politics?|political|weather|business(?:es)?)$/.test(token)))];
   return { query, category, requiredTags: [...requiredTags], sort, timing, liveOnly, yearIntent, terms };
 }
 
@@ -307,7 +310,28 @@ function weatherCandidates(payload) {
   });
 }
 
-function navigationLocations(politics, weather) {
+function businessCandidates(payload) {
+  return (payload?.bundles || []).flatMap(bundle => (bundle.markets || []).map(market => ({
+    id: `business:${market.eventTicker}:${bundle.id}`,
+    category: "business",
+    type: "business",
+    bundleId: bundle.id,
+    eventTicker: market.eventTicker,
+    seriesTicker: market.seriesTicker,
+    title: market.title || market.eventTicker,
+    subtitle: [bundle.name, bundle.location, market.kind].filter(Boolean).join(" · "),
+    startsAt: null,
+    endsAt: market.endsAt || null,
+    status: "active",
+    volume: Number(market.volume || 0),
+    tags: ["business", String(market.kind || bundle.kind || "").toLowerCase() === "music" ? "music" : "company", String(market.kind || bundle.kind || "").toLowerCase(), String(bundle.code || "").toLowerCase()].filter(Boolean),
+    outcomes: outcomePreview(market.outcomes, []),
+    allOutcomes: market.outcomes || [],
+    url: market.url || `https://kalshi.com/markets_by_ticker/${String(market.eventTicker || "").toLowerCase()}`
+  })));
+}
+
+function navigationLocations(politics, weather, business) {
   const locations = new Map();
   const add = location => {
     const lat = Number(location?.lat);
@@ -339,14 +363,24 @@ function navigationLocations(politics, weather) {
       aliases: [bundle.jurisdiction, bundle.capital, bundle.code]
     });
   }
+  for (const bundle of business?.bundles || []) {
+    add({
+      id: `place-${bundle.id}`,
+      name: bundle.name,
+      region: bundle.location,
+      lat: bundle.lat,
+      lon: bundle.lon,
+      aliases: [bundle.name, bundle.code, bundle.location]
+    });
+  }
   return [...locations.values()];
 }
 
-function navigationResults(intent, { politics, weather }, activeCategory) {
-  const targetCategory = intent.category || (["sports", "politics", "weather"].includes(activeCategory) ? activeCategory : "sports");
+function navigationResults(intent, { politics, weather, business }, activeCategory) {
+  const targetCategory = intent.category || (["sports", "politics", "weather", "business"].includes(activeCategory) ? activeCategory : "sports");
   const paddedQuery = ` ${intent.query} `;
   const matches = [];
-  for (const location of navigationLocations(politics, weather)) {
+  for (const location of navigationLocations(politics, weather, business)) {
     const aliases = [...new Set(location.aliases.map(normalizeSearchText))]
       .filter(Boolean)
       .sort((left, right) => right.length - left.length);
@@ -422,12 +456,12 @@ function relativeDate(candidate, now) {
   return date;
 }
 
-export function searchMarkets(value, { sports = null, politics = null, weather = null, futures = null } = {}, options = {}) {
+export function searchMarkets(value, { sports = null, politics = null, weather = null, business = null, futures = null } = {}, options = {}) {
   const now = Number(options.now || Date.now());
   const limit = Math.max(1, Math.min(20, Number(options.limit || 12)));
   const intent = interpretMarketQuery(value, now);
   if (intent.query.length < 2) return { query: intent.query, interpretation: intent, total: 0, results: [] };
-  const candidates = [...sportsCandidates(sports, futures), ...politicsCandidates(politics), ...weatherCandidates(weather)];
+  const candidates = [...sportsCandidates(sports, futures), ...politicsCandidates(politics), ...weatherCandidates(weather), ...businessCandidates(business)];
   const scored = [];
   for (const candidate of candidates) {
     if (intent.category && candidate.category !== intent.category) continue;
@@ -471,7 +505,7 @@ export function searchMarkets(value, { sports = null, politics = null, weather =
       : intent.sort === "soon" ? new Date(left.startsAt || "9999") - new Date(right.startsAt || "9999") || right.score - left.score
         : right.volume - left.volume || right.score - left.score);
   const marketResults = scored.map(({ allOutcomes, score, tags, ...result }) => result);
-  const mapResults = navigationResults(intent, { politics, weather }, options.activeCategory);
+  const mapResults = navigationResults(intent, { politics, weather, business }, options.activeCategory);
   const primaryMapResults = mapResults.filter(result => result.locationOnly);
   const secondaryMapResults = mapResults.filter(result => !result.locationOnly);
   const results = [...primaryMapResults, ...marketResults, ...secondaryMapResults].slice(0, limit);

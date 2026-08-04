@@ -35,6 +35,7 @@ import { HOUSE_DISTRICT_CENTROIDS } from "../src/congressional-district-centroid
 import { interpretMarketQuery, searchMarkets } from "../src/market-search.js";
 import { canonicalSportsMatchupTitle, canonicalSportsOutcomeName } from "../src/client/sports-team-names.js";
 import { buildWeatherPublicSnapshot, weatherMarketUrl } from "../src/weather-registry.js";
+import { BUSINESS_MENTION_SERIES_TICKERS, buildBusinessPublicSnapshot, businessLocationForSnapshot } from "../src/business-registry.js";
 
 test("paces hosted refreshes as a durable three-step rotation", async () => {
   assert.equal(nextScheduledRefreshStep("geographic"), "sports");
@@ -232,7 +233,7 @@ test("discovers the full Climate and Weather category and serves a stale-while-r
   }
 });
 
-test("warms Politics and Weather from one shared Kalshi event-catalog pass", async () => {
+test("warms Politics, Weather, and Business from one shared Kalshi event-catalog pass", async () => {
   const cache = new Map();
   const env = {
     MARKET_ATLAS_CACHE: {
@@ -267,22 +268,150 @@ test("warms Politics and Weather from one shared Kalshi event-catalog pass", asy
       {
         event_ticker: "KXHIGHPHIL-26AUG02", series_ticker: "KXHIGHPHIL", title: "Highest temperature in Philadelphia today?", status: "open",
         markets: [{ ticker: "KXHIGHPHIL-26AUG02-B84", yes_sub_title: "84° to 85°", last_price_dollars: "0.5200", volume_fp: "1200.00" }]
+      },
+      {
+        event_ticker: "KXTSLAA-28JANDEL", series_ticker: "KXTSLAA", title: "Tesla total deliveries in 2026", status: "open",
+        markets: [{ ticker: "KXTSLAA-28JANDEL-1500000", yes_sub_title: "Above 1.5 million", last_price_dollars: "0.6400", volume_fp: "54914.00" }]
       }
     ], cursor: "" });
   };
   try {
     const result = await runGeographicPoll(env, Date.parse("2026-08-02T12:00:00Z"));
     assert.equal(result.discoveryDue, true);
-    assert.equal(eventCatalogRequests, 1, "Politics and Weather must share one open-events scan");
+    assert.equal(eventCatalogRequests, 1, "all geographic categories must share one open-events scan");
     assert.equal(result.politics.bundleCount, 1);
     assert.equal(result.weather.bundleCount, 1);
+    assert.equal(result.business.bundleCount, 1);
     const politicsPayload = JSON.parse(cache.get("kalshi:politics:public:v1"));
     assert.equal(politicsPayload.bundles[0].jurisdiction, "Texas");
     assert.equal(politicsPayload.bundles[0].markets[0].url, "https://kalshi.com/markets/senatetx/texas-senate-race/senatetx-26");
     assert.equal(JSON.parse(cache.get("kalshi:weather:public:v1")).bundles[0].name, "Philadelphia");
+    assert.equal(JSON.parse(cache.get("kalshi:business:public:v1")).bundles[0].name, "Tesla");
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("groups company contracts at verified headquarters and exposes them to Business search", () => {
+  const snapshot = {
+    eventTicker: "KXTSLAA-28JANDEL", seriesTicker: "KXTSLAA", title: "Tesla total deliveries in 2026",
+    endsAt: "2028-01-31T21:00:00Z", updatedAt: "2026-08-04T12:00:00Z",
+    markets: [{ ticker: "KXTSLAA-28JANDEL-1500000", label: "Above 1.5 million", status: "active", lastPrice: 64, volume: 54914 }]
+  };
+  assert.equal(businessLocationForSnapshot(snapshot).location, "Austin, Texas");
+  const business = buildBusinessPublicSnapshot([snapshot], Date.parse("2026-08-04T12:00:00Z"));
+  assert.equal(business.bundleCount, 1);
+  assert.equal(business.bundles[0].code, "TSLA");
+  assert.equal(business.bundles[0].markets[0].outcomes[0].price, 64);
+  const result = searchMarkets("Tesla deliveries", { business }, { activeCategory: "sports" });
+  assert.equal(result.results[0].category, "business");
+  assert.equal(result.results[0].bundleId, "tesla");
+});
+
+test("maps every active Mentions series and preserves each mention contract in Business details", () => {
+  assert.equal(BUSINESS_MENTION_SERIES_TICKERS.size, 55, "the reviewed active Mentions inventory must remain complete");
+
+  const market = (ticker, label, lastPrice, volume) => ({ ticker, title: label, label, status: "active", lastPrice, volume });
+  const snapshots = [
+    {
+      eventTicker: "KXEARNINGSMENTIONSPOT-26AUG04",
+      seriesTicker: "KXEARNINGSMENTIONSPOT",
+      title: "What will Spotify say during its earnings call?",
+      endsAt: "2026-08-04T16:00:00Z",
+      updatedAt: "2026-08-04T12:00:00Z",
+      markets: [
+        market("KXEARNINGSMENTIONSPOT-26AUG04-AI", "Artificial intelligence", 73, 82000),
+        market("KXEARNINGSMENTIONSPOT-26AUG04-PRICE", "Price increase", 41, 38000)
+      ]
+    },
+    {
+      eventTicker: "KXHEARINGMENTION-26AUG04",
+      seriesTicker: "KXHEARINGMENTION",
+      title: "What will be said at the Senate AI surveillance hearing?",
+      endsAt: "2026-08-04T20:00:00Z",
+      updatedAt: "2026-08-04T12:00:00Z",
+      markets: [market("KXHEARINGMENTION-26AUG04-PRIVACY", "Privacy", 68, 218000)]
+    },
+    {
+      eventTicker: "KXEARNINGSMENTIONNBIS-26AUG06",
+      seriesTicker: "KXEARNINGSMENTIONNBIS",
+      title: "What will Nebius say during its earnings call?",
+      endsAt: "2026-08-06T16:00:00Z",
+      updatedAt: "2026-08-04T12:00:00Z",
+      markets: [market("KXEARNINGSMENTIONNBIS-26AUG06-CAPEX", "Capital expenditure", 57, 23000)]
+    }
+  ];
+
+  assert.match(businessLocationForSnapshot(snapshots[0]).location, /Stockholm/);
+  assert.match(businessLocationForSnapshot(snapshots[1]).location, /U\.S\. Capitol/);
+  assert.match(businessLocationForSnapshot(snapshots[2]).location, /Amsterdam/);
+
+  const business = buildBusinessPublicSnapshot(snapshots, Date.parse("2026-08-04T12:00:00Z"));
+  assert.equal(business.marketCount, 3);
+  const spotify = business.bundles.find(bundle => bundle.id === "spotify");
+  assert.equal(spotify.kind, "Mentions");
+  assert.deepEqual(spotify.markets[0].outcomes.map(outcome => outcome.name), ["Artificial intelligence", "Price increase"]);
+  assert.equal(spotify.markets[0].volume, 120000);
+});
+
+test("maps the approved artist Spotify and live-music contracts without importing unrelated outcomes", () => {
+  const snapshot = (eventTicker, seriesTicker, title, markets) => ({
+    eventTicker, seriesTicker, title, endsAt: "2027-12-31T23:59:00Z", updatedAt: "2026-08-04T12:00:00Z", markets
+  });
+  const market = (ticker, label, lastPrice, volume) => ({ ticker, title: label, label, status: "active", lastPrice, volume });
+  const business = buildBusinessPublicSnapshot([
+    snapshot("KXTOPARTISTUSA-26", "KXTOPARTISTUSA", "Top Artist on Spotify U.S. in 2026?", [
+      market("KXTOPARTISTUSA-26-DRA", "Drake", 79, 196069),
+      market("KXTOPARTISTUSA-26-WEE", "The Weeknd", 1, 38194),
+      market("KXTOPARTISTUSA-26-HAR", "Harry Styles", 1, 7342)
+    ]),
+    snapshot("KXVENUEPERFORMANCEMSG-27DEC31", "KXVENUEPERFORMANCEMSG", "Who will perform at Madison Square Garden 2027?", [
+      market("KXVENUEPERFORMANCEMSG-27DEC31-DRA", "Drake", 47, 88),
+      market("KXVENUEPERFORMANCEMSG-27DEC31-SAB", "Sabrina Carpenter", 49, 325)
+    ])
+  ], Date.parse("2026-08-04T12:00:00Z"));
+  assert.equal(business.marketCount, 4, "only the explicitly reviewed artist tickers enter the globe");
+  const toronto = business.bundles.find(bundle => bundle.id === "music-toronto");
+  assert.equal(toronto.markets.length, 2);
+  assert.equal(toronto.kind, "Music");
+  assert.match(toronto.location, /Artist/);
+  const msg = business.bundles.find(bundle => bundle.id === "music-msg");
+  assert.deepEqual(msg.markets.map(item => item.outcomes[0].name).sort(), ["Drake", "Sabrina Carpenter"]);
+  const result = searchMarkets("Drake Spotify", { business }, { activeCategory: "weather" });
+  assert.equal(result.interpretation.category, "business");
+  assert.equal(result.results[0].bundleId, "music-toronto");
+});
+
+test("adds exact live international Business markets without geocoding unrelated IFPI outcomes", () => {
+  const market = (ticker, label, lastPrice, volume) => ({ ticker, title: label, label, status: "active", lastPrice, volume });
+  const business = buildBusinessPublicSnapshot([
+    {
+      eventTicker: "KXRANKLISTIFPIARTIST-27FEB28",
+      seriesTicker: "KXRANKLISTIFPIARTIST",
+      title: "IFPI's Biggest-Selling Global Recording Artist of 2026?",
+      endsAt: "2027-02-28T15:00:00Z",
+      updatedAt: "2026-08-04T12:00:00Z",
+      markets: [
+        market("KXRANKLISTIFPIARTIST-27FEB28-MRS", "Mrs. GREEN APPLE", 4, 43),
+        market("KXRANKLISTIFPIARTIST-27FEB28-EDS", "Ed Sheeran", 1, 38),
+        market("KXRANKLISTIFPIARTIST-27FEB28-JUS", "Justin Bieber", 4, 121),
+        market("KXRANKLISTIFPIARTIST-27FEB28-TAY", "Taylor Swift", 15, 2845)
+      ]
+    },
+    {
+      eventTicker: "KXELECTRICM3-28",
+      seriesTicker: "KXELECTRICM3",
+      title: "Will BMW release a Fully Electric M3 before 2028?",
+      endsAt: "2028-01-01T15:00:00Z",
+      updatedAt: "2026-08-04T12:00:00Z",
+      markets: [market("KXELECTRICM3-28-EM3", "Fully Electric M3", 87, 19484)]
+    }
+  ], Date.parse("2026-08-04T12:00:00Z"));
+
+  assert.equal(business.marketCount, 4, "only the three reviewed IFPI tickers and BMW enter the globe");
+  assert.deepEqual(business.bundles.map(bundle => bundle.id).sort(), ["bmw", "music-stratford-on", "music-suffolk", "music-tokyo"]);
+  assert.equal(business.bundles.find(bundle => bundle.id === "bmw").location, "Munich, Germany");
+  assert.equal(business.bundles.find(bundle => bundle.id === "music-tokyo").markets[0].outcomes[0].name, "Mrs. GREEN APPLE");
 });
 
 test("interprets colloquial market queries into category, sport, time, and ranking intent", () => {

@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("Market Atlas app keeps Sports, Politics, and Weather in persistent accessible tab panels", async () => {
+test("Market Atlas app keeps all four market globes in persistent accessible tab panels", async () => {
   const html = await read("public/index.html");
   assert.match(html, /role="tablist"/);
   assert.match(html, /data-category="sports"/);
@@ -13,8 +13,10 @@ test("Market Atlas app keeps Sports, Politics, and Weather in persistent accessi
   assert.match(html, /data-category-view="politics"/);
   assert.match(html, /data-category="weather"/);
   assert.match(html, /data-category-view="weather"/);
+  assert.match(html, /data-category="business"/);
+  assert.match(html, /data-category-view="business"/);
   assert.doesNotMatch(html, />Culture<\/button>/);
-  assert.equal((html.match(/<button class="integration-tab/g) || []).length, 3, "the header exposes only Sports, Politics, and Weather");
+  assert.equal((html.match(/<button class="integration-tab/g) || []).length, 4, "the header exposes all four globe categories");
   assert.doesNotMatch(html, /<iframe\b/i);
 });
 
@@ -117,7 +119,7 @@ test("mobile markets use click-only compact bottom sheets without page scrolling
   const politics = await read("public/categories/politics/app.js");
   const weather = await read("public/categories/weather/app.js");
   assert.match(source, /function installMobileMarketCarousel/);
-  assert.equal((source.match(/\n  installMobileMarketCarousel\(view\);/g) || []).length, 3, "Sports, Politics, and Weather install the shared carousel");
+  assert.equal((source.match(/\n  installMobileMarketCarousel\(view\);/g) || []).length, 4, "every globe installs the shared carousel");
   assert.match(source, /Previous market/);
   assert.match(source, /Next market/);
   assert.match(source, /scrollTo\(\{ left: items\[activeIndex\]\.offsetLeft, behavior: "smooth" \}\)/);
@@ -260,7 +262,7 @@ test("Sports, Politics, and Weather are composed on one shared globe shell", asy
 
 test("all desktop map detail panels scroll within the shared shell", async () => {
   const shell = await read("public/assets/globe-shell.css");
-  assert.match(shell, /:is\(#market-atlas-sports, \.politics-app, \.weather-app\)\.market-globe-shell \.market-detail-panel \{[\s\S]*max-height: min\(570px, calc\(100dvh - 220px\)\);[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
+  assert.match(shell, /:is\(#market-atlas-sports, \.politics-app, \.weather-app, \.business-app\)\.market-globe-shell \.market-detail-panel \{[\s\S]*max-height: min\(570px, calc\(100dvh - 220px\)\);[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
   assert.doesNotMatch(shell, /#market-atlas-sports\.market-globe-shell \.market-detail-panel \{[\s\S]*overflow: visible;/);
 });
 
@@ -449,6 +451,51 @@ test("Politics markers match the Sports dark-core construction and retain count 
   assert.match(css, /\.event-marker\.leader-dem \.marker-core[\s\S]*stroke: var\(--dem-blue-soft\)/);
   assert.match(css, /\.event-marker\.leader-rep \.marker-core[\s\S]*stroke: var\(--rep-red-soft\)/);
   assert.match(css, /\.politics-app \.event-marker \.market-count[\s\S]*fill: var\(--shared-globe-background\)/);
+});
+
+test("every visible Business marker carries a spaced collision-aware company label", async () => {
+  const source = await read("public/categories/weather/app.js");
+  const css = await read("public/categories/business/styles.css");
+  assert.match(source, /namedMarkerLabels = app\.classList\.contains\("business-app"\)/);
+  assert.match(source, /nameLabel = appendSvg\(group, "text", "marker-name-label"\)/);
+  assert.match(source, /businessLabelCandidates[\s\S]*const gap = 5;[\s\S]*makeBox\("right"[\s\S]*makeBox\("left"/);
+  assert.match(source, /boxesOverlap\(box, other\.labelBox\)[\s\S]*boxTouchesMarker/);
+  assert.match(source, /lastBusinessPlacedIds[\s\S]*businessFullDetail[\s\S]*preservePlacement = wasPlaced/);
+  assert.match(source, /businessFullDetail = namedMarkerLabels && currentScale >= 700/);
+  assert.match(source, /if \(collision && !businessFullDetail/);
+  assert.match(source, /BUSINESS_HORIZON_BUFFER = 6 \* Math\.PI \/ 180/);
+  assert.match(source, /horizonLimit = Math\.PI \/ 2 \+ \(namedMarkerLabels \? BUSINESS_HORIZON_BUFFER : \.0005\)/);
+  assert.match(source, /x < -node\.radius \|\| x > WIDTH \+ node\.radius/);
+  assert.doesNotMatch(source, /preserveZoomedMarkers|lastBusinessProjectionScale|rotatingBusinessGlobe/);
+  assert.match(source, /businessLabelPlacement\(node, x, y, accepted, true\)/);
+  assert.match(source, /const opacity = 1;/);
+  assert.doesNotMatch(source, /horizonRoom \/ \.08/);
+  assert.match(source, /nameLabel\.style\.textAnchor = placement\.anchor/);
+  assert.match(source, /if \(namedMarkerLabels\) return;/);
+  assert.match(css, /\.business-app \.event-marker \.marker-name-label[\s\S]*font-size:7\.25px[\s\S]*paint-order:stroke/);
+});
+
+test("Business consolidates dense corporate cities into searchable metro clusters", async () => {
+  const source = await read("public/categories/weather/app.js");
+  for (const id of ["new-york", "bay-area", "los-angeles", "chicago", "washington", "miami", "boston", "dallas-fort-worth"]) {
+    assert.match(source, new RegExp(`business-metro-${id}`));
+  }
+  assert.match(source, /function clusterBusinessMetros\(bundles\)/);
+  assert.match(source, /geoDistance\(\[metro\.lon, metro\.lat\][\s\S]*\* 6371 <= metro\.radiusKm/);
+  assert.match(source, /memberIds: members\.map\(bundle => bundle\.id\)/);
+  assert.match(source, /members\.length < Number\(metro\.minMembers \|\| 2\)/);
+  assert.match(source, /bundle\.id === searchSelectedId \|\| bundle\.memberIds\?\.includes\(searchSelectedId\)/);
+  assert.match(source, /item\.id === result\?\.bundleId \|\| item\.memberIds\?\.includes\(result\?\.bundleId\)/);
+});
+
+test("mobile filter and calendar values share one aligned inner column", async () => {
+  const css = await read("public/assets/app.css");
+  assert.match(css, /\.category-view \.mobile-filter-dropdown \{[\s\S]*border: 1px solid color-mix\(in srgb, var\(--integration-green\) 24%, var\(--integration-border\)\) !important;/);
+  assert.match(css, /\.mobile-calendar-toggle \{[\s\S]*border: 1px solid color-mix\(in srgb, var\(--integration-green\) 24%, var\(--integration-border\)\);/);
+  assert.match(css, /\.mobile-filter-toggle \{[\s\S]*grid-template-columns: auto minmax\(0, 1fr\) 12px;[\s\S]*padding: 0 11px;/);
+  assert.match(css, /\.mobile-filter-summary \{[\s\S]*justify-content: flex-end;[\s\S]*height: 18px;[\s\S]*line-height: 18px;/);
+  assert.match(css, /\.mobile-calendar-toggle \{[\s\S]*grid-template-columns: 15px minmax\(0, 1fr\) 12px;[\s\S]*gap: 8px;[\s\S]*padding: 0 11px;/);
+  assert.match(css, /\.mobile-calendar-value \{[\s\S]*justify-content: flex-end;[\s\S]*height: 18px;[\s\S]*line-height: 18px;[\s\S]*text-align: right;/);
 });
 
 test("Politics market previews dock to the nearest unobstructed map edge", async () => {

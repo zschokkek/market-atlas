@@ -327,9 +327,10 @@ body.integration-body {
   display: none !important;
 }
 
-/* Politics and Weather are loaded without duplicate headers and fill the shared viewport. */
+/* Politics, Weather, and Business fill the same shared viewport. */
 [data-category-view="politics"] .politics-app,
-[data-category-view="weather"] .weather-app {
+[data-category-view="weather"] .weather-app ,
+[data-category-view="business"] .business-app {
   --background: #111713;
   --surface: #1b211d;
   --surface-strong: #222a25;
@@ -346,6 +347,7 @@ body.integration-body {
   --map-grid-opacity: 1;
   --politics-party-reveal: 0%;
   --weather-marker-reveal: 0%;
+  --business-marker-reveal: 0%;
   --border: rgba(255, 255, 255, 0.09);
   --border-green: color-mix(in srgb, #0ac285 24%, var(--border));
   --green: #0ac285;
@@ -372,7 +374,8 @@ body.integration-body {
 }
 
 [data-category-view="politics"] .politics-layout,
-[data-category-view="weather"] .politics-layout {
+[data-category-view="weather"] .politics-layout,
+[data-category-view="business"] .politics-layout {
   width: 100%;
   height: 100%;
 }
@@ -380,7 +383,8 @@ body.integration-body {
 /* Give every category one shared material and map treatment. */
 [data-category-view="sports"] #market-atlas-sports .orbital-panel,
 [data-category-view="politics"] .politics-app .orbital-panel,
-[data-category-view="weather"] .weather-app .orbital-panel {
+[data-category-view="weather"] .weather-app .orbital-panel ,
+[data-category-view="business"] .business-app .orbital-panel {
   border-color: color-mix(in srgb, var(--green) 24%, var(--border));
   border-radius: calc(var(--radius) * 1.05);
   background:
@@ -393,26 +397,30 @@ body.integration-body {
 
 [data-category-view="sports"] #market-atlas-sports .orbital-panel::before,
 [data-category-view="politics"] .politics-app .orbital-panel::before,
-[data-category-view="weather"] .weather-app .orbital-panel::before {
+[data-category-view="weather"] .weather-app .orbital-panel::before ,
+[data-category-view="business"] .business-app .orbital-panel::before {
   border-color: color-mix(in srgb, var(--green) 15%, transparent);
 }
 
 [data-category-view="sports"] #market-atlas-sports .filter-sidebar,
 [data-category-view="politics"] .politics-app .filter-sidebar,
-[data-category-view="weather"] .weather-app .filter-sidebar {
+[data-category-view="weather"] .weather-app .filter-sidebar ,
+[data-category-view="business"] .business-app .filter-sidebar {
   gap: 10px;
   padding: 12px;
 }
 
 [data-category-view="sports"] #market-atlas-sports .check-list,
 [data-category-view="politics"] .politics-app .check-list,
-[data-category-view="weather"] .weather-app .check-list {
+[data-category-view="weather"] .weather-app .check-list ,
+[data-category-view="business"] .business-app .check-list {
   gap: 3px;
 }
 
 [data-category-view="sports"] #market-atlas-sports .check-option,
 [data-category-view="politics"] .politics-app .check-option,
-[data-category-view="weather"] .weather-app .check-option {
+[data-category-view="weather"] .weather-app .check-option ,
+[data-category-view="business"] .business-app .check-option {
   gap: 7px;
   padding: 4px 5px;
   border-radius: 9px;
@@ -420,7 +428,8 @@ body.integration-body {
 
 [data-category-view="sports"] #market-atlas-sports .check-option:hover,
 [data-category-view="politics"] .politics-app .check-option:hover,
-[data-category-view="weather"] .weather-app .check-option:hover {
+[data-category-view="weather"] .weather-app .check-option:hover ,
+[data-category-view="business"] .business-app .check-option:hover {
   background: color-mix(in srgb, var(--green) 6%, transparent);
 }
 
@@ -431,8 +440,11 @@ body.integration-body {
 [data-category-view="politics"] .politics-app .detail-kicker,
 [data-category-view="politics"] .politics-app .timeline-kicker,
 [data-category-view="weather"] .weather-app .panel-heading,
+[data-category-view="business"] .business-app .panel-heading,
 [data-category-view="weather"] .weather-app .detail-kicker,
-[data-category-view="weather"] .weather-app .timeline-kicker {
+[data-category-view="business"] .business-app .detail-kicker,
+[data-category-view="weather"] .weather-app .timeline-kicker ,
+[data-category-view="business"] .business-app .timeline-kicker {
   color: var(--muted-foreground);
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -444,8 +456,11 @@ body.integration-body {
 [data-category-view="politics"] .politics-app .panel-orb,
 [data-category-view="politics"] .politics-app .timeline-orb,
 [data-category-view="weather"] .weather-app .feed-status-orb,
+[data-category-view="business"] .business-app .feed-status-orb,
 [data-category-view="weather"] .weather-app .panel-orb,
-[data-category-view="weather"] .weather-app .timeline-orb {
+[data-category-view="business"] .business-app .panel-orb,
+[data-category-view="weather"] .weather-app .timeline-orb ,
+[data-category-view="business"] .business-app .timeline-orb {
   width: 10px;
   height: 10px;
   border: 1px solid color-mix(in srgb, var(--green) 78%, var(--foreground));
@@ -454,13 +469,15 @@ body.integration-body {
 }
 
 [data-category-view="politics"] .politics-app .election-detail,
-[data-category-view="weather"] .weather-app .election-detail {
+[data-category-view="weather"] .weather-app .election-detail ,
+[data-category-view="business"] .business-app .election-detail {
   padding: 14px;
 }
 
 [data-category-view="sports"] #market-atlas-sports .date-dock,
 [data-category-view="politics"] .politics-app .timeline-dock,
-[data-category-view="weather"] .weather-app .timeline-dock {
+[data-category-view="weather"] .weather-app .timeline-dock ,
+[data-category-view="business"] .business-app .timeline-dock {
   padding: 8px 12px 6px;
   border-radius: calc(var(--radius) * 1.05) calc(var(--radius) * 1.05) 5px 5px;
 }
@@ -471,7 +488,9 @@ body.integration-body {
 [data-category-view="politics"] .politics-app .zoom-button,
 [data-category-view="politics"] .politics-app .timeline-step,
 [data-category-view="weather"] .weather-app .zoom-button,
-[data-category-view="weather"] .weather-app .timeline-step {
+[data-category-view="business"] .business-app .zoom-button,
+[data-category-view="weather"] .weather-app .timeline-step ,
+[data-category-view="business"] .business-app .timeline-step {
   border-color: color-mix(in srgb, var(--green) 28%, var(--border));
   background: color-mix(in srgb, var(--card) 78%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
@@ -483,7 +502,9 @@ body.integration-body {
 [data-category-view="politics"] .politics-app .zoom-button:hover,
 [data-category-view="politics"] .politics-app .timeline-step:hover,
 [data-category-view="weather"] .weather-app .zoom-button:hover,
-[data-category-view="weather"] .weather-app .timeline-step:hover {
+[data-category-view="business"] .business-app .zoom-button:hover,
+[data-category-view="weather"] .weather-app .timeline-step:hover ,
+[data-category-view="business"] .business-app .timeline-step:hover {
   border-color: color-mix(in srgb, var(--green) 54%, var(--border));
   background: color-mix(in srgb, var(--green) 15%, var(--card));
 }
@@ -542,8 +563,11 @@ body.integration-body {
 [data-category-view="politics"] .politics-app .market-card,
 [data-category-view="politics"] .politics-app .tooltip-market,
 [data-category-view="weather"] .weather-app .map-tooltip,
+[data-category-view="business"] .business-app .map-tooltip,
 [data-category-view="weather"] .weather-app .market-card,
-[data-category-view="weather"] .weather-app .tooltip-market {
+[data-category-view="business"] .business-app .market-card,
+[data-category-view="weather"] .weather-app .tooltip-market ,
+[data-category-view="business"] .business-app .tooltip-market {
   border-color: color-mix(in srgb, var(--green) 17%, var(--border));
   background: color-mix(in srgb, var(--card) 94%, transparent);
 }
@@ -756,27 +780,32 @@ body.integration-body {
 [data-category-view="sports"],
 [data-category-view="politics"],
 [data-category-view="weather"],
+[data-category-view="business"],
 [data-category-view="sports"] #market-atlas-sports,
 [data-category-view="politics"] .politics-app,
-[data-category-view="weather"] .weather-app {
+[data-category-view="weather"] .weather-app ,
+[data-category-view="business"] .business-app {
   background-color: var(--shared-globe-background);
 }
 
 [data-category-view="sports"] #market-atlas-sports .ocean-light,
 [data-category-view="politics"] .politics-app .ocean-light,
-[data-category-view="weather"] .weather-app .ocean-light {
+[data-category-view="weather"] .weather-app .ocean-light ,
+[data-category-view="business"] .business-app .ocean-light {
   stop-color: var(--shared-globe-ocean-light);
 }
 
 [data-category-view="sports"] #market-atlas-sports .ocean-dark,
 [data-category-view="politics"] .politics-app .ocean-dark,
-[data-category-view="weather"] .weather-app .ocean-dark {
+[data-category-view="weather"] .weather-app .ocean-dark ,
+[data-category-view="business"] .business-app .ocean-dark {
   stop-color: var(--shared-globe-ocean-dark);
 }
 
 [data-category-view="sports"] #market-atlas-sports .globe-shadow,
 [data-category-view="politics"] .politics-app .globe-shadow,
-[data-category-view="weather"] .weather-app .globe-shadow {
+[data-category-view="weather"] .weather-app .globe-shadow ,
+[data-category-view="business"] .business-app .globe-shadow {
   fill: var(--shared-globe-shadow);
   opacity: var(--map-rim-opacity);
   filter: blur(10px);
@@ -784,7 +813,8 @@ body.integration-body {
 
 [data-category-view="sports"] #market-atlas-sports .globe-ocean,
 [data-category-view="politics"] .politics-app .globe-ocean,
-[data-category-view="weather"] .weather-app .globe-ocean {
+[data-category-view="weather"] .weather-app .globe-ocean ,
+[data-category-view="business"] .business-app .globe-ocean {
   fill-opacity: var(--map-ocean-opacity);
   stroke: var(--shared-globe-rim);
   stroke-opacity: var(--map-rim-opacity);
@@ -794,7 +824,8 @@ body.integration-body {
 
 [data-category-view="sports"] #market-atlas-sports .globe-graticule,
 [data-category-view="politics"] .politics-app .globe-graticule,
-[data-category-view="weather"] .weather-app .globe-graticule {
+[data-category-view="weather"] .weather-app .globe-graticule ,
+[data-category-view="business"] .business-app .globe-graticule {
   opacity: var(--map-grid-opacity);
   stroke: var(--shared-globe-grid);
   stroke-width: 0.7;
@@ -805,7 +836,9 @@ body.integration-body {
 [data-category-view="politics"] .politics-app .country,
 [data-category-view="politics"] .politics-app .country.is-usa,
 [data-category-view="weather"] .weather-app .country,
-[data-category-view="weather"] .weather-app .country.is-usa {
+[data-category-view="business"] .business-app .country,
+[data-category-view="weather"] .weather-app .country.is-usa ,
+[data-category-view="business"] .business-app .country.is-usa {
   fill: var(--shared-globe-land);
   stroke: var(--shared-globe-border);
   stroke-width: 0.9;
@@ -814,7 +847,8 @@ body.integration-body {
 
 [data-category-view="sports"] #market-atlas-sports .state,
 [data-category-view="politics"] .politics-app .state-boundary,
-[data-category-view="weather"] .weather-app .state-boundary {
+[data-category-view="weather"] .weather-app .state-boundary ,
+[data-category-view="business"] .business-app .state-boundary {
   fill: none;
   stroke: var(--shared-globe-state);
   stroke-width: 0.65;
@@ -823,12 +857,14 @@ body.integration-body {
 
 [data-category-view="sports"] #market-atlas-sports .sports-globe,
 [data-category-view="politics"] .politics-app .politics-globe,
-[data-category-view="weather"] .weather-app .weather-globe {
+[data-category-view="weather"] .weather-app .weather-globe ,
+[data-category-view="business"] .business-app .weather-globe {
   background: transparent;
 }
 
 [data-category-view="politics"] .politics-app .politics-globe,
-[data-category-view="weather"] .weather-app .weather-globe {
+[data-category-view="weather"] .weather-app .weather-globe ,
+[data-category-view="business"] .business-app .weather-globe {
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -890,37 +926,47 @@ body.integration-body {
 
 /* Weather keeps its market-type colors while using the same restrained rings as the other globes. */
 [data-category-view="weather"] .weather-app .event-marker.kind-temperature { --weather-marker: var(--temperature); }
+[data-category-view="business"] .business-app .event-marker.kind-temperature { --weather-marker: var(--temperature); }
 [data-category-view="weather"] .weather-app .event-marker.kind-rain-snow { --weather-marker: var(--precipitation); }
+[data-category-view="business"] .business-app .event-marker.kind-rain-snow { --weather-marker: var(--precipitation); }
 [data-category-view="weather"] .weather-app .event-marker.kind-hurricanes { --weather-marker: var(--hurricane); }
+[data-category-view="business"] .business-app .event-marker.kind-hurricanes { --weather-marker: var(--hurricane); }
 [data-category-view="weather"] .weather-app .event-marker.kind-natural-disasters { --weather-marker: var(--hazard); }
+[data-category-view="business"] .business-app .event-marker.kind-natural-disasters { --weather-marker: var(--hazard); }
 [data-category-view="weather"] .weather-app .event-marker.kind-climate-change { --weather-marker: var(--climate); }
+[data-category-view="business"] .business-app .event-marker.kind-climate-change { --weather-marker: var(--climate); }
 
-[data-category-view="weather"] .weather-app .event-marker .marker-halo {
+[data-category-view="weather"] .weather-app .event-marker .marker-halo ,
+[data-category-view="business"] .business-app .event-marker .marker-halo {
   fill: none;
   stroke: color-mix(in srgb, var(--weather-marker, var(--political-neutral)) 24%, transparent);
   stroke-width: 1;
 }
 
-[data-category-view="weather"] .weather-app .event-marker .marker-core {
+[data-category-view="weather"] .weather-app .event-marker .marker-core ,
+[data-category-view="business"] .business-app .event-marker .marker-core {
   fill: color-mix(in srgb, var(--weather-marker, var(--political-neutral)) var(--weather-marker-reveal), var(--shared-globe-background));
   stroke: var(--weather-marker, var(--political-neutral));
   stroke-width: 2;
   filter: drop-shadow(0 0 7px color-mix(in srgb, var(--weather-marker, var(--political-neutral)) 38%, transparent));
 }
 
-[data-category-view="weather"] .weather-app .event-marker.is-selected .marker-halo {
+[data-category-view="weather"] .weather-app .event-marker.is-selected .marker-halo ,
+[data-category-view="business"] .business-app .event-marker.is-selected .marker-halo {
   fill: none;
   stroke: var(--green-soft);
   stroke-width: 1.5;
 }
 
-[data-category-view="weather"] .weather-app .event-marker .market-count {
+[data-category-view="weather"] .weather-app .event-marker .market-count ,
+[data-category-view="business"] .business-app .event-marker .market-count {
   fill: var(--shared-globe-background);
   stroke: color-mix(in srgb, var(--shared-globe-foreground) 62%, transparent);
   stroke-width: 1;
 }
 
-[data-category-view="weather"] .weather-app .event-marker .market-count-text {
+[data-category-view="weather"] .weather-app .event-marker .market-count-text ,
+[data-category-view="business"] .business-app .event-marker .market-count-text {
   fill: var(--shared-globe-foreground);
 }
 
@@ -1190,7 +1236,7 @@ body.integration-body {
     min-height: 32px;
     flex: 1;
     padding: 7px 5px;
-    font-size: 13px;
+    font-size: 12px;
     touch-action: manipulation;
   }
 
@@ -1252,6 +1298,7 @@ body.integration-body {
     padding: 0 !important;
     align-self: auto !important;
     overflow: hidden !important;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border)) !important;
     border-radius: 13px !important;
     background: color-mix(in srgb, var(--integration-surface) 95%, var(--integration-green) 5%) !important;
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36) !important;
@@ -1264,12 +1311,14 @@ body.integration-body {
   .mobile-filter-toggle {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) 12px;
+    grid-template-rows: 1fr;
     align-items: center;
+    align-content: center;
     width: 100%;
     height: 44px;
     min-height: 44px;
     gap: 8px;
-    padding: 7px 11px;
+    padding: 0 11px;
     border: 0;
     color: var(--integration-foreground);
     background: transparent;
@@ -1280,15 +1329,24 @@ body.integration-body {
   }
 
   .mobile-filter-label {
+    display: flex;
+    align-items: center;
+    height: 18px;
     font-size: 13px;
     font-weight: 650;
+    line-height: 18px;
   }
 
   .mobile-filter-summary {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 18px;
     min-width: 0;
     overflow: hidden;
     color: var(--integration-muted);
     font-size: 12px;
+    line-height: 18px;
     text-align: right;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1340,14 +1398,16 @@ body.integration-body {
 
   .mobile-calendar-toggle {
     display: grid;
-    grid-template-columns: 15px minmax(0, 1fr) 8px;
+    grid-template-columns: 15px minmax(0, 1fr) 12px;
+    grid-template-rows: 1fr;
     align-items: center;
+    align-content: center;
     width: 100%;
     height: 44px;
     min-height: 44px;
-    gap: 7px;
-    padding: 0 10px;
-    border: 1px solid color-mix(in srgb, var(--integration-green) 36%, var(--integration-border));
+    gap: 8px;
+    padding: 0 11px;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border));
     border-radius: 13px;
     color: var(--integration-foreground);
     background: color-mix(in srgb, var(--integration-surface) 95%, var(--integration-green) 5%);
@@ -1358,11 +1418,17 @@ body.integration-body {
   }
 
   .mobile-calendar-value {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 18px;
     min-width: 0;
     overflow: hidden;
     color: var(--integration-foreground);
     font-size: 12px;
     font-weight: 650;
+    line-height: 18px;
+    text-align: right;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1558,7 +1624,8 @@ body.integration-body {
 
   [data-category-view="sports"] #market-atlas-sports .date-dock,
   [data-category-view="politics"] .politics-app .timeline-dock,
-  [data-category-view="weather"] .weather-app .timeline-dock {
+  [data-category-view="weather"] .weather-app .timeline-dock ,
+  [data-category-view="business"] .business-app .timeline-dock {
     display: none !important;
   }
 
@@ -1577,7 +1644,8 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .politics-layout,
-  [data-category-view="weather"] .weather-app .politics-layout {
+  [data-category-view="weather"] .weather-app .politics-layout ,
+  [data-category-view="business"] .business-app .politics-layout {
     grid-template-rows: min(70dvh, 34rem) auto;
     grid-template-areas:
       "globe"
@@ -1585,12 +1653,14 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .filter-sidebar,
-  [data-category-view="weather"] .weather-app .filter-sidebar {
+  [data-category-view="weather"] .weather-app .filter-sidebar ,
+  [data-category-view="business"] .business-app .filter-sidebar {
     grid-template-columns: 1fr;
   }
 
   [data-category-view="politics"] .politics-app .election-detail,
-  [data-category-view="weather"] .weather-app .election-detail {
+  [data-category-view="weather"] .weather-app .election-detail ,
+  [data-category-view="business"] .business-app .election-detail {
     position: fixed;
     z-index: 44;
     right: 5px;
@@ -1606,7 +1676,8 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .detail-market-list,
-  [data-category-view="weather"] .weather-app .detail-market-list {
+  [data-category-view="weather"] .weather-app .detail-market-list ,
+  [data-category-view="business"] .business-app .detail-market-list {
     display: grid;
     grid-auto-columns: 100%;
     grid-auto-flow: column;
@@ -1626,12 +1697,14 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .detail-market-list::-webkit-scrollbar,
-  [data-category-view="weather"] .weather-app .detail-market-list::-webkit-scrollbar {
+  [data-category-view="weather"] .weather-app .detail-market-list::-webkit-scrollbar ,
+  [data-category-view="business"] .business-app .detail-market-list::-webkit-scrollbar {
     display: none;
   }
 
   [data-category-view="politics"] .politics-app .detail-market-list > .market-card,
-  [data-category-view="weather"] .weather-app .detail-market-list > .market-card {
+  [data-category-view="weather"] .weather-app .detail-market-list > .market-card ,
+  [data-category-view="business"] .business-app .detail-market-list > .market-card {
     min-width: 0;
     height: 100%;
     max-height: 100%;
@@ -1697,7 +1770,8 @@ body.integration-body {
 
   [data-category-view="sports"] > #market-atlas-sports,
   [data-category-view="politics"] .politics-app,
-  [data-category-view="weather"] .weather-app {
+  [data-category-view="weather"] .weather-app ,
+  [data-category-view="business"] .business-app {
     height: 100%;
     min-height: 0;
     padding-bottom: 0;
@@ -1706,7 +1780,8 @@ body.integration-body {
 
   [data-category-view="sports"] #market-atlas-sports .sports-layout,
   [data-category-view="politics"] .politics-app .politics-layout,
-  [data-category-view="weather"] .weather-app .politics-layout {
+  [data-category-view="weather"] .weather-app .politics-layout ,
+  [data-category-view="business"] .business-app .politics-layout {
     display: grid;
     width: 100%;
     height: 100%;
@@ -1750,7 +1825,8 @@ body.integration-body {
 
   [data-category-view="sports"] #market-atlas-sports .event-detail,
   [data-category-view="politics"] .politics-app .election-detail,
-  [data-category-view="weather"] .weather-app .election-detail {
+  [data-category-view="weather"] .weather-app .election-detail ,
+  [data-category-view="business"] .business-app .election-detail {
     position: fixed !important;
     z-index: 70;
     top: auto !important;
@@ -1776,7 +1852,8 @@ body.integration-body {
 
   [data-category-view="sports"] #market-atlas-sports .event-detail.is-mobile-open,
   [data-category-view="politics"] .politics-app .election-detail.is-mobile-open,
-  [data-category-view="weather"] .weather-app .election-detail.is-mobile-open {
+  [data-category-view="weather"] .weather-app .election-detail.is-mobile-open ,
+  [data-category-view="business"] .business-app .election-detail.is-mobile-open {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
@@ -2057,7 +2134,8 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .election-detail,
-  [data-category-view="weather"] .weather-app .election-detail {
+  [data-category-view="weather"] .weather-app .election-detail ,
+  [data-category-view="business"] .business-app .election-detail {
     display: grid;
     grid-template-rows: auto auto auto;
     height: auto;
@@ -2065,7 +2143,8 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .detail-heading-row,
-  [data-category-view="weather"] .weather-app .detail-heading-row {
+  [data-category-view="weather"] .weather-app .detail-heading-row ,
+  [data-category-view="business"] .business-app .detail-heading-row {
     min-height: 30px;
     padding-right: 35px;
   }
@@ -2076,15 +2155,21 @@ body.integration-body {
   [data-category-view="politics"] .politics-app .detail-meta,
   [data-category-view="politics"] .politics-app .market-footer,
   [data-category-view="weather"] .weather-app .detail-kicker,
+  [data-category-view="business"] .business-app .detail-kicker,
   [data-category-view="weather"] .weather-app .detail-code,
+  [data-category-view="business"] .business-app .detail-code,
   [data-category-view="weather"] .weather-app .detail-location,
+  [data-category-view="business"] .business-app .detail-location,
   [data-category-view="weather"] .weather-app .detail-meta,
-  [data-category-view="weather"] .weather-app .market-footer {
+  [data-category-view="business"] .business-app .detail-meta,
+  [data-category-view="weather"] .weather-app .market-footer ,
+  [data-category-view="business"] .business-app .market-footer {
     display: none;
   }
 
   [data-category-view="politics"] .politics-app .detail-jurisdiction,
-  [data-category-view="weather"] .weather-app .detail-jurisdiction {
+  [data-category-view="weather"] .weather-app .detail-jurisdiction ,
+  [data-category-view="business"] .business-app .detail-jurisdiction {
     overflow: hidden;
     font-size: 16px;
     line-height: 1.15;
@@ -2093,13 +2178,15 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .detail-market-list,
-  [data-category-view="weather"] .weather-app .detail-market-list {
+  [data-category-view="weather"] .weather-app .detail-market-list ,
+  [data-category-view="business"] .business-app .detail-market-list {
     gap: 7px;
     margin-top: 5px;
   }
 
   [data-category-view="politics"] .politics-app .detail-market-list > .market-card,
-  [data-category-view="weather"] .weather-app .detail-market-list > .market-card {
+  [data-category-view="weather"] .weather-app .detail-market-list > .market-card ,
+  [data-category-view="business"] .business-app .detail-market-list > .market-card {
     height: auto;
     max-height: none;
     overflow: hidden;
@@ -2107,12 +2194,14 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .market-card-heading,
-  [data-category-view="weather"] .weather-app .market-card-heading {
+  [data-category-view="weather"] .weather-app .market-card-heading ,
+  [data-category-view="business"] .business-app .market-card-heading {
     padding: 6px 7px;
   }
 
   [data-category-view="politics"] .politics-app .market-card-title,
-  [data-category-view="weather"] .weather-app .market-card-title {
+  [data-category-view="weather"] .weather-app .market-card-title ,
+  [data-category-view="business"] .business-app .market-card-title {
     display: -webkit-box;
     overflow: hidden;
     font-size: 11px;
@@ -2122,23 +2211,27 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .market-volume,
-  [data-category-view="weather"] .weather-app .market-volume {
+  [data-category-view="weather"] .weather-app .market-volume ,
+  [data-category-view="business"] .business-app .market-volume {
     font-size: 9px;
   }
 
   [data-category-view="politics"] .politics-app .market-outcomes,
-  [data-category-view="weather"] .weather-app .market-outcomes {
+  [data-category-view="weather"] .weather-app .market-outcomes ,
+  [data-category-view="business"] .business-app .market-outcomes {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   [data-category-view="politics"] .politics-app .market-card[data-outcome-count="2"] .market-outcomes,
-  [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcomes {
+  [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcomes ,
+  [data-category-view="business"] .business-app .market-card[data-outcome-count="2"] .market-outcomes {
     grid-template-columns: minmax(0, 1fr);
   }
 
   [data-category-view="politics"] .politics-app .market-outcome,
-  [data-category-view="weather"] .weather-app .market-outcome {
+  [data-category-view="weather"] .weather-app .market-outcome ,
+  [data-category-view="business"] .business-app .market-outcome {
     min-height: 27px;
     padding: 4px 7px;
     border-right: 1px solid rgba(255, 255, 255, 0.055);
@@ -2146,17 +2239,20 @@ body.integration-body {
   }
 
   [data-category-view="politics"] .politics-app .market-card[data-outcome-count="2"] .market-outcome,
-  [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcome {
+  [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcome ,
+  [data-category-view="business"] .business-app .market-card[data-outcome-count="2"] .market-outcome {
     border-right: 0;
   }
 
   [data-category-view="politics"] .politics-app .market-outcome:nth-child(n + 9),
-  [data-category-view="weather"] .weather-app .market-outcome:nth-child(n + 9) {
+  [data-category-view="weather"] .weather-app .market-outcome:nth-child(n + 9) ,
+  [data-category-view="business"] .business-app .market-outcome:nth-child(n + 9) {
     display: none;
   }
 
   [data-category-view="politics"] .politics-app .outcome-price,
-  [data-category-view="weather"] .weather-app .outcome-price {
+  [data-category-view="weather"] .weather-app .outcome-price ,
+  [data-category-view="business"] .business-app .outcome-price {
     font-size: 10.5px;
   }
 

@@ -1,6 +1,6 @@
 # Market Atlas
 
-Market Atlas is an interactive geographic view of Kalshi sports, politics, and weather markets. The canonical app is served at `/`; standalone category maps live under `public/categories/` and shared browser code lives under `public/assets/`.
+Market Atlas is an interactive geographic view of Kalshi sports, politics, weather, and business markets. The canonical app is served at `/`; standalone category maps live under `public/categories/` and shared browser code lives under `public/assets/`.
 
 The hosted app uses a single server-side Kalshi poller. Browsers never call Kalshi directly; they read compact snapshots from cached API routes backed by edge cache and Cloudflare KV.
 

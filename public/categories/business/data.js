@@ -1,0 +1,157 @@
+const companies = [
+  ["robinhood","Robinhood","HOOD","Menlo Park, California",37.4529,-122.1817,"Technology","KXHOODA-28JANFUNDED","Robinhood funded customers in 2026",135183,["Above 28 million","Above 29 million","Above 30 million"]],
+  ["starbucks","Starbucks","SBUX","Seattle, Washington",47.6062,-122.3321,"Consumer","KXSBUXA-28JANSTORES","Starbucks total global stores in 2026",85878,["Above 41,300","Above 42,000","Above 43,000"]],
+  ["norwegian-cruise","Norwegian Cruise Line","NCLH","Miami, Florida",25.7617,-80.1918,"Travel","KXNCLHA-28JANPAX","Norwegian Cruise passengers carried in 2026",60733,["Above 3.1 million","Above 3.3 million","Above 3.5 million"]],
+  ["rivian","Rivian","RIVN","Irvine, California",33.6846,-117.8265,"Mobility","KXRIVNA-28JANDELIV","Rivian vehicles delivered in 2026",55301,["Above 38,000","Above 45,000","Above 52,000"]],
+  ["tesla","Tesla","TSLA","Austin, Texas",30.2672,-97.7431,"Mobility","KXTSLAA-28JANDEL","Tesla total deliveries in 2026",54914,["Above 1.5 million","Above 1.7 million","Above 1.9 million"]],
+  ["ebay","eBay","EBAY","San Jose, California",37.3382,-121.8863,"Consumer","KXEBAYA-28JANGMV","eBay gross merchandise volume in 2026",49780,["Above $84 billion","Above $88 billion","Above $92 billion"]],
+  ["meta","Meta","META","Menlo Park, California",37.4848,-122.1484,"Technology","KXMETAA-28JANHEAD","Meta headcount in 2026",46749,["Above 65,000","Above 71,000","Above 77,000"]],
+  ["carnival","Carnival","CCL","Miami, Florida",25.7743,-80.1937,"Travel","KXCCLA-28JANALBD","Carnival Cruise capacity in 2026",38519,["Above 97 million days","Above 98 million days","Above 99 million days"]],
+  ["boeing","Boeing","BA","Arlington, Virginia",38.8816,-77.091,"Industrial","KXBAA-28JANDELIV","Boeing airplane deliveries in 2026",36412,["Above 560","Above 640","Above 720"]],
+  ["mercadolibre","MercadoLibre","MELI","Buenos Aires, Argentina",-34.6037,-58.3816,"Consumer","KXMELIA-28JANITEMS","MercadoLibre items sold in 2026",33915,["Above 3 billion","Above 3.5 billion","Above 4 billion"]],
+  ["ford","Ford","F","Dearborn, Michigan",42.3223,-83.1763,"Mobility","KXFA-28JANUSSALES","Ford U.S. vehicle sales in 2026",31449,["Above 1.8 million","Above 2.1 million","Above 2.4 million"]],
+  ["ferrari","Ferrari","RACE","Maranello, Italy",44.5263,10.8667,"Mobility","KXRACEA-28JANSHIP","Ferrari car shipments in 2026",26974,["Above 13,000","Above 14,000","Above 15,000"]],
+  ["grab","Grab","GRAB","Singapore",1.3521,103.8198,"Technology","KXGRABA-28JANMTU","Grab monthly users in 2026",26398,["Above 55 million","Above 60 million","Above 65 million"]],
+  ["match-group","Match Group","MTCH","Dallas, Texas",32.7767,-96.797,"Technology","KXMTCHA-28JANPAYERS","Match total payers in 2026",25221,["Above 12.4 million","Above 13.4 million","Above 14.4 million"]],
+  ["united-airlines","United Airlines","UAL","Chicago, Illinois",41.8781,-87.6298,"Travel","KXUALA-28JANPAX","United Airlines passengers in 2026",22377,["Above 178 million","Above 190 million","Above 202 million"]],
+  ["chipotle","Chipotle","CMG","Newport Beach, California",33.6189,-117.9298,"Consumer","KXCMGA-28JANRESTS","Chipotle restaurant count in 2026",17082,["Above 4,300","Above 4,500","Above 4,700"]],
+  ["palantir","Palantir","PLTR","Denver, Colorado",39.7392,-104.9903,"Technology","KXPLTRA-28JANCUST","Palantir customer count in 2026",16420,["Above 1,100","Above 1,200","Above 1,300"]],
+  ["reddit","Reddit","RDDT","San Francisco, California",37.7749,-122.4194,"Technology","KXRDDTA-28JANDAU","Reddit daily active users in 2026",11961,["Above 136 million","Above 150 million","Above 164 million"]],
+  ["spotify","Spotify","SPOT","Stockholm, Sweden",59.3293,18.0686,"Technology","KXSPOTA-28JANPREMSUBS","Spotify premium subscribers in 2026",10161,["Above 314 million","Above 330 million","Above 346 million"]],
+  ["carvana","Carvana","CVNA","Tempe, Arizona",33.4255,-111.94,"Mobility","KXCVNAA-28JANUNITS","Carvana vehicle sales in 2026",10035,["Above 780,000","Above 850,000","Above 920,000"]],
+  ["amazon","Amazon","AMZN","Seattle, Washington",47.61,-122.337,"Technology","KXAMZNA-28JANHEAD","Amazon headcount in 2026",30149,["Above 1.5 million","Above 1.6 million","Above 1.7 million"]],
+  ["apple","Apple","AAPL","Cupertino, California",37.323,-122.0322,"Technology","KXAAPLA-28JANHEAD","Apple headcount in 2026",8352,["Above 164,000","Above 170,000","Above 176,000"]],
+  ["google","Google","GOOG","Mountain View, California",37.422,-122.0841,"Technology","KXGOOGA-28JANHEAD","Google headcount in 2026",27729,["Above 188,000","Above 200,000","Above 212,000"]],
+  ["nvidia","Nvidia","NVDA","Santa Clara, California",37.3541,-121.9552,"Technology","KXNVDAA-28JANHEAD","Nvidia headcount in fiscal 2027",17100,["Above 46,000","Above 52,000","Above 58,000"]],
+  ["netflix","Netflix","NFLX","Los Gatos, California",37.2358,-121.9624,"Technology","KXNFLXA-28JANHEAD","Netflix headcount in 2026",11720,["Above 16,500","Above 18,000","Above 19,500"]],
+  ["bmw","BMW","BMW","Munich, Germany",48.1351,11.582,"Mobility","KXELECTRICM3-28","Will BMW release a fully electric M3 before 2028?",19484,["Fully electric M3"]]
+];
+
+const isInternationalCompany = location => ["Argentina", "Italy", "Singapore", "Sweden", "Germany"]
+  .some(country => location.includes(country));
+
+const companyBundles = companies.map(([id,name,code,location,lat,lon,kind,eventTicker,title,volume,labels], index) => ({
+  id, name, code, location, lat, lon, kind,
+  horizon: isInternationalCompany(location) ? "International" : "United States",
+  markets: [{
+    id: `${eventTicker}:${id}`, eventTicker, seriesTicker: eventTicker.split("-")[0], title, volume, kind, endsAt: "2028-01-31T21:00:00Z",
+    horizon: isInternationalCompany(location) ? "International" : "United States",
+    markerCode: code,
+    url: `https://kalshi.com/markets_by_ticker/${eventTicker.toLowerCase()}`,
+    outcomes: labels.map((label, outcomeIndex) => ({ name: label, price: Math.max(1, Math.min(99, 88 - outcomeIndex * 31 - (index % 7))) }))
+  }]
+}));
+
+const musicMarket = (eventTicker, marketTicker, title, artist, volume, price, relationship) => ({
+  id: `${eventTicker}:${marketTicker}`,
+  eventTicker,
+  seriesTicker: eventTicker.split("-")[0],
+  marketTicker,
+  title,
+  subtitle: `${artist} · ${relationship}`,
+  volume,
+  kind: "Music",
+  endsAt: "2027-12-31T23:59:00Z",
+  horizon: "United States",
+  url: `https://kalshi.com/markets_by_ticker/${marketTicker.toLowerCase()}`,
+  outcomes: [{ name: artist, ticker: marketTicker, price, volume }]
+});
+
+const musicBundles = [
+  {
+    id: "music-toronto", name: "Toronto artists", code: "YYZ", location: "Toronto, Canada · Artist base", lat: 43.6532, lon: -79.3832, kind: "Music", horizon: "International",
+    markets: [
+      musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-DRA", "Will Drake be the #1 most streamed U.S. Spotify artist in 2026?", "Drake", 196069, 79, "Artist base"),
+      musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-WEE", "Will The Weeknd be the #1 most streamed U.S. Spotify artist in 2026?", "The Weeknd", 38194, 1, "Artist origin")
+    ]
+  },
+  {
+    id: "music-san-juan", name: "San Juan artists", code: "SJU", location: "San Juan, Puerto Rico · Artist origin", lat: 18.4655, lon: -66.1057, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-BAD", "Will Bad Bunny be the #1 most streamed U.S. Spotify artist in 2026?", "Bad Bunny", 176876, 10, "Artist origin")]
+  },
+  {
+    id: "music-nashville", name: "Nashville artists", code: "BNA", location: "Nashville, Tennessee · Artist base", lat: 36.1627, lon: -86.7816, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-TAY", "Will Taylor Swift be the #1 most streamed U.S. Spotify artist in 2026?", "Taylor Swift", 133746, 8, "Artist base")]
+  },
+  {
+    id: "music-honolulu", name: "Honolulu artists", code: "HNL", location: "Honolulu, Hawaii · Artist origin", lat: 21.3099, lon: -157.8581, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-BRUN", "Will Bruno Mars be the #1 most streamed U.S. Spotify artist in 2026?", "Bruno Mars", 99408, 2, "Artist origin")]
+  },
+  {
+    id: "music-seoul", name: "Seoul artists", code: "SEL", location: "Seoul, South Korea · Group origin", lat: 37.5665, lon: 126.978, kind: "Music", horizon: "International",
+    markets: [musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-BTS", "Will BTS be the #1 most streamed U.S. Spotify artist in 2026?", "BTS", 53563, 1, "Group origin")]
+  },
+  {
+    id: "music-compton", name: "Compton artists", code: "CPT", location: "Compton, California · Artist origin", lat: 33.8958, lon: -118.2201, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-KEN", "Will Kendrick Lamar be the #1 most streamed U.S. Spotify artist in 2026?", "Kendrick Lamar", 39008, 2, "Artist origin")]
+  },
+  {
+    id: "music-houston", name: "Houston artists", code: "HOU", location: "Houston, Texas · Artist origin", lat: 29.7604, lon: -95.3698, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXTOPARTISTUSA-26", "KXTOPARTISTUSA-26-BEY", "Will Beyonce be the #1 most streamed U.S. Spotify artist in 2026?", "Beyonce", 14135, 1, "Artist origin")]
+  },
+  {
+    id: "music-sphere", name: "Sphere", code: "SPH", location: "Sphere · Las Vegas, Nevada", lat: 36.1208, lon: -115.1645, kind: "Music", horizon: "United States",
+    markets: [
+      musicMarket("KXVENUEPERFORMANCESPHERE-28JAN01", "KXVENUEPERFORMANCESPHERE-28JAN01-TAY", "Will Taylor Swift perform at Las Vegas Sphere in 2027?", "Taylor Swift", 7846, 24, "Venue"),
+      musicMarket("KXVENUEPERFORMANCESPHERE-28JAN01", "KXVENUEPERFORMANCESPHERE-28JAN01-BEY", "Will Beyonce perform at Las Vegas Sphere in 2027?", "Beyonce", 5489, 27, "Venue")
+    ]
+  },
+  {
+    id: "music-msg", name: "Madison Square Garden", code: "MSG", location: "Madison Square Garden · New York, New York", lat: 40.7505, lon: -73.9934, kind: "Music", horizon: "United States",
+    markets: [
+      musicMarket("KXVENUEPERFORMANCEMSG-27DEC31", "KXVENUEPERFORMANCEMSG-27DEC31-SAB", "Will Sabrina Carpenter perform at Madison Square Garden in 2027?", "Sabrina Carpenter", 325, 49, "Venue"),
+      musicMarket("KXVENUEPERFORMANCEMSG-27DEC31", "KXVENUEPERFORMANCEMSG-27DEC31-DRA", "Will Drake perform at Madison Square Garden in 2027?", "Drake", 88, 47, "Venue")
+    ]
+  },
+  {
+    id: "music-rolling-loud-miami", name: "Rolling Loud Miami", code: "RLM", location: "Miami, Florida · Festival city", lat: 25.7617, lon: -80.1918, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXROLEATEVENTROLLING-27DEC31", "KXROLEATEVENTROLLING-27DEC31-TRA", "Will Travis Scott headline Rolling Loud Miami 2026?", "Travis Scott", 3106, 1, "Festival city")]
+  },
+  {
+    id: "music-coachella", name: "Coachella", code: "COA", location: "Empire Polo Club · Indio, California", lat: 33.6803, lon: -116.237, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXROLEATEVENTCOACHELLA-27DEC31", "KXROLEATEVENTCOACHELLA-27DEC31-BAD", "Will Bad Bunny headline Coachella 2027?", "Bad Bunny", 479, 14, "Festival venue")]
+  },
+  {
+    id: "music-lollapalooza", name: "Lollapalooza Chicago", code: "LOL", location: "Grant Park · Chicago, Illinois", lat: 41.8757, lon: -87.6189, kind: "Music", horizon: "United States",
+    markets: [musicMarket("KXPERFORM-27", "KXPERFORM-27-BIL", "Will Billie Eilish perform at Lollapalooza Chicago 2027?", "Billie Eilish", 0, 0, "Festival venue")]
+  },
+  {
+    id: "music-stratford-on", name: "Stratford artists", code: "STR", location: "Stratford, Ontario · Artist origin", lat: 43.37, lon: -80.982, kind: "Music", horizon: "International",
+    markets: [musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-JUS", "IFPI's biggest-selling global recording artist of 2026?", "Justin Bieber", 121, 4, "Artist origin")]
+  },
+  {
+    id: "music-london", name: "London artists", code: "LON", location: "London, United Kingdom · Artist origin", lat: 51.5074, lon: -0.1278, kind: "Music", horizon: "International",
+    markets: [musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-ADE", "IFPI's biggest-selling global recording artist of 2026?", "Adele", 38, 1, "Artist origin")]
+  },
+  {
+    id: "music-suffolk", name: "Suffolk artists", code: "SFK", location: "Framlingham, Suffolk · Artist base", lat: 52.2219, lon: 1.342, kind: "Music", horizon: "International",
+    markets: [musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-EDS", "IFPI's biggest-selling global recording artist of 2026?", "Ed Sheeran", 38, 1, "Artist base")]
+  },
+  {
+    id: "music-tokyo", name: "Tokyo artists", code: "TYO", location: "Tokyo, Japan · Group origin", lat: 35.6762, lon: 139.6503, kind: "Music", horizon: "International",
+    markets: [musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-MRS", "IFPI's biggest-selling global recording artist of 2026?", "Mrs. GREEN APPLE", 43, 4, "Group origin")]
+  }
+];
+
+musicBundles.find(bundle => bundle.id === "music-toronto").markets.push(
+  musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-DRA", "IFPI's biggest-selling global recording artist of 2026?", "Drake", 199, 9, "Artist origin"),
+  musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-WEE", "IFPI's biggest-selling global recording artist of 2026?", "The Weeknd", 40, 2, "Artist origin")
+);
+
+musicBundles.find(bundle => bundle.id === "music-seoul").markets.push(
+  musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-BTS", "IFPI's biggest-selling global recording artist of 2026?", "BTS", 1216, 72, "Group origin"),
+  musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-STR", "IFPI's biggest-selling global recording artist of 2026?", "Stray Kids", 43, 4, "Group origin"),
+  musicMarket("KXRANKLISTIFPIARTIST-27FEB28", "KXRANKLISTIFPIARTIST-27FEB28-SEV", "IFPI's biggest-selling global recording artist of 2026?", "SEVENTEEN", 63, 1, "Group origin")
+);
+
+for (const bundle of musicBundles) {
+  for (const market of bundle.markets) {
+    market.horizon = bundle.horizon;
+    market.markerCode = bundle.code;
+  }
+}
+
+export const businessBundles = [...companyBundles, ...musicBundles]
+  .sort((left, right) => Math.max(0, ...right.markets.map(market => market.volume)) - Math.max(0, ...left.markets.map(market => market.volume)));
+
+export const businessHorizons = ["All", "United States", "International"];

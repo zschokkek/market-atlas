@@ -22,6 +22,7 @@ const range = app.querySelector(".timeline-range");
 const stopsLayer = app.querySelector(".timeline-stops");
 const horizonLabel = app.querySelector(".timeline-label");
 const activity = app.querySelector(".timeline-activity");
+const namedMarkerLabels = app.classList.contains("business-app");
 
 const NS = "http://www.w3.org/2000/svg";
 const WIDTH = 620;
@@ -31,6 +32,7 @@ const MIN_SCALE = 235;
 const MAX_SCALE = 7600;
 const GLOBAL_ANCHOR_SCALE = 620;
 const GLOBAL_ANCHOR_POINT = [WIDTH - 26, 28];
+const BUSINESS_HORIZON_BUFFER = 6 * Math.PI / 180;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sphere = { type: "Sphere" };
 const projection = geoOrthographic().translate(CENTER).scale(MIN_SCALE).clipAngle(90).precision(.35).rotate([92, -31, 0]);
@@ -40,6 +42,16 @@ const states = feature(us, us.objects.states).features;
 const countryNodes = countries.map(item => ({ item, node: appendSvg(countryLayer, "path", `country${item.properties?.id === "USA" ? " is-usa" : ""}`) }));
 const stateNodes = states.map(item => ({ item, node: appendSvg(stateLayer, "path", "state-boundary") }));
 const accents = { "Temperature": "#f0a15f", "Rain & Snow": "#74b9dc", "Hurricanes": "#b7a4e4", "Natural Disasters": "#dc7a70", "Climate Change": "#79c6a1" };
+const BUSINESS_METROS = [
+  { id: "business-metro-new-york", name: "New York", code: "NYC", location: "New York metropolitan area", lat: 40.7128, lon: -74.006, radiusKm: 70 },
+  { id: "business-metro-bay-area", name: "San Francisco Bay Area", code: "SF", location: "San Francisco Bay Area", lat: 37.62, lon: -122.22, radiusKm: 90 },
+  { id: "business-metro-los-angeles", name: "Los Angeles", code: "LA", location: "Los Angeles metropolitan area", lat: 34.0522, lon: -118.2437, radiusKm: 85 },
+  { id: "business-metro-chicago", name: "Chicago", code: "CHI", location: "Chicago metropolitan area", lat: 41.8781, lon: -87.6298, radiusKm: 65 },
+  { id: "business-metro-washington", name: "Washington, D.C.", code: "DC", location: "Washington metropolitan area", lat: 38.9072, lon: -77.0369, radiusKm: 60 },
+  { id: "business-metro-miami", name: "Miami", code: "MIA", location: "Miami metropolitan area", lat: 25.7617, lon: -80.1918, radiusKm: 70 },
+  { id: "business-metro-boston", name: "Boston", code: "BOS", location: "Boston metropolitan area", lat: 42.3601, lon: -71.0589, radiusKm: 55 },
+  { id: "business-metro-dallas-fort-worth", name: "Dallas–Fort Worth", code: "DFW", location: "Dallas–Fort Worth metropolitan area", lat: 32.84, lon: -97.1, radiusKm: 75, minMembers: 1 }
+];
 
 let horizonIndex = 0;
 let selectedId = "los-angeles";
@@ -55,6 +67,7 @@ let zoomFrame = null;
 let integratedActive = !app.closest("[data-category-view]");
 let feedEtag = "";
 let feedTimer = null;
+let lastBusinessPlacedIds = new Set();
 
 const mobileMarketViewport = () => window.matchMedia("(max-width: 700px), (hover: none)").matches;
 const preciseHoverViewport = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
@@ -104,10 +117,40 @@ function marketCode(market, fallback) {
   return `${Math.round(yes?.price ?? outcomes[0].price)}%`;
 }
 
+function clusterBusinessMetros(bundles) {
+  if (!namedMarkerLabels) return bundles;
+  const assigned = new Set();
+  const metroBundles = [];
+  for (const metro of BUSINESS_METROS) {
+    const members = bundles.filter(bundle => !assigned.has(bundle.id)
+      && geoDistance([metro.lon, metro.lat], [Number(bundle.lon), Number(bundle.lat)]) * 6371 <= metro.radiusKm);
+    if (members.length < Number(metro.minMembers || 2)) continue;
+    members.forEach(bundle => assigned.add(bundle.id));
+    const markets = members.flatMap(bundle => bundle.markets.map(market => ({
+      ...market,
+      sourceBundleId: bundle.id,
+      sourceBundleName: bundle.name,
+      markerCode: metro.code
+    })));
+    const representative = markets.slice().sort((left, right) => right.volume - left.volume)[0];
+    metroBundles.push({
+      ...metro,
+      location: `${metro.location} · ${members.length} mapped locations`,
+      kind: representative?.kind || members[0].kind,
+      horizon: representative?.horizon || members[0].horizon,
+      isMetroCluster: true,
+      memberIds: members.map(bundle => bundle.id),
+      markets
+    });
+  }
+  return [...metroBundles, ...bundles.filter(bundle => !assigned.has(bundle.id))]
+    .sort((left, right) => bundleVolume(right) - bundleVolume(left));
+}
+
 function visibleBundles() {
   const horizon = activeWeatherHorizons[horizonIndex];
   const kinds = activeKinds();
-  return activeWeatherBundles.map(bundle => {
+  return clusterBusinessMetros(activeWeatherBundles).map(bundle => {
     const markets = bundle.markets.filter(market => {
       const marketKind = market.kind || bundle.kind;
       const marketHorizon = market.horizon || bundle.horizon;
@@ -119,7 +162,7 @@ function visibleBundles() {
       markets,
       kind: representative?.kind || bundle.kind,
       horizon: representative?.horizon || bundle.horizon,
-      code: marketCode(representative, bundle.code)
+      code: bundle.isMetroCluster ? bundle.code : marketCode(representative, bundle.code)
     };
   }).filter(bundle => bundle.markets.length);
 }
@@ -213,6 +256,11 @@ function makeMarker(bundle) {
   const halo = appendSvg(group, "circle", "marker-halo"); halo.setAttribute("r", String(radius + 3));
   const core = appendSvg(group, "circle", "marker-core"); core.setAttribute("r", String(radius));
   const label = appendSvg(group, "text"); label.textContent = bundle.code;
+  let nameLabel = null;
+  if (namedMarkerLabels) {
+    nameLabel = appendSvg(group, "text", "marker-name-label");
+    nameLabel.textContent = bundle.name;
+  }
   if (bundle.markets.length > 1) {
     const count = appendSvg(group, "circle", "market-count"); count.setAttribute("cx", String(radius)); count.setAttribute("cy", String(-radius)); count.setAttribute("r", "5.3");
     const countText = appendSvg(group, "text", "market-count-text"); countText.setAttribute("x", String(radius)); countText.setAttribute("y", String(-radius)); countText.textContent = String(bundle.markets.length);
@@ -223,7 +271,7 @@ function makeMarker(bundle) {
   group.addEventListener("mouseleave", scheduleTooltipHide);
   group.addEventListener("click", select);
   group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
-  return { bundle, group, radius };
+  return { bundle, group, radius, nameLabel, nameLabelWidth: Math.max(16, bundle.name.length * 4.15) };
 }
 
 function isGlobalClimate(bundle) {
@@ -243,14 +291,87 @@ function markerSpacing() {
   return 10;
 }
 
+function boxesOverlap(left, right, gap = 3) {
+  return left.x < right.x + right.width + gap
+    && left.x + left.width + gap > right.x
+    && left.y < right.y + right.height + gap
+    && left.y + left.height + gap > right.y;
+}
+
+function boxTouchesMarker(box, marker, gap = 2) {
+  const closestX = Math.max(box.x, Math.min(marker.x, box.x + box.width));
+  const closestY = Math.max(box.y, Math.min(marker.y, box.y + box.height));
+  return Math.hypot(marker.x - closestX, marker.y - closestY) < marker.radius + gap;
+}
+
+function businessLabelCandidates(node, x, y) {
+  const gap = 5;
+  const height = 11;
+  const rightX = x + node.radius + gap;
+  const leftX = x - node.radius - gap - node.nameLabelWidth;
+  const upperY = y - node.radius - gap - height;
+  const lowerY = y + node.radius + gap;
+  const makeBox = (side, boxX, boxY) => ({
+    side,
+    x: boxX,
+    y: boxY,
+    width: node.nameLabelWidth,
+    height,
+    textX: side === "right" ? boxX - x : boxX + node.nameLabelWidth - x,
+    textY: boxY - y + 8,
+    anchor: side === "right" ? "start" : "end"
+  });
+  return [
+    makeBox("right", rightX, y - height / 2),
+    makeBox("left", leftX, y - height / 2),
+    makeBox("right", x + node.radius * .45 + gap, upperY),
+    makeBox("left", x - node.radius * .45 - gap - node.nameLabelWidth, upperY),
+    makeBox("right", x + node.radius * .45 + gap, lowerY),
+    makeBox("left", x - node.radius * .45 - gap - node.nameLabelWidth, lowerY)
+  ];
+}
+
+function businessLabelPlacement(node, x, y, accepted, allowOverlap = false) {
+  const rawCandidates = businessLabelCandidates(node, x, y);
+  const candidates = rawCandidates.filter(box => box.x >= 4
+    && box.x + box.width <= WIDTH - 4
+    && box.y >= 4
+    && box.y + box.height <= HEIGHT - 4);
+  const collisionCount = box => accepted.reduce((count, other) => count
+    + Number(boxesOverlap(box, other.labelBox))
+    + Number(boxTouchesMarker(box, other))
+    + Number(boxTouchesMarker(other.labelBox, { x, y, radius: node.radius })), 0);
+  const clear = candidates.find(box => collisionCount(box) === 0);
+  if (clear || !allowOverlap) return clear || null;
+  const leastCrowded = candidates.sort((left, right) => collisionCount(left) - collisionCount(right))[0];
+  if (leastCrowded) return leastCrowded;
+  const preferred = rawCandidates[x < WIDTH / 2 ? 0 : 1];
+  const clampedX = Math.max(4, Math.min(WIDTH - preferred.width - 4, preferred.x));
+  const clampedY = Math.max(4, Math.min(HEIGHT - preferred.height - 4, preferred.y));
+  return {
+    ...preferred,
+    x: clampedX,
+    y: clampedY,
+    textX: preferred.anchor === "start" ? clampedX - x : clampedX + preferred.width - x,
+    textY: clampedY - y + 8
+  };
+}
+
 function placeMarkers() {
   const center = projection.invert(CENTER);
+  const currentScale = projection.scale();
+  const businessFullDetail = namedMarkerLabels && currentScale >= 700;
+  const horizonLimit = Math.PI / 2 + (namedMarkerLabels ? BUSINESS_HORIZON_BUFFER : .0005);
+  const previouslyPlaced = lastBusinessPlacedIds;
   const candidates = markerNodes.map(node => {
     const anchored = isGlobalClimate(node.bundle) && projection.scale() >= GLOBAL_ANCHOR_SCALE;
     return { ...node, anchored, point: markerPoint(node.bundle), distance: anchored ? 0 : geoDistance(center, [node.bundle.lon, node.bundle.lat]), volume: bundleVolume(node.bundle) };
   })
-    .filter(node => node.point && (node.anchored || node.distance < Math.PI / 2 - .012))
-    .sort((a, b) => Number(b.anchored) - Number(a.anchored) || Number(b.bundle.id === selectedId) - Number(a.bundle.id === selectedId) || b.volume - a.volume);
+    .filter(node => node.point && (node.anchored || node.distance <= horizonLimit))
+    .sort((a, b) => Number(b.anchored) - Number(a.anchored)
+      || Number(b.bundle.id === selectedId) - Number(a.bundle.id === selectedId)
+      || Number(previouslyPlaced.has(b.bundle.id)) - Number(previouslyPlaced.has(a.bundle.id))
+      || b.volume - a.volume);
   markerNodes.forEach(node => {
     node.group.setAttribute("display", "none");
     node.group.classList.toggle("is-selected", node.bundle.id === selectedId);
@@ -259,21 +380,42 @@ function placeMarkers() {
   const accepted = [];
   for (const node of candidates) {
     const [x, y] = node.point;
+    if (namedMarkerLabels && (x < -node.radius || x > WIDTH + node.radius || y < -node.radius || y > HEIGHT + node.radius)) continue;
+    const wasPlaced = namedMarkerLabels && previouslyPlaced.has(node.bundle.id);
     const collision = accepted.some(other => Math.hypot(x - other.x, y - other.y) < markerSpacing() + Math.min(node.radius, other.radius) * .45);
-    if (collision && node.bundle.id !== selectedId) continue;
-    const horizonRoom = Math.PI / 2 - node.distance;
-    const opacity = node.anchored ? 1 : Math.max(0, Math.min(1, horizonRoom / .08));
+    if (collision && !businessFullDetail && !wasPlaced && node.bundle.id !== selectedId) continue;
+    const preservePlacement = wasPlaced;
+    const labelBox = namedMarkerLabels ? businessLabelPlacement(node, x, y, accepted, true) : null;
+    if (namedMarkerLabels && !labelBox && node.bundle.id !== selectedId) continue;
+    if (node.nameLabel) {
+      const placement = labelBox || businessLabelCandidates(node, x, y)[x < WIDTH / 2 ? 0 : 1];
+      node.nameLabel.setAttribute("x", String(placement.textX));
+      node.nameLabel.setAttribute("y", String(placement.textY));
+      node.nameLabel.style.textAnchor = placement.anchor;
+    }
+    const opacity = 1;
     node.group.removeAttribute("display");
     node.group.setAttribute("transform", `translate(${x},${y})`);
     node.group.style.opacity = String(opacity);
     node.group.style.pointerEvents = opacity < .12 ? "none" : "auto";
-    accepted.push({ x, y, radius: node.radius, anchored: node.anchored });
+    accepted.push({
+      x,
+      y,
+      radius: node.radius,
+      anchored: node.anchored,
+      id: node.bundle.id,
+      labelBox: labelBox || { x, y, width: 0, height: 0 }
+    });
+  }
+  if (namedMarkerLabels) {
+    lastBusinessPlacedIds = new Set(accepted.map(node => node.id));
   }
   hud.textContent = `${accepted.length} locations in frame · ${uniqueMarketCount(candidates.map(node => node.bundle))} individual markets`;
 }
 
 function placeLabels() {
   labelLayer.replaceChildren();
+  if (namedMarkerLabels) return;
   if (projection.scale() < 760) return;
   const center = projection.invert(CENTER);
   const accepted = [];
@@ -323,11 +465,13 @@ function rebuild() {
   hideTooltip();
   const bundles = visibleBundles();
   markerLayer.replaceChildren();
+  if (namedMarkerLabels) lastBusinessPlacedIds = new Set();
   markerNodes = bundles.map(makeMarker);
   filterCount.textContent = String(bundles.length);
   activity.textContent = `${bundles.length} locations · ${uniqueMarketCount(bundles)} markets`;
   const searchSelectedId = app.dataset.searchSelectedId || pinnedSearchId;
-  let selected = bundles.find(bundle => bundle.id === searchSelectedId) || bundles.find(bundle => bundle.id === selectedId);
+  let selected = bundles.find(bundle => bundle.id === searchSelectedId || bundle.memberIds?.includes(searchSelectedId))
+    || bundles.find(bundle => bundle.id === selectedId || bundle.memberIds?.includes(selectedId));
   if (pinnedSearchId && !selected) pinnedSearchId = null;
   if (searchSelectedId && !selected) delete app.dataset.searchSelectedId;
   if (!selected) selected = [...bundles].sort((a, b) => bundleVolume(b) - bundleVolume(a))[0] || null;
@@ -364,6 +508,7 @@ app.querySelector(".timeline-next").addEventListener("click", () => { horizonInd
 svg.addEventListener("pointerdown", event => {
   if (event.button !== 0) return;
   event.preventDefault(); hideTooltip(); cancelAnimationFrame(zoomFrame); zoomFrame = null;
+  if (namedMarkerLabels) lastBusinessPlacedIds = new Set();
   drag = { id: event.pointerId, x: event.clientX, y: event.clientY, rotation: projection.rotate() };
   svg.setPointerCapture(event.pointerId);
 });
@@ -395,6 +540,7 @@ function animateToLocation(lon, lat, targetScale = 1050, duration = 380) {
   if (!Number.isFinite(boundedLon) || !Number.isFinite(boundedLat)) return false;
   cancelAnimationFrame(zoomFrame);
   hideTooltip();
+  if (namedMarkerLabels) lastBusinessPlacedIds = new Set();
   const startRotation = projection.rotate();
   const targetRotation = [-boundedLon, -boundedLat, 0];
   const longitudeDelta = ((targetRotation[0] - startRotation[0] + 540) % 360) - 180;
@@ -475,7 +621,7 @@ window.__integratedWeatherView = {
   revealLocation(result) {
     const lon = Number(result?.lon), lat = Number(result?.lat);
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return false;
-    const ranked = activeWeatherBundles.map(bundle => {
+    const ranked = visibleBundles().map(bundle => {
       const longitudeDelta = Math.abs(((Number(bundle.lon) - lon + 540) % 360) - 180);
       const latitudeDelta = Math.abs(Number(bundle.lat) - lat);
       return { bundle, distance: Math.hypot(longitudeDelta * Math.cos(lat * Math.PI / 180), latitudeDelta) };
@@ -488,8 +634,8 @@ window.__integratedWeatherView = {
     hideTooltip(); draw(); return true;
   },
   revealMarket(result) {
-    const bundle = activeWeatherBundles.find(item => item.id === result?.bundleId)
-      || activeWeatherBundles.find(item => item.markets.some(market => market.eventTicker === result?.eventTicker));
+    const bundle = visibleBundles().find(item => item.id === result?.bundleId || item.memberIds?.includes(result?.bundleId))
+      || visibleBundles().find(item => item.markets.some(market => market.eventTicker === result?.eventTicker));
     if (!bundle) return false;
     app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); projection.rotate([-bundle.lon, -bundle.lat, 0]); projection.scale(Math.max(420, Math.min(900, projection.scale()))); draw(); return true;
   }

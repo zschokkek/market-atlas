@@ -3,7 +3,8 @@ const suggestions = [
   "rain in Philadelphia",
   "Dodgers tonight",
   "close Senate races",
-  "F1 next week"
+  "F1 next week",
+  "Tesla deliveries"
 ];
 
 const compactVolume = value => {
@@ -136,6 +137,7 @@ function setupMarketSearch(shell, instance) {
       category.textContent = result.type === "location" ? "MAP"
         : result.category === "politics" ? "POL"
           : result.category === "weather" ? "WX"
+            : result.category === "business" ? "BUS"
             : result.seriesTicker?.replace(/^KX/, "").replace(/GAME$/, "") || "SPORT";
       const date = document.createElement("span");
       date.className = "market-search-result-date";

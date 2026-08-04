@@ -1,4 +1,5 @@
 import { classifyPoliticsLocations, houseRaceRevealScale, MAJOR_SENATE_PRIMARY_VOLUME, politicsMarketUrl, politicsParty, politicsSeriesSlug, politicsTimeline, resolveKalshiSeriesSlug, VERIFIED_POLITICS_SERIES_SLUGS } from "./politics-registry.js";
+import { buildBusinessPublicSnapshot, BUSINESS_SERIES_TICKERS } from "./business-registry.js";
 import { searchMarkets } from "./market-search.js";
 import { buildWeatherPublicSnapshot, resolveWeatherLocations } from "./weather-registry.js";
 
@@ -18,6 +19,9 @@ const POLITICS_LINK_VERSION = 3;
 const POLITICS_REGISTRY_VERSION = 4;
 const WEATHER_STATE_KEY = "kalshi:weather:state:v1";
 const WEATHER_PUBLIC_KEY = "kalshi:weather:public:v1";
+const BUSINESS_STATE_KEY = "kalshi:business:state:v1";
+const BUSINESS_PUBLIC_KEY = "kalshi:business:public:v1";
+const BUSINESS_REGISTRY_VERSION = 4;
 const GEOGRAPHIC_DISCOVERY_INTERVAL_MS = 60 * 60 * 1000;
 const SCHEDULED_REFRESH_COOLDOWN_MS = 45 * 1000;
 export const SCHEDULED_REFRESH_STEPS = ["geographic", "sports", "futures"];
@@ -48,6 +52,7 @@ const NEAR_TERM_RESPONSE_WINDOW_MS = 48 * 60 * 60 * 1000;
 let localPollPromise = null;
 let localPoliticsPollPromise = null;
 let localWeatherPollPromise = null;
+let localBusinessPollPromise = null;
 
 export const MLB_TEAMS = {
   AZ: ["Arizona Diamondbacks", "Arizona", "Diamondbacks"], ATL: ["Atlanta Braves", "Atlanta", "Braves"],
@@ -689,6 +694,7 @@ async function discoverGeographicEvents(env, gate, now) {
     .map(series => [String(series.ticker || "").toUpperCase(), series]));
   const politicsEvents = {};
   const weatherEvents = {};
+  const businessEvents = {};
   const politicsUnmapped = [];
   let cursor = "";
   let requestCount = politicsMetadata.requestCount + 1;
@@ -729,6 +735,7 @@ async function discoverGeographicEvents(env, gate, now) {
           seriesFrequency: weatherSeries.frequency || ""
         };
       }
+      if (BUSINESS_SERIES_TICKERS.has(seriesTicker)) businessEvents[normalized.eventTicker] = normalized;
     }
     cursor = payload.cursor || "";
     if (requestCount >= 100) throw new Error("Geographic discovery exceeded the pagination safety limit");
@@ -739,8 +746,30 @@ async function discoverGeographicEvents(env, gate, now) {
     politicsUnmapped: politicsUnmapped.slice(0, 80),
     weatherEvents,
     weatherSeriesCount: climateSeries.size,
+    businessEvents,
     requestCount
   };
+}
+
+async function discoverBusinessEvents(env, gate, now) {
+  const events = {};
+  let cursor = "";
+  let requestCount = 0;
+  do {
+    const query = new URLSearchParams({ limit: "200", status: "open", with_nested_markets: "true" });
+    if (cursor) query.set("cursor", cursor);
+    const payload = await kalshiFetch(env, `/events?${query}`, gate);
+    requestCount += 1;
+    for (const event of payload.events || []) {
+      const snapshot = normalizeEvent(event, event.markets || [], now);
+      if (snapshot.eventTicker && BUSINESS_SERIES_TICKERS.has(String(snapshot.seriesTicker || "").toUpperCase())) {
+        events[snapshot.eventTicker] = snapshot;
+      }
+    }
+    cursor = payload.cursor || "";
+    if (requestCount >= 100) throw new Error("Business discovery exceeded the pagination safety limit");
+  } while (cursor);
+  return { events, requestCount };
 }
 
 export function weatherPollInterval(snapshot, now = Date.now()) {
@@ -824,6 +853,58 @@ export async function runWeatherPoll(env, now = Date.now(), options = {}) {
     prior.lastErrorAt = now;
     prior.lastError = error?.message || String(error);
     await env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(prior));
+    throw error;
+  }
+}
+
+export async function runBusinessPoll(env, now = Date.now(), options = {}) {
+  const prior = await env.MARKET_ATLAS_CACHE.get(BUSINESS_STATE_KEY, "json") || { lastDiscoveryAt: 0, events: {} };
+  prior.events ||= {};
+  const discoveryDue = prior.registryVersion !== BUSINESS_REGISTRY_VERSION
+    || now - number(prior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
+    || !Object.keys(prior.events).length;
+  const gate = options.gate || createRateGate(geographicRequestsPerSecond(env));
+  let requestCount = 0;
+  try {
+    if (discoveryDue) {
+      const discovery = await discoverBusinessEvents(env, gate, now);
+      prior.events = discovery.events;
+      prior.registryVersion = BUSINESS_REGISTRY_VERSION;
+      prior.lastDiscoveryAt = now;
+      requestCount = discovery.requestCount;
+    } else {
+      const due = Object.values(prior.events)
+        .filter(snapshot => now - new Date(snapshot.updatedAt || 0).getTime() >= 60 * 60 * 1000)
+        .sort((left, right) => new Date(left.updatedAt || 0) - new Date(right.updatedAt || 0))
+        .slice(0, Math.max(1, number(env.KALSHI_MAX_BUSINESS_REFRESHES_PER_RUN, 30)));
+      const refreshed = await mapWithConcurrency(due, Math.min(3, number(env.KALSHI_POLL_CONCURRENCY, 3)), snapshot => (
+        refreshEvent(env, snapshot.eventTicker, gate, now)
+      ));
+      for (const snapshot of refreshed) prior.events[snapshot.eventTicker] = snapshot;
+      requestCount = refreshed.length;
+    }
+    prior.lastRunAt = now;
+    prior.lastSuccessfulPollAt = now;
+    prior.lastRequestCount = requestCount;
+    prior.lastRequestSuccessCount = requestCount;
+    prior.lastError = null;
+    const publicData = buildBusinessPublicSnapshot(Object.values(prior.events), now, {
+      lastPollAt: new Date(now).toISOString(),
+      lastDiscoveryAt: prior.lastDiscoveryAt ? new Date(prior.lastDiscoveryAt).toISOString() : null,
+      discoveryIntervalMinutes: 60,
+      marketRefreshMinutes: 60,
+      source: "Kalshi public trade API"
+    });
+    await Promise.all([
+      env.MARKET_ATLAS_CACHE.put(BUSINESS_STATE_KEY, JSON.stringify(prior)),
+      env.MARKET_ATLAS_CACHE.put(BUSINESS_PUBLIC_KEY, JSON.stringify(publicData))
+    ]);
+    return { discoveryDue, requestCount, bundleCount: publicData.bundleCount, marketCount: publicData.marketCount };
+  } catch (error) {
+    prior.lastRunAt = now;
+    prior.lastErrorAt = now;
+    prior.lastError = error?.message || String(error);
+    await env.MARKET_ATLAS_CACHE.put(BUSINESS_STATE_KEY, JSON.stringify(prior));
     throw error;
   }
 }
@@ -1016,26 +1097,33 @@ function geographicRequestsPerSecond(env) {
 }
 
 export async function runGeographicPoll(env, now = Date.now(), options = {}) {
-  const [politicsPriorValue, weatherPriorValue] = await Promise.all([
+  const [politicsPriorValue, weatherPriorValue, businessPriorValue] = await Promise.all([
     env.MARKET_ATLAS_CACHE.get(POLITICS_STATE_KEY, "json"),
-    env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json")
+    env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json"),
+    env.MARKET_ATLAS_CACHE.get(BUSINESS_STATE_KEY, "json")
   ]);
   const politicsPrior = politicsPriorValue || { lastDiscoveryAt: 0, events: {} };
   const weatherPrior = weatherPriorValue || { lastDiscoveryAt: 0, events: {} };
+  const businessPrior = businessPriorValue || { lastDiscoveryAt: 0, events: {} };
   politicsPrior.events ||= {};
   weatherPrior.events ||= {};
+  businessPrior.events ||= {};
   const discoveryDue = Boolean(options.forceDiscovery)
     || politicsPrior.registryVersion !== POLITICS_REGISTRY_VERSION
     || now - number(politicsPrior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
     || now - number(weatherPrior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
+    || businessPrior.registryVersion !== BUSINESS_REGISTRY_VERSION
+    || now - number(businessPrior.lastDiscoveryAt, 0) >= GEOGRAPHIC_DISCOVERY_INTERVAL_MS
     || !Object.keys(politicsPrior.events).length
-    || !Object.keys(weatherPrior.events).length;
+    || !Object.keys(weatherPrior.events).length
+    || !Object.keys(businessPrior.events).length;
   const gate = options.gate || createRateGate(geographicRequestsPerSecond(env));
 
   if (!discoveryDue) {
     const politics = await runPoliticsPoll(env, now, { gate });
     const weather = await runWeatherPoll(env, now, { gate });
-    return { discoveryDue: false, requestCount: politics.requestCount + weather.requestCount, politics, weather };
+    const business = await runBusinessPoll(env, now, { gate });
+    return { discoveryDue: false, requestCount: politics.requestCount + weather.requestCount + business.requestCount, politics, weather, business };
   }
 
   try {
@@ -1063,6 +1151,17 @@ export async function runGeographicPoll(env, now = Date.now(), options = {}) {
       lastRequestSuccessCount: discovery.requestCount,
       lastError: null
     };
+    const businessState = {
+      ...businessPrior,
+      registryVersion: BUSINESS_REGISTRY_VERSION,
+      events: discovery.businessEvents,
+      lastDiscoveryAt: now,
+      lastRunAt: now,
+      lastSuccessfulPollAt: now,
+      lastRequestCount: discovery.requestCount,
+      lastRequestSuccessCount: discovery.requestCount,
+      lastError: null
+    };
     const sharedCache = {
       lastPollAt: new Date(now).toISOString(),
       lastDiscoveryAt: new Date(now).toISOString(),
@@ -1083,25 +1182,34 @@ export async function runGeographicPoll(env, now = Date.now(), options = {}) {
         seasonalRefreshMinutes: 15
       }, weatherUnmappedEvents(weatherState.events)
     );
+    const businessPublic = buildBusinessPublicSnapshot(Object.values(businessState.events), now, {
+      ...sharedCache,
+      marketRefreshMinutes: 60
+    });
     await Promise.all([
       env.MARKET_ATLAS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(politicsState)),
       env.MARKET_ATLAS_CACHE.put(POLITICS_PUBLIC_KEY, JSON.stringify(politicsPublic)),
       env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(weatherState)),
-      env.MARKET_ATLAS_CACHE.put(WEATHER_PUBLIC_KEY, JSON.stringify(weatherPublic))
+      env.MARKET_ATLAS_CACHE.put(WEATHER_PUBLIC_KEY, JSON.stringify(weatherPublic)),
+      env.MARKET_ATLAS_CACHE.put(BUSINESS_STATE_KEY, JSON.stringify(businessState)),
+      env.MARKET_ATLAS_CACHE.put(BUSINESS_PUBLIC_KEY, JSON.stringify(businessPublic))
     ]);
     return {
       discoveryDue: true,
       requestCount: discovery.requestCount,
       politics: { bundleCount: politicsPublic.bundleCount, marketCount: politicsPublic.marketCount },
-      weather: { seriesCount: weatherState.seriesCount, bundleCount: weatherPublic.bundleCount, marketCount: weatherPublic.marketCount }
+      weather: { seriesCount: weatherState.seriesCount, bundleCount: weatherPublic.bundleCount, marketCount: weatherPublic.marketCount },
+      business: { bundleCount: businessPublic.bundleCount, marketCount: businessPublic.marketCount }
     };
   } catch (error) {
     const message = error?.message || String(error);
     const failedPolitics = { ...politicsPrior, lastRunAt: now, lastErrorAt: now, lastError: message };
     const failedWeather = { ...weatherPrior, lastRunAt: now, lastErrorAt: now, lastError: message };
+    const failedBusiness = { ...businessPrior, lastRunAt: now, lastErrorAt: now, lastError: message };
     await Promise.all([
       env.MARKET_ATLAS_CACHE.put(POLITICS_STATE_KEY, JSON.stringify(failedPolitics)),
-      env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(failedWeather))
+      env.MARKET_ATLAS_CACHE.put(WEATHER_STATE_KEY, JSON.stringify(failedWeather)),
+      env.MARKET_ATLAS_CACHE.put(BUSINESS_STATE_KEY, JSON.stringify(failedBusiness))
     ]);
     throw error;
   }
@@ -1957,6 +2065,15 @@ function startLocalWeatherPoll(env, now = Date.now()) {
   return localWeatherPollPromise;
 }
 
+function startLocalBusinessPoll(env, now = Date.now()) {
+  if (!localBusinessPollPromise) {
+    localBusinessPollPromise = runBusinessPoll(env, now).finally(() => {
+      localBusinessPollPromise = null;
+    });
+  }
+  return localBusinessPollPromise;
+}
+
 const ALWAYS_INCLUDE_FOR_SCHEDULE_JOIN = new Set(["KXATP", "KXWTA"]);
 
 export function filterForDate(payload, date) {
@@ -2034,6 +2151,8 @@ async function handleRequest(request, env, ctx) {
     const politicsPublic = await env.MARKET_ATLAS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
     const weatherState = await env.MARKET_ATLAS_CACHE.get(WEATHER_STATE_KEY, "json");
     const weatherPublic = await env.MARKET_ATLAS_CACHE.get(WEATHER_PUBLIC_KEY, "json");
+    const businessState = await env.MARKET_ATLAS_CACHE.get(BUSINESS_STATE_KEY, "json");
+    const businessPublic = await env.MARKET_ATLAS_CACHE.get(BUSINESS_PUBLIC_KEY, "json");
     const now = Date.now();
     const events = Object.values(state?.events || {}).filter(snapshot => shouldRetain(snapshot, now));
     const overdueEvents = events.filter(snapshot => {
@@ -2044,10 +2163,11 @@ async function handleRequest(request, env, ctx) {
     const sportsReady = Boolean(state && publicData) && !state?.lastError;
     const politicsReady = Boolean(politicsState && politicsPublic) && !politicsState?.lastError;
     const weatherReady = Boolean(weatherState && weatherPublic) && !weatherState?.lastError;
+    const businessReady = Boolean(businessState && businessPublic) && !businessState?.lastError;
     return json({
       environment: env.ENVIRONMENT || "unknown",
-      ok: sportsReady && politicsReady && weatherReady,
-      ready: { sports: sportsReady, politics: politicsReady, weather: weatherReady },
+      ok: sportsReady && politicsReady && weatherReady && businessReady,
+      ready: { sports: sportsReady, politics: politicsReady, weather: weatherReady, business: businessReady },
       refreshCoordinator: env.REFRESH_COORDINATOR ? "durable-object" : "in-process",
       lastRunAt: state?.lastRunAt ? new Date(state.lastRunAt).toISOString() : null,
       lastSuccessfulPollAt: state?.lastSuccessfulPollAt ? new Date(state.lastSuccessfulPollAt).toISOString() : null,
@@ -2078,7 +2198,12 @@ async function handleRequest(request, env, ctx) {
       weatherLastError: weatherState?.lastError || null,
       weatherSeries: weatherState?.seriesCount || 0,
       weatherBundles: weatherPublic?.bundleCount || 0,
-      weatherMarkets: weatherPublic?.marketCount || 0
+      weatherMarkets: weatherPublic?.marketCount || 0,
+      businessLastRunAt: businessState?.lastRunAt ? new Date(businessState.lastRunAt).toISOString() : null,
+      businessLastSuccessfulPollAt: businessState?.lastSuccessfulPollAt ? new Date(businessState.lastSuccessfulPollAt).toISOString() : null,
+      businessLastError: businessState?.lastError || null,
+      businessBundles: businessPublic?.bundleCount || 0,
+      businessMarkets: businessPublic?.marketCount || 0
     });
   }
   if (url.pathname === "/api/politics") {
@@ -2157,10 +2282,47 @@ async function handleRequest(request, env, ctx) {
       }
     });
   }
+  if (url.pathname === "/api/business") {
+    const localRequest = new Set(["localhost", "127.0.0.1", "market-atlas.local"]).has(url.hostname);
+    let payload = await env.MARKET_ATLAS_CACHE.get(BUSINESS_PUBLIC_KEY, "json");
+    if (localRequest) {
+      const state = await env.MARKET_ATLAS_CACHE.get(BUSINESS_STATE_KEY, "json");
+      const pollDue = Date.now() - number(state?.lastRunAt, 0) >= LOCAL_SCHEDULER_INTERVAL_MS;
+      if (pollDue) {
+        const poll = startLocalBusinessPoll(env, Date.now());
+        if (!payload) {
+          try {
+            await poll;
+            payload = await env.MARKET_ATLAS_CACHE.get(BUSINESS_PUBLIC_KEY, "json");
+          } catch (error) {
+            console.warn("Initial local Business poll failed", error?.message || error);
+          }
+        } else if (ctx) {
+          ctx.waitUntil(poll.catch(error => console.warn("Local Business poll failed", error?.message || error)));
+        }
+      }
+    }
+    if (!payload) {
+      warmHostedCache(env, ctx, "business");
+      return json({ schemaVersion: 1, generatedAt: null, bundleCount: 0, marketCount: 0, horizons: [], bundles: [], warming: true }, {
+        status: 503,
+        headers: { "cache-control": "no-store", "retry-after": "15" }
+      });
+    }
+    const etag = `W/"business-${Date.parse(payload.generatedAt).toString(36)}-${payload.marketCount}"`;
+    if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
+    return json(payload, {
+      headers: {
+        etag,
+        "cache-control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+        "access-control-allow-origin": "*"
+      }
+    });
+  }
   if (url.pathname === "/api/search") {
     const query = String(url.searchParams.get("q") || "").trim().slice(0, 160);
     const limit = Math.max(1, Math.min(20, number(url.searchParams.get("limit"), 12)));
-    const activeCategory = ["sports", "politics", "weather"].includes(url.searchParams.get("active")) ? url.searchParams.get("active") : "sports";
+    const activeCategory = ["sports", "politics", "weather", "business"].includes(url.searchParams.get("active")) ? url.searchParams.get("active") : "sports";
     if (query.length < 2) return json({ query, total: 0, results: [], interpretation: { context: "Type at least two characters" } }, {
       headers: { "cache-control": "no-store", "access-control-allow-origin": "*" }
     });
@@ -2169,17 +2331,18 @@ async function handleRequest(request, env, ctx) {
     const edgeCache = globalThis.caches?.default;
     const cached = await edgeCache?.match(cacheRequest);
     if (cached) return cached;
-    const [sports, politics, weather, futures] = await Promise.all([
+    const [sports, politics, weather, business, futures] = await Promise.all([
       env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json"),
       env.MARKET_ATLAS_CACHE.get(POLITICS_PUBLIC_KEY, "json"),
       env.MARKET_ATLAS_CACHE.get(WEATHER_PUBLIC_KEY, "json"),
+      env.MARKET_ATLAS_CACHE.get(BUSINESS_PUBLIC_KEY, "json"),
       env.MARKET_ATLAS_CACHE.get(TEAM_FUTURES_STATE_KEY, "json")
     ]);
-    if (!sports && !politics && !weather && !futures) return json({ query, total: 0, results: [], warming: true }, {
+    if (!sports && !politics && !weather && !business && !futures) return json({ query, total: 0, results: [], warming: true }, {
       status: 503,
       headers: { "cache-control": "no-store", "retry-after": "15", "access-control-allow-origin": "*" }
     });
-    const payload = searchMarkets(query, { sports, politics, weather, futures }, { limit, activeCategory });
+    const payload = searchMarkets(query, { sports, politics, weather, business, futures }, { limit, activeCategory });
     const etagSeed = [sports?.generatedAt, politics?.generatedAt, weather?.generatedAt, futures?.generatedAt, activeCategory, payload.total].filter(Boolean).join("|");
     const etag = `W/\"search-${stableHash(etagSeed || query)}\"`;
     if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
