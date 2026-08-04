@@ -50,6 +50,8 @@ const BUSINESS_METROS = [
   { id: "business-metro-washington", name: "Washington, D.C.", code: "DC", location: "Washington metropolitan area", lat: 38.9072, lon: -77.0369, radiusKm: 60 },
   { id: "business-metro-miami", name: "Miami", code: "MIA", location: "Miami metropolitan area", lat: 25.7617, lon: -80.1918, radiusKm: 70 },
   { id: "business-metro-boston", name: "Boston", code: "BOS", location: "Boston metropolitan area", lat: 42.3601, lon: -71.0589, radiusKm: 55 },
+  { id: "business-metro-austin", name: "Austin", code: "AUS", location: "Austin metropolitan area", lat: 30.2672, lon: -97.7431, radiusKm: 60, minMembers: 1 },
+  { id: "business-metro-las-vegas", name: "Las Vegas", code: "LAS", location: "Las Vegas metropolitan area", lat: 36.1699, lon: -115.1398, radiusKm: 60, minMembers: 1 },
   { id: "business-metro-dallas-fort-worth", name: "Dallas–Fort Worth", code: "DFW", location: "Dallas–Fort Worth metropolitan area", lat: 32.84, lon: -97.1, radiusKm: 75, minMembers: 1 }
 ];
 
