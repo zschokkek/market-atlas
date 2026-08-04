@@ -27,7 +27,12 @@ test("Market Atlas app exposes one functional cross-category market search", asy
   assert.match(html, /assets\/search\.js/);
   assert.match(html, /src="\/assets\/app\.js\?v=[a-f0-9]{12}"/);
   assert.match(html, /src="\/assets\/search\.js\?v=[a-f0-9]{12}"/);
+  assert.match(html, /href="\/assets\/app\.css\?v=[a-f0-9]{12}"/);
+  assert.match(html, /href="\/assets\/globe-shell\.css\?v=[a-f0-9]{12}"/);
+  assert.match(html, /href="\/assets\/search\.css\?v=[a-f0-9]{12}"/);
   assert.match(source, /market-search:select/);
+  assert.match(await read("public/assets/search.js"), /market-search-result-date[\s\S]*searchDateLabel\(result\)/);
+  assert.match(await read("public/assets/search.css"), /\.market-search-result-date[\s\S]*font-variant-numeric: tabular-nums/);
   assert.match(source, /revealMarket\(result\)/);
   assert.match(source, /revealLocation\(result\)/);
   assert.match(source, /result\.type === "location"/);
@@ -358,6 +363,7 @@ test("mobile Sports uses the same full-width globe canvas as Politics and Weathe
   assert.doesNotMatch(source, /const center = \[310, 270\]/);
   assert.match(css, /\[data-category-view="sports"\][\s\S]*\.sports-layout,[\s\S]*height: 100%;[\s\S]*grid-template-areas: "globe" !important/);
   assert.match(css, /\[data-category-view="sports"\][\s\S]*\.globe-stage \{[\s\S]*width: 100%;[\s\S]*height: 100%;[\s\S]*min-height: 0/);
+  assert.match(css, /\[data-category-view="sports"\] #market-atlas-sports \.sports-globe \{[\s\S]*height: 100% !important;[\s\S]*max-height: none !important/);
   assert.match(css, /\.integration-stage,[\s\S]*\.category-view \{[\s\S]*overflow: hidden/);
   assert.match(css, /\[data-category-view="sports"\] > #market-atlas-sports,[\s\S]*height: 100%;[\s\S]*overflow: hidden/);
 });
@@ -386,9 +392,30 @@ test("desktop team futures and player props escape the scrollable detail card as
   const sports = await read("public/categories/sports/index.html");
   assert.match(sports, /root\.append\(teamMarketWindow, tennisMarketWindow\);/);
   assert.match(sports, /function positionFloatingMarketWindow\(panel\) \{[\s\S]*panel\.style\.position = "fixed";[\s\S]*panel\.style\.overflowY = "auto";[\s\S]*panel\.style\.zIndex = "120";/);
-  assert.match(sports, /teamMarketWindow\.hidden = false;\s*positionFloatingMarketWindow\(teamMarketWindow\);/);
-  assert.match(sports, /tennisMarketWindow\.hidden = false;\s*positionFloatingMarketWindow\(tennisMarketWindow\);/);
+  assert.match(sports, /teamMarketWindow\.hidden = false;[\s\S]{0,240}positionFloatingMarketWindow\(teamMarketWindow\);/);
+  assert.match(sports, /tennisMarketWindow\.hidden = false;[\s\S]{0,240}positionFloatingMarketWindow\(tennisMarketWindow\);/);
   assert.match(sports, /const detailTop = detailRect\.top - rootRect\.top/);
+});
+
+test("mobile team markets are bounded swipe-dismissible sheets with scrolling rows", async () => {
+  const sports = await read("public/categories/sports/index.html");
+  const shellCss = await read("public/assets/app.css");
+  assert.match(sports, /class="mobile-team-sheet-handle"/);
+  assert.match(sports, /function installSwipeDownDismiss\(panel, dismiss\)/);
+  assert.match(sports, /document\.body\.classList\.toggle\("sports-market-sheet-open"/);
+  assert.match(sports, /touchmove[\s\S]*--market-sheet-drag[\s\S]*event\.preventDefault/);
+  assert.match(sports, /distance > 96[\s\S]*is-swipe-closing[\s\S]*setTimeout\(dismiss, 190\)/);
+  assert.match(sports, /@media \(max-width: 720px\)[\s\S]*\.team-market-window,[\s\S]*right: 6px;[\s\S]*bottom: calc\(var\(--market-sheet-bottom, 0px\) \+ 6px\);[\s\S]*left: 6px;[\s\S]*width: auto;[\s\S]*height: min\(50dvh, 30rem\);[\s\S]*overflow: hidden;[\s\S]*border-radius: 17px !important/);
+  assert.match(sports, /border: 1px solid color-mix\(in srgb, var\(--integration-green\) 24%, var\(--integration-border\)\)/);
+  assert.match(sports, /const detailTop = detail\.getBoundingClientRect\(\)\.top;[\s\S]*--market-sheet-bottom[\s\S]*viewportHeight - detailTop/);
+  assert.match(sports, /closeTeamMarkets\(\) \{[\s\S]*hideTeamFutures\(\);[\s\S]*hideTennisMarkets\(\)/);
+  const app = await read("public/assets/app.js");
+  assert.match(app, /search\.addEventListener\("input"[\s\S]*closeTeamMarkets/);
+  assert.match(app, /closeTeamMarkets\(\) \{[\s\S]*__marketAtlasOddsBridges[\s\S]*closeTeamMarkets/);
+  assert.match(sports, /\.team-market-view:not\(\[hidden\]\),[\s\S]*display: flex;[\s\S]*min-height: 0;[\s\S]*overflow: hidden/);
+  assert.match(sports, /\.team-futures-list,[\s\S]*\.team-props-list,[\s\S]*\.tennis-matches-list[\s\S]*overflow-y: auto;[\s\S]*-webkit-overflow-scrolling: touch/);
+  assert.match(shellCss, /@media \(max-width: 700px\)[\s\S]*\.category-view\.is-active \{\s*transform: none;/);
+  assert.match(shellCss, /body\.sports-market-sheet-open \.integration-stage \{[\s\S]*z-index: 200;[\s\S]*overflow: visible/);
 });
 
 test("Sports maps exact Copa do Brasil markets and the AFCON future across all host countries", async () => {

@@ -1107,6 +1107,19 @@ body.integration-body {
     overflow: hidden;
   }
 
+  .category-view.is-active {
+    transform: none;
+  }
+
+  body.sports-market-sheet-open .integration-stage {
+    z-index: 200;
+    overflow: visible;
+  }
+
+  body.sports-market-sheet-open .category-view.is-active {
+    overflow: visible;
+  }
+
   .integration-shell {
     display: grid;
     height: 100dvh;
@@ -1718,6 +1731,12 @@ body.integration-body {
   .category-view .politics-globe {
     width: 100%;
     height: 100%;
+  }
+
+  [data-category-view="sports"] #market-atlas-sports .sports-globe {
+    height: 100% !important;
+    max-height: none !important;
+    margin: 0;
   }
 
   .category-view .map-tooltip,

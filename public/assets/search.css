@@ -161,6 +161,14 @@
   white-space: nowrap;
 }
 
+.market-search-result-date {
+  flex: none;
+  color: var(--foreground, var(--integration-foreground));
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .market-search-prices {
   gap: 0.42rem;
   min-width: 0;

@@ -469,14 +469,14 @@ export function searchMarkets(value, { sports = null, politics = null, weather =
   scored.sort((left, right) => intent.sort === "volume" ? right.volume - left.volume || right.score - left.score
     : intent.sort === "close" ? closeness(left) - closeness(right) || right.volume - left.volume
       : intent.sort === "soon" ? new Date(left.startsAt || "9999") - new Date(right.startsAt || "9999") || right.score - left.score
-        : right.score - left.score || right.volume - left.volume);
+        : right.volume - left.volume || right.score - left.score);
   const marketResults = scored.map(({ allOutcomes, score, tags, ...result }) => result);
   const mapResults = navigationResults(intent, { politics, weather }, options.activeCategory);
   const primaryMapResults = mapResults.filter(result => result.locationOnly);
   const secondaryMapResults = mapResults.filter(result => !result.locationOnly);
   const results = [...primaryMapResults, ...marketResults, ...secondaryMapResults].slice(0, limit);
   const context = [intent.category ? intent.category[0].toUpperCase() + intent.category.slice(1) : "All categories", intent.timing?.label,
-    intent.liveOnly ? "live" : null, intent.sort === "volume" ? "highest volume first" : intent.sort === "close" ? "closest prices first" : null]
+    intent.liveOnly ? "live" : null, intent.sort === "close" ? "closest prices first" : intent.sort === "soon" ? "soonest first" : "highest volume first"]
     .filter(Boolean).join(" · ");
   return {
     query: intent.query,

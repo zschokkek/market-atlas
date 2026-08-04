@@ -21,6 +21,10 @@ let sharedMapView = null;
 
 const sportsClient = createSportsDataClient();
 
+search.addEventListener("input", () => {
+  loadedViews.get("sports")?.closeTeamMarkets?.();
+});
+
 function sourceDocument(html) {
   return new DOMParser().parseFromString(html, "text/html");
 }
@@ -632,6 +636,9 @@ async function loadSportsView(view) {
     },
     revealMarket(result) {
       return window.__marketAtlasOddsBridges?.["market-atlas-sports"]?.revealMarket?.(result) || false;
+    },
+    closeTeamMarkets() {
+      window.__marketAtlasOddsBridges?.["market-atlas-sports"]?.closeTeamMarkets?.();
     }
   };
   installMobileCalendarDropdown(view, lifecycle, { label: "Schedule date" });
@@ -842,6 +849,7 @@ async function loadWeatherView(view) {
 }
 
 function closeTransientUi(view) {
+  document.body.classList.remove("sports-market-sheet-open");
   view.querySelectorAll(".map-tooltip").forEach(tooltip => {
     tooltip.hidden = true;
   });

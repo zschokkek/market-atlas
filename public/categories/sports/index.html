@@ -1018,6 +1018,7 @@ body{overflow-x:hidden}
       </section>
 
       <section class="team-market-window orbital-panel" role="dialog" aria-modal="false" aria-labelledby="team-market-window-title" aria-live="polite" hidden>
+        <div class="mobile-team-sheet-handle" aria-hidden="true"></div>
         <div class="team-view-heading">
           <div>
             <span class="team-view-kicker text-small">MLB team markets</span>
@@ -1043,6 +1044,7 @@ body{overflow-x:hidden}
       </section>
 
       <section class="tennis-market-window orbital-panel" role="dialog" aria-modal="false" aria-labelledby="tennis-market-window-title" aria-live="polite" hidden>
+        <div class="mobile-team-sheet-handle" aria-hidden="true"></div>
         <div class="team-view-heading">
           <div>
             <span class="team-view-kicker text-small">Tennis matches</span>
@@ -1906,6 +1908,10 @@ body{overflow-x:hidden}
     display: none;
   }
 
+  #market-atlas-sports .mobile-team-sheet-handle {
+    display: none;
+  }
+
   #market-atlas-sports .tennis-markets-trigger[hidden] {
     display: none;
   }
@@ -2678,12 +2684,73 @@ body{overflow-x:hidden}
     #market-atlas-sports .team-market-window,
     #market-atlas-sports .tennis-market-window {
       position: fixed;
-      top: 5.2rem;
-      right: auto;
-      left: 50%;
-      width: min(23rem, calc(100vw - 1.5rem));
-      max-height: calc(100vh - 10.4rem);
-      transform: translateX(-50%);
+      z-index: 160;
+      top: auto;
+      right: 6px;
+      bottom: calc(var(--market-sheet-bottom, 0px) + 6px);
+      left: 6px;
+      width: auto;
+      height: min(50dvh, 30rem);
+      max-height: min(50dvh, 30rem);
+      padding: max(0.55rem, env(safe-area-inset-top)) 0.9rem 0.8rem;
+      overflow: hidden;
+      overscroll-behavior: contain;
+      border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border));
+      border-radius: 17px !important;
+      background: linear-gradient(180deg, color-mix(in srgb, #242b27 97%, var(--integration-green) 3%), #171c19);
+      box-shadow: 0 18px 52px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transform: translateY(var(--market-sheet-drag, 0px));
+      transition: transform 190ms cubic-bezier(0.22, 0.72, 0.2, 1), opacity 150ms ease;
+    }
+
+    #market-atlas-sports .team-market-window.is-swipe-closing,
+    #market-atlas-sports .tennis-market-window.is-swipe-closing {
+      --market-sheet-drag: 105dvh;
+      opacity: 0.72;
+    }
+
+    #market-atlas-sports .mobile-team-sheet-handle {
+      display: block;
+      width: 2.6rem;
+      height: 0.28rem;
+      flex: none;
+      margin: 0 auto 0.25rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--muted-foreground) 62%, transparent);
+    }
+
+    #market-atlas-sports .team-view-heading,
+    #market-atlas-sports .team-market-tabs {
+      width: 100%;
+      flex: none;
+    }
+
+    #market-atlas-sports .team-market-view:not([hidden]),
+    #market-atlas-sports .tennis-market-view {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      width: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    #market-atlas-sports .team-futures-list,
+    #market-atlas-sports .team-props-list,
+    #market-atlas-sports .tennis-matches-list {
+      flex: 1;
+      min-height: 0;
+      padding-right: 0.18rem;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #market-atlas-sports .team-futures-stamp,
+    #market-atlas-sports .team-props-stamp,
+    #market-atlas-sports .tennis-matches-stamp {
+      flex: none;
     }
   }
 
@@ -3482,8 +3549,12 @@ function assertNearTermMarketCoverage(events, {
     if (!panel || panel.hidden) return;
     if (mobileMarketViewport()) {
       clearFloatingMarketWindowPosition(panel);
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const detailTop = detail.getBoundingClientRect().top;
+      panel.style.setProperty("--market-sheet-bottom", `${Math.max(0, viewportHeight - detailTop)}px`);
       return;
     }
+    panel.style.removeProperty("--market-sheet-bottom");
     const detailRect = detail.getBoundingClientRect();
     const rootRect = root.getBoundingClientRect();
     // The integrated category panel is transformed during tab transitions, so
@@ -3515,6 +3586,63 @@ function assertNearTermMarketCoverage(events, {
     panel.style.overflowX = "hidden";
     panel.style.overflowY = "auto";
     panel.style.zIndex = "120";
+  }
+
+  function resetMarketSheetGesture(panel) {
+    panel.classList.remove("is-swipe-closing");
+    panel.style.removeProperty("--market-sheet-drag");
+  }
+
+  function setMobileMarketOverlay(open) {
+    document.body.classList.toggle("sports-market-sheet-open", Boolean(open && mobileMarketViewport()));
+  }
+
+  function installSwipeDownDismiss(panel, dismiss) {
+    let gesture = null;
+    panel.addEventListener("touchstart", event => {
+      if (!mobileMarketViewport() || event.touches.length !== 1 || panel.scrollTop > 0) {
+        gesture = null;
+        return;
+      }
+      const touch = event.touches[0];
+      gesture = { x: touch.clientX, y: touch.clientY, lastY: touch.clientY, lastAt: performance.now(), velocity: 0 };
+      resetMarketSheetGesture(panel);
+    }, { passive: true });
+    panel.addEventListener("touchmove", event => {
+      if (!gesture || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - gesture.x;
+      const deltaY = touch.clientY - gesture.y;
+      if (deltaY <= 0 || Math.abs(deltaX) > deltaY) return;
+      if (panel.scrollTop > 0) {
+        gesture = null;
+        resetMarketSheetGesture(panel);
+        return;
+      }
+      const now = performance.now();
+      gesture.velocity = (touch.clientY - gesture.lastY) / Math.max(1, now - gesture.lastAt);
+      gesture.lastY = touch.clientY;
+      gesture.lastAt = now;
+      panel.style.setProperty("--market-sheet-drag", `${Math.min(deltaY, window.innerHeight)}px`);
+      if (deltaY > 6) event.preventDefault();
+    }, { passive: false });
+    const finish = () => {
+      if (!gesture) return;
+      const distance = gesture.lastY - gesture.y;
+      const shouldDismiss = distance > 96 || (distance > 42 && gesture.velocity > 0.5);
+      gesture = null;
+      if (!shouldDismiss) {
+        resetMarketSheetGesture(panel);
+        return;
+      }
+      panel.classList.add("is-swipe-closing");
+      window.setTimeout(dismiss, 190);
+    };
+    panel.addEventListener("touchend", finish, { passive: true });
+    panel.addEventListener("touchcancel", () => {
+      gesture = null;
+      resetMarketSheetGesture(panel);
+    }, { passive: true });
   }
   function openMobileDetail() {
     if (mobileMarketViewport()) detail.classList.add("is-mobile-open");
@@ -4245,6 +4373,9 @@ function assertNearTermMarketCoverage(events, {
     selectedTeamFuturesCode = null;
     selectedTeamSport = null;
     selectedTeamName = null;
+    teamMarketWindow.setAttribute("aria-modal", "false");
+    setMobileMarketOverlay(false);
+    resetMarketSheetGesture(teamMarketWindow);
     teamMarketWindow.hidden = true;
     teamFuturesList.replaceChildren();
     teamFuturesStamp.textContent = "";
@@ -4254,6 +4385,9 @@ function assertNearTermMarketCoverage(events, {
 
   function hideTennisMarkets() {
     selectedTennisEventId = null;
+    tennisMarketWindow.setAttribute("aria-modal", "false");
+    setMobileMarketOverlay(false);
+    resetMarketSheetGesture(tennisMarketWindow);
     tennisMarketWindow.hidden = true;
     tennisMatchesList.replaceChildren();
     tennisMatchesStamp.textContent = "";
@@ -4311,6 +4445,9 @@ function assertNearTermMarketCoverage(events, {
     tennisViewCode.textContent = event.sport;
     renderTennisMatches(event);
     tennisMarketWindow.hidden = false;
+    tennisMarketWindow.setAttribute("aria-modal", String(mobileMarketViewport()));
+    setMobileMarketOverlay(true);
+    tennisMarketWindow.scrollTop = 0;
     positionFloatingMarketWindow(tennisMarketWindow);
   }
 
@@ -4337,6 +4474,9 @@ function assertNearTermMarketCoverage(events, {
     selectedTeamSport = team.sport;
     selectedTeamName = team.name;
     teamMarketWindow.hidden = false;
+    teamMarketWindow.setAttribute("aria-modal", String(mobileMarketViewport()));
+    setMobileMarketOverlay(true);
+    teamMarketWindow.scrollTop = 0;
     positionFloatingMarketWindow(teamMarketWindow);
     teamViewKicker.textContent = `${team.sport} team markets`;
     teamFuturesName.textContent = team.name;
@@ -5107,6 +5247,8 @@ function assertNearTermMarketCoverage(events, {
   dateNext.addEventListener("click", () => renderDate(activeDateIndex + 1, { preserveView: true }));
   root.querySelector(".team-window-close").addEventListener("click", hideTeamFutures);
   root.querySelector(".tennis-window-close").addEventListener("click", hideTennisMarkets);
+  installSwipeDownDismiss(teamMarketWindow, hideTeamFutures);
+  installSwipeDownDismiss(tennisMarketWindow, hideTennisMarkets);
   tennisMarketsTrigger.addEventListener("click", () => {
     const event = activeEvents.find(item => item.id === selectedId);
     if (event) showTennisMarkets(event);
@@ -5193,6 +5335,10 @@ function assertNearTermMarketCoverage(events, {
     },
     applyTeamFutures(sport, teamCode, payload) {
       renderTeamFutures(sport, teamCode, payload);
+    },
+    closeTeamMarkets() {
+      hideTeamFutures();
+      hideTennisMarkets();
     }
   };
 </script>

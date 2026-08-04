@@ -58,6 +58,11 @@ for (const entrypoint of ["app.js", "search.js"]) {
     failures.push(`public/index.html does not cache-bust ${entrypoint}`);
   }
 }
+for (const stylesheet of ["app.css", "globe-shell.css", "search.css"]) {
+  if (!new RegExp(`href="/assets/${stylesheet.replace(".", "\\.")}\\?v=[a-f0-9]{12}"`).test(index)) {
+    failures.push(`public/index.html does not cache-bust ${stylesheet}`);
+  }
+}
 
 const appShell = await readFile(join(root, "public/assets/app.js"), "utf8");
 if (!appShell.includes('new URL("/assets/map-runtime.js", window.location.origin).href')) {

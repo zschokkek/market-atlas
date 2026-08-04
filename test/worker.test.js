@@ -346,6 +346,8 @@ test("searches cached Sports and Politics markets with prices and conversational
   assert.equal(soccer.results[0].eventTicker, "KXEPLGAME-26AUG02ARSNEW");
   const mls = searchMarkets("MLS games", { sports, politics }, { now });
   assert.equal(mls.results[0].eventTicker, "KXMLSGAME-26AUG02MIAORL");
+  const allSports = searchMarkets("sports", { sports, politics }, { now });
+  assert.deepEqual(allSports.results.map(result => result.volume), [1200000, 900000, 600000], "ordinary market search ranks matching markets by volume");
   const senate = searchMarkets("close Senate races", { sports, politics }, { now });
   assert.deepEqual(senate.results.map(result => result.bundleId), ["us-mi", "us-oh"]);
   assert.equal(

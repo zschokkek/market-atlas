@@ -14,16 +14,22 @@ await build({
   logLevel: "info",
 });
 
-const entrypoints = ["app.js", "search.js"];
+const entrypoints = [
+  { file: "app.js", attribute: "src" },
+  { file: "search.js", attribute: "src" },
+  { file: "app.css", attribute: "href" },
+  { file: "globe-shell.css", attribute: "href" },
+  { file: "search.css", attribute: "href" }
+];
 const indexPath = "public/index.html";
 let index = await readFile(indexPath, "utf8");
-for (const entrypoint of entrypoints) {
-  const source = await readFile(`public/assets/${entrypoint}`);
+for (const { file, attribute } of entrypoints) {
+  const source = await readFile(`public/assets/${file}`);
   const version = createHash("sha256").update(source).digest("hex").slice(0, 12);
-  const escaped = entrypoint.replace(".", "\\.");
+  const escaped = file.replace(".", "\\.");
   index = index.replace(
-    new RegExp(`src="/assets/${escaped}(?:\\?v=[a-f0-9]+)?"`, "g"),
-    `src="/assets/${entrypoint}?v=${version}"`
+    new RegExp(`${attribute}="/assets/${escaped}(?:\\?v=[a-f0-9]+)?"`, "g"),
+    `${attribute}="/assets/${file}?v=${version}"`
   );
 }
 await writeFile(indexPath, index);

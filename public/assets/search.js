@@ -15,6 +15,22 @@ const compactVolume = value => {
 
 const priceLabel = value => Number.isFinite(Number(value)) ? `${Math.round(Number(value))}¢` : "—";
 
+const searchDateLabel = result => {
+  const raw = result?.startsAt || result?.date || result?.endsAt;
+  if (!raw) return "Date pending";
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00Z` : raw);
+  if (!Number.isFinite(date.getTime())) return "Date pending";
+  const easternYear = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric" }).format(date));
+  const currentEasternYear = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric" }).format(new Date()));
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(easternYear !== currentEasternYear ? { year: "numeric" } : {})
+  }).format(date);
+};
+
 function setupMarketSearch(shell, instance) {
   const input = shell.querySelector("input[type='search']");
   const panel = shell.querySelector(".market-search-panel");
@@ -121,12 +137,17 @@ function setupMarketSearch(shell, instance) {
         : result.category === "politics" ? "POL"
           : result.category === "weather" ? "WX"
             : result.seriesTicker?.replace(/^KX/, "").replace(/GAME$/, "") || "SPORT";
+      const date = document.createElement("span");
+      date.className = "market-search-result-date";
+      date.textContent = result.type === "location" ? "" : searchDateLabel(result);
       const reason = document.createElement("span");
       reason.className = "market-search-result-reason";
       reason.textContent = result.type === "location"
         ? [result.subtitle, result.matchReason].filter(Boolean).join(" · ")
         : result.matchReason || result.subtitle || result.eventTicker;
-      meta.append(category, reason);
+      meta.append(category);
+      if (result.type !== "location") meta.append(date);
+      meta.append(reason);
       const prices = document.createElement("span");
       prices.className = "market-search-prices";
       for (const outcome of result.outcomes || []) {
