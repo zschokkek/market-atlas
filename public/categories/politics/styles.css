@@ -54,10 +54,20 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible,
-.event-marker:focus-visible {
+input:focus-visible {
   outline: 2px solid var(--green-soft);
   outline-offset: 3px;
+}
+
+/* SVG group outlines render as large rectangular selection boxes. Keep the
+   keyboard focus indication local to the marker instead. */
+.event-marker:focus-visible {
+  outline: none;
+}
+
+.event-marker:focus-visible .marker-halo {
+  stroke: var(--green-soft);
+  stroke-width: 2;
 }
 
 .sr-only {
