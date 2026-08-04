@@ -24,7 +24,8 @@ const BUSINESS_LOCATIONS = {
   KXGOOGA: ["google", "Google", "GOOG", "Mountain View, California", 37.422, -122.0841, "Technology", "United States"],
   KXNVDAA: ["nvidia", "Nvidia", "NVDA", "Santa Clara, California", 37.3541, -121.9552, "Technology", "United States"],
   KXNFLXA: ["netflix", "Netflix", "NFLX", "Los Gatos, California", 37.2358, -121.9624, "Technology", "United States"],
-  KXELECTRICM3: ["bmw", "BMW", "BMW", "Munich, Germany", 48.1351, 11.582, "Mobility", "International"]
+  KXELECTRICM3: ["bmw", "BMW", "BMW", "Munich, Germany", 48.1351, 11.582, "Mobility", "International"],
+  KXROLEATEVENTCOACHELLA: ["music-coachella", "Coachella", "COA", "Empire Polo Club · Indio, California", 33.6803, -116.237, "Music", "United States"]
 };
 
 // Active Kalshi Mentions series, mapped to the corporate headquarters, event venue,
@@ -101,7 +102,6 @@ const MUSIC_MARKET_LOCATIONS = {
   "KXVENUEPERFORMANCEMSG-27DEC31-DRA": ["music-msg", "Madison Square Garden", "MSG", "Madison Square Garden · New York, New York", 40.7505, -73.9934, "United States", "Drake", "Venue"],
   "KXVENUEPERFORMANCEMSG-27DEC31-SAB": ["music-msg", "Madison Square Garden", "MSG", "Madison Square Garden · New York, New York", 40.7505, -73.9934, "United States", "Sabrina Carpenter", "Venue"],
   "KXROLEATEVENTROLLING-27DEC31-TRA": ["music-rolling-loud-miami", "Rolling Loud Miami", "RLM", "Miami, Florida · Festival city", 25.7617, -80.1918, "United States", "Travis Scott", "Festival city"],
-  "KXROLEATEVENTCOACHELLA-27DEC31-BAD": ["music-coachella", "Coachella", "COA", "Empire Polo Club · Indio, California", 33.6803, -116.237, "United States", "Bad Bunny", "Festival venue"],
   "KXPERFORM-27-BIL": ["music-lollapalooza", "Lollapalooza Chicago", "LOL", "Grant Park · Chicago, Illinois", 41.8757, -87.6189, "United States", "Billie Eilish", "Festival venue"],
   "KXRANKLISTIFPIARTIST-27FEB28-DRA": ["music-toronto", "Toronto artists", "YYZ", "Toronto, Canada · Artist origin", 43.6532, -79.3832, "International", "Drake", "Artist origin"],
   "KXRANKLISTIFPIARTIST-27FEB28-WEE": ["music-toronto", "Toronto artists", "YYZ", "Toronto, Canada · Artist origin", 43.6532, -79.3832, "International", "The Weeknd", "Artist origin"],
@@ -146,6 +146,9 @@ function musicLocationForMarket(market) {
 }
 
 function marketUrl(snapshot, markets) {
+  if (String(snapshot.seriesTicker || "").toUpperCase() === "KXROLEATEVENTCOACHELLA") {
+    return "https://kalshi.com/markets/kxroleateventcoachella/who-will-headline-coachella/kxroleateventcoachella-27dec31";
+  }
   const ticker = markets.find(market => market.ticker)?.ticker || snapshot.eventTicker;
   return `https://kalshi.com/markets_by_ticker/${String(ticker || "").toLowerCase()}`;
 }
@@ -158,6 +161,7 @@ function publicMarket(snapshot, location) {
     price: price(market),
     volume: Number(market.volume || 0)
   })).filter(outcome => Number.isFinite(outcome.price));
+  if (location.kind === "Music") outcomes.sort((left, right) => right.price - left.price || right.volume - left.volume);
   if (!outcomes.length) return null;
   return {
     id: `${snapshot.eventTicker}:${location.id}`,

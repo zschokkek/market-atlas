@@ -57,6 +57,30 @@ const musicMarket = (eventTicker, marketTicker, title, artist, volume, price, re
   outcomes: [{ name: artist, ticker: marketTicker, price, volume }]
 });
 
+// Verified against Kalshi on August 4, 2026. The live cached event replaces
+// these prices after load and automatically carries any newly listed artists.
+const coachellaFallbackOutcomes = `DRA~Drake~15|TAY~Taylor Swift~19|BAD~Bad Bunny~14|WEE~The Weeknd~11|JUS~Justin Bieber~4|ARI~Ariana Grande~16|ED~Ed Sheeran~6|TRA~Travis Scott~8|EMI~Eminem~9|KAN~Kanye West / Ye~1|RIH~Rihanna~19|BIL~Billie Eilish~22|KEN~Kendrick Lamar~12|POS~Post Malone~11|JBA~J Balvin~0|FUT~Future~6|BRU~Bruno Mars~19|BTS~BTS~34|OZU~Ozuna~0|COL~Coldplay~12|NIC~Nicki Minaj~10|CHR~Chris Brown~0|CUA~Dua Lipa~52|DAV~David Guetta~7|LAN~Lana Del Rey~1|WAY~Lil Wayne~0|21S~21 Savage~0|RUA~Rauw Alejandro~1|ANU~Anuel AA~0|SZA~SZA~22|KAR~KAROL G~1|KHA~Khalid~0|LAD~Lady Gaga~9|BAB~Lil Baby~10|MARO~Maroon 5~0|BEY~Beyoncé~16|CAL~Calvin Harris~14|UZI~Lil Uzi Vert~9|JCO~J. Cole~1|SIA~Sia~0|THU~Young Thug~10|LIN~Linkin Park~8|DOJ~Doja Cat~5|SHAW~Shawn Mendes~0|SAM~Sam Smith~0|QUA~Quavo~0|TRI~Trippie Redd~1|YOU~YoungBoy Never Broke Again~0|TYG~Tyga~0|FRA~Frank Ocean~0|CHA~Charlie Puth~6|LUK~Luke Combs~0|ZAC~Zach Bryan~1|JAS~Jason Derulo~0|USH~USHER~0|KOD~Kodak Black~0|TIM~Justin Timberlake~13|BEB~Bebe Rexha~0|SWA~Swae Lee~2|BLA~BLACKPINK~9|KAL~Kali Uchis~6|DON~Don Toliver~7|DAF~Daft Punk~10|TAT~Tate McRae~21|BIG~Big Sean~0|MIG~Migos~0|POL~Polo G~2|PHA~Pharrell Williams~0|KID~The Kid LAROI~4|KIDC~Kid Cudi~0|OFF~Offset~0|2CH~2 Chainz~0|FAL~Fall Out Boy~8|LEW~Lewis Capaldi~0|JOJ~Joji~0|ROD~Roddy Ricch~0|DAN~Daniel Caesar~0|CAM~Camilo~0|NF~NF~0|BRY~Bryson Tiller~0|STR~Stray Kids~1|LOG~Logic~0|XCX~Charli xcx~22|NASX~Lil Nas X~0|PAR~PARTYNEXTDOOR~0|JOH~John Mayer~0|ROS~ROSALÍA~20|MEG~Megan Thee Stallion~7|MGK~mgk~0|MAR~Mariah Carey~0|CHI~Childish Gambino~6|YAC~Lil Yachty~5|FRE~Fred again..~38|ALE~Alex Warren~8|CHAP~Chappell Roan~19|BEN~Benson Boone~6|PIN~PinkPantheress~1|ICE~Ice Spice~0|SAB~Sabrina Carpenter~8|TYL~Tyla~5|DOE~Doechii~1|OLI~Olivia Dean~21|LEO~Leon Thomas~0|SOM~sombr~7|KAT~KATSEYE~6|MARI~The Marías~7|ADD~Addison Rae~1|LOL~Lola Young~0|ELL~Ella Langley~4|GRA~Gracie Abrams~6|SHA~Shaboozey~0|OLIV~Olivia Rodrigo~19|RAD~Radiohead~46|MIL~Miley Cyrus~20`
+  .split("|")
+  .map(item => {
+    const [suffix, name, price] = item.split("~");
+    return { name, ticker: `KXROLEATEVENTCOACHELLA-27DEC31-${suffix}`, price: Number(price), volume: 0 };
+  })
+  .sort((left, right) => right.price - left.price || left.name.localeCompare(right.name));
+
+const coachellaFallbackMarket = {
+  id: "KXROLEATEVENTCOACHELLA-27DEC31:music-coachella",
+  eventTicker: "KXROLEATEVENTCOACHELLA-27DEC31",
+  seriesTicker: "KXROLEATEVENTCOACHELLA",
+  title: "Who will headline Coachella 2027?",
+  volume: 144715,
+  kind: "Music",
+  endsAt: "2027-12-31T23:59:00Z",
+  horizon: "United States",
+  markerCode: "COA",
+  url: "https://kalshi.com/markets/kxroleateventcoachella/who-will-headline-coachella/kxroleateventcoachella-27dec31",
+  outcomes: coachellaFallbackOutcomes
+};
+
 const musicBundles = [
   {
     id: "music-toronto", name: "Toronto artists", code: "YYZ", location: "Toronto, Canada · Artist base", lat: 43.6532, lon: -79.3832, kind: "Music", horizon: "International",
@@ -109,7 +133,7 @@ const musicBundles = [
   },
   {
     id: "music-coachella", name: "Coachella", code: "COA", location: "Empire Polo Club · Indio, California", lat: 33.6803, lon: -116.237, kind: "Music", horizon: "United States",
-    markets: [musicMarket("KXROLEATEVENTCOACHELLA-27DEC31", "KXROLEATEVENTCOACHELLA-27DEC31-BAD", "Will Bad Bunny headline Coachella 2027?", "Bad Bunny", 479, 14, "Festival venue")]
+    markets: [coachellaFallbackMarket]
   },
   {
     id: "music-lollapalooza", name: "Lollapalooza Chicago", code: "LOL", location: "Grant Park · Chicago, Illinois", lat: 41.8757, lon: -87.6189, kind: "Music", horizon: "United States",

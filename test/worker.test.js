@@ -355,7 +355,7 @@ test("maps every active Mentions series and preserves each mention contract in B
   assert.equal(spotify.markets[0].volume, 120000);
 });
 
-test("maps the approved artist Spotify and live-music contracts without importing unrelated outcomes", () => {
+test("maps approved artist contracts and every option in a venue-wide music event", () => {
   const snapshot = (eventTicker, seriesTicker, title, markets) => ({
     eventTicker, seriesTicker, title, endsAt: "2027-12-31T23:59:00Z", updatedAt: "2026-08-04T12:00:00Z", markets
   });
@@ -369,15 +369,25 @@ test("maps the approved artist Spotify and live-music contracts without importin
     snapshot("KXVENUEPERFORMANCEMSG-27DEC31", "KXVENUEPERFORMANCEMSG", "Who will perform at Madison Square Garden 2027?", [
       market("KXVENUEPERFORMANCEMSG-27DEC31-DRA", "Drake", 47, 88),
       market("KXVENUEPERFORMANCEMSG-27DEC31-SAB", "Sabrina Carpenter", 49, 325)
+    ]),
+    snapshot("KXROLEATEVENTCOACHELLA-27DEC31", "KXROLEATEVENTCOACHELLA", "Who will headline Coachella 2027?", [
+      market("KXROLEATEVENTCOACHELLA-27DEC31-BAD", "Bad Bunny", 14, 479),
+      market("KXROLEATEVENTCOACHELLA-27DEC31-CUA", "Dua Lipa", 52, 14706),
+      market("KXROLEATEVENTCOACHELLA-27DEC31-FRE", "Fred again..", 38, 16011),
+      market("KXROLEATEVENTCOACHELLA-27DEC31-RAD", "Radiohead", 46, 4338)
     ])
   ], Date.parse("2026-08-04T12:00:00Z"));
-  assert.equal(business.marketCount, 4, "only the explicitly reviewed artist tickers enter the globe");
+  assert.equal(business.marketCount, 5, "artist contracts stay individual while Coachella becomes one event market");
   const toronto = business.bundles.find(bundle => bundle.id === "music-toronto");
   assert.equal(toronto.markets.length, 2);
   assert.equal(toronto.kind, "Music");
   assert.match(toronto.location, /Artist/);
   const msg = business.bundles.find(bundle => bundle.id === "music-msg");
   assert.deepEqual(msg.markets.map(item => item.outcomes[0].name).sort(), ["Drake", "Sabrina Carpenter"]);
+  const coachella = business.bundles.find(bundle => bundle.id === "music-coachella");
+  assert.equal(coachella.markets.length, 1);
+  assert.deepEqual(coachella.markets[0].outcomes.map(outcome => outcome.name), ["Dua Lipa", "Radiohead", "Fred again..", "Bad Bunny"]);
+  assert.match(coachella.markets[0].url, /kxroleateventcoachella\/who-will-headline-coachella/);
   const result = searchMarkets("Drake Spotify", { business }, { activeCategory: "weather" });
   assert.equal(result.interpretation.category, "business");
   assert.equal(result.results[0].bundleId, "music-toronto");
