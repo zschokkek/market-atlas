@@ -54,7 +54,11 @@ const RETAIN_AFTER_START_MS = 7 * 24 * 60 * 60 * 1000;
 const MLB_FUTURES_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FUTURES_POLL_LOCK_MS = 20 * 60 * 1000;
 const LOCAL_SCHEDULER_INTERVAL_MS = 60 * 1000;
-const NEAR_TERM_RESPONSE_WINDOW_MS = 48 * 60 * 60 * 1000;
+// The globe reveals selected sports for two full calendar days before play.
+// Three elapsed days around noon safely covers that calendar window even for
+// late-night games and international time zones, so posted odds never vanish
+// merely because their kickoff is more than 48 clock-hours away.
+const NEAR_TERM_RESPONSE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 let localPollPromise = null;
 let localPoliticsPollPromise = null;
 let localWeatherPollPromise = null;

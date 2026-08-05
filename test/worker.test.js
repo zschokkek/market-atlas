@@ -1326,11 +1326,12 @@ test("discovers tennis and golf outrights and keeps tournament markets available
 test("keeps a wide enough cached odds window to validate tomorrow in every global time zone", () => {
   const payload = filterForDate({ events: [
     { eventTicker: "INSIDE", seriesTicker: "KXTEST", startsAt: "2026-08-03T08:00:00Z" },
+    { eventTicker: "LATE-TWO-DAYS-AHEAD", seriesTicker: "KXNFLGAME", startsAt: "2026-08-03T23:30:00Z" },
     { eventTicker: "ONGOING", seriesTicker: "KXTESTMATCH", startsAt: "2026-07-29T08:00:00Z", endsAt: "2026-08-02T20:00:00Z" },
-    { eventTicker: "OUTSIDE", seriesTicker: "KXTEST", startsAt: "2026-08-03T13:00:01Z" },
+    { eventTicker: "OUTSIDE", seriesTicker: "KXTEST", startsAt: "2026-08-04T12:00:01Z" },
     { eventTicker: "EXPIRED", seriesTicker: "KXTESTMATCH", startsAt: "2026-07-25T08:00:00Z", endsAt: "2026-07-29T11:59:59Z" }
   ] }, "2026-08-01");
-  assert.deepEqual(payload.events.map(event => event.eventTicker), ["INSIDE", "ONGOING"]);
+  assert.deepEqual(payload.events.map(event => event.eventTicker), ["INSIDE", "LATE-TWO-DAYS-AHEAD", "ONGOING"]);
 });
 
 test("repairs legacy cached outright status when remaining player contracts are active", async () => {
