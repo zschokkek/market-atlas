@@ -1301,18 +1301,24 @@ test("keeps required international baseball series when configuration is stale",
   assert.equal(new Set(series).size, series.length);
 });
 
-test("discovers ATP/WTA outrights and singles matches and keeps tournament outrights available for schedule joins", () => {
+test("discovers tennis and golf outrights and keeps tournament markets available for schedule joins", () => {
   assert.ok(DEFAULT_SERIES.includes("KXATP"));
   assert.ok(DEFAULT_SERIES.includes("KXWTA"));
   assert.ok(DEFAULT_SERIES.includes("KXATPMATCH"));
   assert.ok(DEFAULT_SERIES.includes("KXWTAMATCH"));
+  assert.ok(DEFAULT_SERIES.includes("KXPGATOUR"));
+  assert.ok(DEFAULT_SERIES.includes("KXLPGATOUR"));
+  assert.ok(DEFAULT_SERIES.includes("KXKFTOUR"));
+  assert.ok(DEFAULT_SERIES.includes("KXLIVTOUR"));
   const payload = filterForDate({ events: [
     { eventTicker: "KXATP-26USO", seriesTicker: "KXATP", startsAt: "2026-09-13T20:00:00Z" },
+    { eventTicker: "KXPGATOUR-WYC26", seriesTicker: "KXPGATOUR", startsAt: "2026-08-09T00:00:00Z" },
     { eventTicker: "KXATPMATCH-26AUG01AABB", seriesTicker: "KXATPMATCH", startsAt: "2026-08-01T20:00:00Z" },
     { eventTicker: "KXATPMATCH-26SEP13CCDD", seriesTicker: "KXATPMATCH", startsAt: "2026-09-13T20:00:00Z" }
   ] }, "2026-08-01");
   assert.deepEqual(payload.events.map(event => event.eventTicker), [
     "KXATP-26USO",
+    "KXPGATOUR-WYC26",
     "KXATPMATCH-26AUG01AABB"
   ]);
 });
@@ -1784,6 +1790,12 @@ test("sorts tennis outrights by probability and opens a matchups-only popup", ()
   assert.match(html, /sort\(\(left, right\) => outrightProbability\(right\) - outrightProbability\(left\)/);
   assert.match(html, /\(event\.tennisMatches \|\| \[\]\)\.slice\(\)/);
   assert.doesNotMatch(html, /\(event\.tennisMatches \|\| \[\]\)\.slice\(0, 8\)/);
+  assert.match(html, /hasListedMarkets: tennisMatches\.length > 0/);
+  assert.match(html, /Kalshi singles match markets/);
+  assert.match(html, /active singles .*open Matches for every matchup and price/);
+  assert.match(html, /const tennisPoints = inFrame\.filter\(point => point\.event\.sport === "ATP" \|\| point\.event\.sport === "WTA"\)/);
+  assert.match(html, /const separation = distanceThreshold \+ 8/);
+  assert.match(html, /visibleTennisPoints\.map\(point => \(\{ members: \[point\], x: point\.anchorX, y: point\.anchorY \}\)\)/);
 });
 
 test("builds esports markers from verified Kalshi series snapshots instead of guessed event tickers", () => {
@@ -1846,6 +1858,13 @@ test("anchors Sports upcoming labels to the browser date instead of the selected
   assert.match(html, /upcomingLabel: visible \? upcomingEventLabel\(event\.start\) : ""/);
   assert.match(html, /event\.upcoming \? `\$\{sportLabel\} · \$\{event\.upcomingLabel\}` : sportLabel/);
   assert.doesNotMatch(html, /upcomingLabel: visible \? `In \$\{daysUntil\}/);
+});
+
+test("shows golf tournaments as muted upcoming events during the two-day lead window", () => {
+  const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
+  assert.match(html, /advanceWindowSports = new Set\(\["NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "IPL", "PGA", "GOLF", \.\.\.soccerSports\]\)/);
+  assert.match(html, /const ADVANCE_WINDOW_DAYS = 2/);
+  assert.match(html, /event\.upcoming \? " is-upcoming" : ""/);
 });
 
 test("starts the timeline today and removes events after they finish", () => {

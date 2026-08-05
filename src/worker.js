@@ -34,7 +34,8 @@ export const DEFAULT_SERIES = [
   "KXCHNSLGAME", "KXKLEAGUEGAME", "KXALLSVENSKANGAME", "KXELITESERIENGAME",
   "KXLMBGAME", "KXKBOGAME", "KXNPBGAME",
   "KXIPLGAME", "KXHUNDREDMATCH", "KXWHUNDREDMATCH", "KXT20MATCH", "KXTESTMATCH",
-  "KXATP", "KXWTA", "KXATPMATCH", "KXWTAMATCH", "KXPGATOUR", "KXLPGATOUR", "KXF1RACE",
+  "KXATP", "KXWTA", "KXATPMATCH", "KXWTAMATCH",
+  "KXPGATOUR", "KXLPGATOUR", "KXKFTOUR", "KXLIVTOUR", "KXF1RACE",
   "KXCS2GAME", "KXVALORANTGAME", "KXLOLGAME"
 ];
 
@@ -2179,14 +2180,20 @@ function startLocalBusinessPoll(env, now = Date.now()) {
   return localBusinessPollPromise;
 }
 
-const ALWAYS_INCLUDE_FOR_SCHEDULE_JOIN = new Set(["KXATP", "KXWTA"]);
+const ALWAYS_INCLUDE_FOR_SCHEDULE_JOIN = new Set([
+  "KXATP", "KXWTA",
+  // Golf winner contracts use the final round as their occurrence time. The
+  // browser owns the full tournament date range and course geography, so keep
+  // these compact outright records available for an exact ticker join.
+  "KXPGATOUR", "KXLPGATOUR", "KXKFTOUR", "KXLIVTOUR"
+]);
 
 export function filterForDate(payload, date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return payload;
   const target = new Date(`${date}T12:00:00Z`).getTime();
   const events = payload.events.filter(event => {
     // Tournament outrights are joined to the app's own date/location schedule.
-    // Keep every open ATP/WTA outright in the compact response so a market whose
+    // Keep tournament outrights in the compact response so a market whose
     // Kalshi occurrence time is the final does not disappear earlier in the week.
     if (ALWAYS_INCLUDE_FOR_SCHEDULE_JOIN.has(event.seriesTicker)) return true;
     const start = effectiveEventStart(event);

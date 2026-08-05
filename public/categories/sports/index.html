@@ -3015,6 +3015,21 @@ function assertNearTermMarketCoverage(events, {
       contracts: 146, volume: 126533856, prices: [["Cameron Young",24,24,25,"KXPGATOUR-ROC26-CAME"],["Patrick Cantlay",15,14,15,"KXPGATOUR-ROC26-PCAN"],["Rickie Fowler",7.7,7,7.7,"KXPGATOUR-ROC26-RFOW"],["Xander Schauffele",6.4,6.4,7.5,"KXPGATOUR-ROC26-XSCH"],["Matt Wallace",4.5,4.2,4.6,"KXPGATOUR-ROC26-MWAL"]]
     },
     {
+      id: "pga-wyndham-2026", sport: "PGA", code: "PGA", name: "Wyndham Championship", eventTicker: "KXPGATOUR-WYC26",
+      start: "2026-08-06", end: "2026-08-09", dates: "Aug 6 – 9", venue: "Sedgefield Country Club", city: "Greensboro, NC", lat: 36.0154, lon: -79.897,
+      contracts: 0, volume: 0, marketPosted: true, prices: []
+    },
+    {
+      id: "liv-new-york-2026", sport: "GOLF", code: "LIV", markerCode: "LIV", name: "LIV Golf New York", eventTicker: "KXLIVTOUR-YOR26",
+      start: "2026-08-06", end: "2026-08-09", dates: "Aug 6 – 9", venue: "Trump National Golf Club Bedminster", city: "Bedminster, NJ", lat: 40.6536198, lon: -74.6976504,
+      contracts: 0, volume: 0, marketPosted: true, prices: []
+    },
+    {
+      id: "korn-ferry-pinnacle-bank-2026", sport: "GOLF", code: "KFT", markerCode: "KFT", name: "Pinnacle Bank Championship", eventTicker: "KXKFTOUR-PIBCPBW26",
+      start: "2026-08-06", end: "2026-08-09", dates: "Aug 6 – 9", venue: "The Club at Indian Creek", city: "Omaha, NE", lat: 41.2953645, lon: -96.2298353,
+      contracts: 0, volume: 0, marketPosted: true, prices: []
+    },
+    {
       id: "ucl-dinamo-kauno", sport: "UCL", code: "UCL", name: "Dinamo Zagreb vs Kauno Žalgiris", eventTicker: "KXUCLGAME-26AUG04DINKAZ",
       start: "2026-08-04", end: "2026-08-04", dates: "Aug 4", venue: "Stadion Maksimir", city: "Zagreb, Croatia", lat: 45.8186879, lon: 16.0179376,
       contracts: 3, volume: 8077, prices: [["Dinamo Zagreb",81,80,81,"KXUCLGAME-26AUG04DINKAZ-DIN"],["Tie",13,11,13,"KXUCLGAME-26AUG04DINKAZ-TIE"],["Kauno Žalgiris",6,6,7,"KXUCLGAME-26AUG04DINKAZ-KAZ"]]
@@ -3540,7 +3555,7 @@ function assertNearTermMarketCoverage(events, {
   const baseballSports = new Set(filterGroups["BASEBALL-GROUP"]);
   const soccerSports = new Set(filterGroups["SOCCER-GROUP"]);
   const teamFuturesSports = new Set(["MLB", "NFL", "CFB", "NBA", "WNBA", "NHL", "EPL", "UCL", "LALIGA", "BUNDESLIGA", "SERIEA", "LIGUE1", "BRASILEIRAO", "LIGAMX", "ARGPRIMERA"]);
-  const advanceWindowSports = new Set(["NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "IPL", ...soccerSports]);
+  const advanceWindowSports = new Set(["NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "IPL", "PGA", "GOLF", ...soccerSports]);
   const matchupSports = new Set(["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "IPL", ...soccerSports]);
   const ADVANCE_WINDOW_DAYS = 2;
   const EVENT_DURATION_MS = new Map([
@@ -3980,13 +3995,18 @@ function assertNearTermMarketCoverage(events, {
     const snapshot = hostedSnapshotFor(event);
     if (!snapshot) {
       const tennisMatches = tennisMatchSnapshotsFor(event, null);
+      const latestTennisUpdate = tennisMatches.reduce((latest, match) => {
+        const updatedAt = new Date(match.updatedAt || 0).getTime();
+        return Number.isFinite(updatedAt) && updatedAt > latest ? updatedAt : latest;
+      }, 0);
       return {
         ...event,
         marketPosted: false,
+        hasListedMarkets: tennisMatches.length > 0,
         contracts: tennisMatches.length,
         volume: tennisMatches.reduce((sum, match) => sum + Number(match.volume || 0), 0),
         prices: [],
-        oddsUpdatedAt: null,
+        oddsUpdatedAt: latestTennisUpdate ? new Date(latestTennisUpdate).toISOString() : null,
         marketStatus: null,
         tennisMatches
       };
@@ -4015,6 +4035,7 @@ function assertNearTermMarketCoverage(events, {
       endsAt: snapshot.endsAt || event.endsAt,
       marketStatus: snapshot.status || event.marketStatus,
       oddsUpdatedAt: snapshot.updatedAt,
+      hasListedMarkets: prices.length > 0,
       tennisMatches: tennisMatchSnapshotsFor(event, snapshot)
     };
   }
@@ -4118,12 +4139,19 @@ function assertNearTermMarketCoverage(events, {
       const currentEvent = withHostedOdds(event);
       if (eventHasElapsed(currentEvent, now)) return [];
       const marketPosted = currentEvent.marketPosted !== false && currentEvent.prices.length > 0;
+      const tennisMatchCount = currentEvent.tennisMatches?.length || 0;
+      const hasListedMarkets = marketPosted || tennisMatchCount > 0;
       return [{
         ...currentEvent,
         ...temporal,
         marketPosted,
+        hasListedMarkets,
         leader: marketPosted ? currentEvent.prices[0][1] : 0,
-        status: temporal.upcoming ? temporal.upcomingLabel : marketPosted ? "Posted market" : pendingMarketLabel(currentEvent),
+        status: temporal.upcoming
+          ? temporal.upcomingLabel
+          : tennisMatchCount
+            ? `${tennisMatchCount} active singles ${tennisMatchCount === 1 ? "match" : "matches"}`
+            : marketPosted ? "Posted market" : pendingMarketLabel(currentEvent),
         sortKey: currentEvent.start
       }];
     });
@@ -4221,6 +4249,7 @@ function assertNearTermMarketCoverage(events, {
     }).filter(isMarkerInsideStage)
       .sort((left, right) => right.event.volume - left.event.volume);
 
+    const distanceThreshold = Math.max(9, Math.min(60, 76 - projection.scale() * 0.06));
     if (projection.scale() >= EXPAND_SHARED_VENUES_SCALE) {
       const venueGroups = new Map();
       inFrame.forEach(point => {
@@ -4243,12 +4272,48 @@ function assertNearTermMarketCoverage(events, {
       });
     }
 
+    // ATP and WTA tournaments often run in neighboring host cities during the
+    // same week. A generic count bubble makes one tour appear to have vanished,
+    // so separate a close ATP/WTA pair just enough to keep both labels visible.
+    const tennisPoints = inFrame.filter(point => point.event.sport === "ATP" || point.event.sport === "WTA");
+    for (let leftIndex = 0; leftIndex < tennisPoints.length; leftIndex += 1) {
+      const left = tennisPoints[leftIndex];
+      if (left.isExpanded) continue;
+      for (let rightIndex = leftIndex + 1; rightIndex < tennisPoints.length; rightIndex += 1) {
+        const right = tennisPoints[rightIndex];
+        if (right.isExpanded || left.event.sport === right.event.sport) continue;
+        const deltaX = right.mapX - left.mapX;
+        const deltaY = right.mapY - left.mapY;
+        const distance = Math.hypot(deltaX, deltaY);
+        if (distance >= distanceThreshold) continue;
+        const directionX = distance > 0.5 ? deltaX / distance : 1;
+        const directionY = distance > 0.5 ? deltaY / distance : 0;
+        const midpointX = (left.mapX + right.mapX) / 2;
+        const midpointY = (left.mapY + right.mapY) / 2;
+        const separation = distanceThreshold + 8;
+        left.anchorX = midpointX - directionX * separation / 2;
+        left.anchorY = midpointY - directionY * separation / 2;
+        right.anchorX = midpointX + directionX * separation / 2;
+        right.anchorY = midpointY + directionY * separation / 2;
+        left.x = left.anchorX;
+        left.y = left.anchorY;
+        right.x = right.anchorX;
+        right.y = right.anchorY;
+        left.isExpanded = true;
+        right.isExpanded = true;
+        break;
+      }
+    }
+
     // Shared venues fan out at deep zoom, so re-check the moved anchors before
     // clustering. This prevents a marker that began inside the map from being
     // pushed beyond an edge by the fan-out itself.
     const edgeSafePoints = inFrame.filter(isMarkerInsideStage);
-    const distanceThreshold = Math.max(9, Math.min(60, 76 - projection.scale() * 0.06));
-    const clusters = stableDistanceClusters(edgeSafePoints, distanceThreshold);
+    const visibleTennisPoints = edgeSafePoints.filter(point => point.event.sport === "ATP" || point.event.sport === "WTA");
+    const clusters = [
+      ...stableDistanceClusters(edgeSafePoints.filter(point => point.event.sport !== "ATP" && point.event.sport !== "WTA"), distanceThreshold),
+      ...visibleTennisPoints.map(point => ({ members: [point], x: point.anchorX, y: point.anchorY }))
+    ];
 
     const upcomingTotal = activeEvents.filter(event => event.upcoming).length;
     const todayTotal = activeEvents.length - upcomingTotal;
@@ -4756,6 +4821,14 @@ function assertNearTermMarketCoverage(events, {
     const list = root.querySelector(".price-list");
     list.replaceChildren();
     delete list.dataset.outcomeCount;
+    if (!event.marketPosted && event.tennisMatches?.length) {
+      const summary = document.createElement("div");
+      summary.className = "text-small text-muted";
+      summary.textContent = `${event.tennisMatches.length} active singles ${event.tennisMatches.length === 1 ? "match" : "matches"} · open Matches for every matchup and price`;
+      list.appendChild(summary);
+      selectedTicker = "";
+      return;
+    }
     if (!event.marketPosted) {
       const empty = document.createElement("div");
       empty.className = "text-small text-muted";
@@ -4907,7 +4980,7 @@ function assertNearTermMarketCoverage(events, {
     eventSelect.value = event.id;
     detail.dataset.sport = event.sport;
     detail.classList.toggle("is-upcoming", Boolean(event.upcoming));
-    detail.classList.toggle("is-market-pending", !event.marketPosted);
+    detail.classList.toggle("is-market-pending", !event.hasListedMarkets);
     const sportLabel = event.markerCode || event.sport;
     root.querySelector(".sport-badge").textContent = event.upcoming ? `${sportLabel} · ${event.upcomingLabel}` : sportLabel;
     root.querySelector(".event-dates").textContent = event.upcoming
@@ -4919,18 +4992,25 @@ function assertNearTermMarketCoverage(events, {
     root.querySelector(".event-ticker").textContent = displayedEventTicker || "No listed Kalshi event ticker";
     const outrightSports = new Set(["ATP", "WTA", "PGA", "GOLF", "F1", "AFCON"]);
     const gameSports = new Set(["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "IPL"]);
-    root.querySelector(".price-header-label").textContent = event.marketKind === "advance"
+    const tennisMatchCount = event.tennisMatches?.length || 0;
+    root.querySelector(".price-header-label").textContent = tennisMatchCount
+      ? "Kalshi singles match markets"
+      : event.marketKind === "advance"
       ? "Kalshi to advance · last trade"
       : gameSports.has(event.sport) || event.marketKind === "game"
       ? "Kalshi game winner · last trade"
       : outrightSports.has(event.sport)
         ? "Kalshi outright winner · last trade"
         : "Kalshi match winner · last trade";
-    root.querySelector(".contract-count").textContent = gameSports.has(event.sport)
+    root.querySelector(".contract-count").textContent = tennisMatchCount
+      ? `${tennisMatchCount} active ${tennisMatchCount === 1 ? "match" : "matches"}`
+      : gameSports.has(event.sport)
       ? "2 outcomes"
       : event.marketPosted ? `${event.contracts} contracts` : pendingMarketLabel(event);
     renderPriceList(event);
-    root.querySelector(".market-meta").textContent = event.marketPosted
+    root.querySelector(".market-meta").textContent = tennisMatchCount
+      ? `${formatVolume(event.volume)} across active singles matches · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
+      : event.marketPosted
       ? `${formatVolume(event.volume)} · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
       : pendingMarketLabel(event);
     root.querySelector(".contract-ticker").textContent = selectedTicker;
@@ -5042,7 +5122,7 @@ function assertNearTermMarketCoverage(events, {
       eventSelect.appendChild(option);
     });
 
-    const posted = activeEvents.filter(event => event.marketPosted).length;
+    const posted = activeEvents.filter(event => event.hasListedMarkets ?? event.marketPosted).length;
     const upcoming = activeEvents.filter(event => event.upcoming).length;
     const today = activeEvents.length - upcoming;
     filterSummaryNumber.textContent = String(activeEvents.length);
