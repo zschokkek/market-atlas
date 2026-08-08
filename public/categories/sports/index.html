@@ -2982,10 +2982,10 @@ body{overflow-x:hidden}
     }
 
     #market-atlas-sports .price-list:has(.tennis-match-row) {
-    max-height: min(420px, 52vh);
-    overflow-y: auto;
-    padding-right: 0.15rem;
-  }
+      max-height: min(420px, 52vh);
+      overflow-y: auto;
+      padding-right: 0.15rem;
+    }
 
   #market-atlas-sports .team-market-window,
     #market-atlas-sports .tennis-market-window {
@@ -5507,12 +5507,12 @@ function assertNearTermMarketCoverage(events, {
         renderPriceList(event);
       }
       // Post-render: align single header link to the selected Kalshi market (fresh selectedTicker)
-      const headerLabelPost = root.querySelector(".price-header-label");
-      if (headerLabelPost) {
+      const headerLabelPost2 = root.querySelector(".price-header-label");
+      if (headerLabelPost2) {
         const singleTitlePost = `${event.markerCode || event.sport} · ${event.name}`;
         const tickerPost = selectedTicker || specificEventTicker(event) || event.eventTicker || "";
         if (tickerPost && event.hasListedMarkets) {
-          headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
+          headerLabelPost2.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
         }
       }
     }
@@ -5600,7 +5600,7 @@ function assertNearTermMarketCoverage(events, {
             const singleTitlePost = `${current.markerCode || current.sport} · ${current.name}`;
             const tickerPost = selectedTicker || specificEventTicker(current) || current.eventTicker || "";
             if (tickerPost && current.hasListedMarkets) {
-              headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
+              headerLabelPost2.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
             }
           }
           { const _ct = root.querySelector(".contract-ticker"); if (_ct) _ct.textContent = selectedTicker; }
