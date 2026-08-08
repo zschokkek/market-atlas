@@ -5313,7 +5313,7 @@ function assertNearTermMarketCoverage(events, {
         outcomesWrap.querySelectorAll(".market-outcome").forEach(r => r.classList.remove("is-selected"));
         row.classList.add("is-selected");
         selectedTicker = ticker;
-        root.querySelector(".contract-ticker").textContent = ticker;
+        { const _ct = root.querySelector(".contract-ticker"); if (_ct) _ct.textContent = ticker; }
         if (marketLink) marketLink.href = marketUrl(ticker);
       };
       row.addEventListener("click", selectPrice);
@@ -5501,20 +5501,22 @@ function assertNearTermMarketCoverage(events, {
         const headerLabelPost = root.querySelector(".price-header-label");
         if (headerLabelPost) headerLabelPost.textContent = `${event.markerCode || event.sport} · ${event.name}`;
         (() => { const el = root.querySelector(".contract-count"); if (el) el.textContent = pendingMarketLabel(event); })();
-        root.querySelector(".contract-ticker").textContent = "";
+        { const _ct = root.querySelector(".contract-ticker"); if (_ct) _ct.textContent = ""; }
         if (typeof selectedTicker !== "undefined") selectedTicker = "";
       } else {
         renderPriceList(event);
       }
       // Post-render: align single header link to the selected Kalshi market (fresh selectedTicker)
       const headerLabelPost = root.querySelector(".price-header-label");
-      const singleTitlePost = `${event.markerCode || event.sport} · ${event.name}`;
-      const tickerPost = selectedTicker || specificEventTicker(event) || event.eventTicker || "";
-      if (tickerPost && event.hasListedMarkets) {
-        headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
+      if (headerLabelPost) {
+        const singleTitlePost = `${event.markerCode || event.sport} · ${event.name}`;
+        const tickerPost = selectedTicker || specificEventTicker(event) || event.eventTicker || "";
+        if (tickerPost && event.hasListedMarkets) {
+          headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
+        }
       }
     }
-    root.querySelector(".market-meta").textContent = showingMatches
+    { const _mm = root.querySelector(".market-meta"); if (_mm) _mm.textContent = showingMatches
       ? `${formatVolume(event.tennisVolume ?? (event.tennisMatches||[]).reduce((a,m)=>a+Number(m.volume||0),0))} across active singles matches · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
       : event.marketPosted
       ? `${formatVolume(event.outrightVolume ?? event.volume)} · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
@@ -5542,7 +5544,7 @@ function assertNearTermMarketCoverage(events, {
         if (copy) copy.innerHTML = '<strong>Matches</strong><span class="text-small">Biggest singles matchups</span>';
       }
     }
-    root.querySelector(".contract-ticker").textContent = selectedTicker;
+    { const _ct = root.querySelector(".contract-ticker"); if (_ct) _ct.textContent = selectedTicker; }
     if (selectedTicker) {
       if (marketLink) marketLink.href = marketUrl(selectedTicker);
       if (marketLink) marketLink.textContent = event.marketPosted ? "Open Kalshi" : "Check exact Kalshi market";
@@ -5601,7 +5603,7 @@ function assertNearTermMarketCoverage(events, {
               headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
             }
           }
-          root.querySelector(".contract-ticker").textContent = selectedTicker;
+          { const _ct = root.querySelector(".contract-ticker"); if (_ct) _ct.textContent = selectedTicker; }
         }
         // also refresh floating market window if open (user is looking at it)
         const tennisWindow = root.querySelector(".tennis-market-window");
@@ -5692,7 +5694,7 @@ function assertNearTermMarketCoverage(events, {
     (() => { const el = root.querySelector(".contract-count"); if (el) el.textContent = ""; })();
     root.querySelector(".price-list").replaceChildren();
     root.querySelector(".market-meta").textContent = "";
-    root.querySelector(".contract-ticker").textContent = "";
+    { const _ct = root.querySelector(".contract-ticker"); if (_ct) _ct.textContent = ""; }
     if (marketLink) marketLink.removeAttribute("href");
     if (marketLink) marketLink.textContent = "No market selected";
   }
