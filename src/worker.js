@@ -2626,46 +2626,21 @@ async function handleRequest(request, env, ctx) {
   if (cached) return cached;
 
   if (!payload) {
-    // Cold start: sports is the only tab that can be 0 while others have bundles because geographic runs first.
-    // Try immediate poll even in production (not just localhost) to populate PUBLIC_KEY without waiting for next 45s tick.
-    try {
-      const state = await env.MARKET_ATLAS_CACHE.get(STATE_KEY, "json");
-      const lastRun = Number(state?.lastRunAt || 0);
-      // If never run or >30s ago, do a direct poll (bypass Durable Object cooldown)
-      if (!lastRun || Date.now() - lastRun > 30_000) {
-        await startLocalPoll(env, Date.now());
-        const freshPayload = await env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json");
-        if (freshPayload) {
-          payload = freshPayload;
-        }
-      }
-    } catch {}
-    if (!payload) {
-      warmHostedCache(env, ctx, "sports");
-      return json({ generatedAt: null, eventCount: 0, events: [], warming: true }, {
-        status: 503,
-        headers: { "cache-control": "no-store", "retry-after": "5" }
-      });
-    }
+    warmHostedCache(env, ctx, "sports");
+    return json({ generatedAt: null, eventCount: 0, events: [], warming: true }, {
+      status: 503,
+      headers: { "cache-control": "no-store", "retry-after": "2" }
+    });
   }
-  // Sports now behaves like Politics/Weather/Business: always serve stale with updating:true (no hide)
-  const filteredByDate = filterForDate(payload, date);
-  const staleCheck = removeStaleEvents(filteredByDate);
-  // Repair legacy outright status (e.g., KXWTA finalized but still has active market) like removeStaleEvents does
-  const repairedEvents = filteredByDate.events.map(cachedSnapshot => {
+  // Exactly like Politics/Weather/Business: no filterForDate, no hide — just serve the cached snapshot
+  // Repair legacy outright status and compute stale-while-revalidate cache like Politics does via staleCheck
+  const staleCheck = removeStaleEvents(payload);
+  const repairedEvents = payload.events.map(cachedSnapshot => {
     const marketStatuses = (cachedSnapshot.markets || []).map(market => String(market.status || "").toLowerCase());
     return marketStatuses.some(value => value === "active" || value === "open") ? { ...cachedSnapshot, status: "active" } : cachedSnapshot;
   });
-  let filtered = { ...filteredByDate, events: repairedEvents, eventCount: repairedEvents.length };
-  if (staleCheck.cache?.staleEventCount || staleCheck.events.length !== filteredByDate.events.length) {
-    warmHostedCache(env, ctx, "sports");
-    filtered = {
-      ...filtered,
-      cache: { ...(filteredByDate.cache || {}), ...staleCheck.cache, updating: true, staleEventCount: staleCheck.cache?.staleEventCount || 0 }
-    };
-  } else {
-    filtered = { ...filtered, cache: { ...(filteredByDate.cache || {}), ...staleCheck.cache } };
-  }
+  const filtered = { ...payload, events: repairedEvents, eventCount: repairedEvents.length, cache: { ...(payload.cache || {}), ...staleCheck.cache, updating: !!staleCheck.cache?.staleEventCount } };
+  if (staleCheck.cache?.staleEventCount) warmHostedCache(env, ctx, "sports");
   const etag = `W/\"${Date.parse(payload.generatedAt).toString(36)}-${filtered.eventCount}-${filtered.cache?.staleEventCount || 0}\"`;
   if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
   const response = json(filtered, {

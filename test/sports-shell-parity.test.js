@@ -16,6 +16,6 @@ test("Sports uses the shared shell palette and title hierarchy", async () => {
   assert.match(html, /<h2 class="tennis-market-name"/);
 
   assert.match(css, /\[data-category-view="sports"\] > #market-atlas-sports \{[\s\S]*--foreground: #1a2320;[\s\S]*--radius: 10px;/);
-  assert.match(css, /\[data-category-view="sports"\] #market-atlas-sports \.orbital-panel,[\s\S]*border: 1px solid #d0d9d1;[\s\S]*border-radius: 10px;/);
+  assert.match(css, /\[data-category-view="sports"\] #market-atlas-sports \.orbital-panel,[\s\S]*border: 1px solid #b8c5b9;[\s\S]*border-radius: 10px;/);
   assert.match(css, /#market-atlas-sports \.event-name \{[\s\S]*font-size: clamp\(20px, 2vw, 26px\);[\s\S]*letter-spacing: -0\.02em;/);
 });

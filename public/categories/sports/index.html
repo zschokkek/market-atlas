@@ -2673,21 +2673,14 @@ body{overflow-x:hidden}
     font-weight: 700;
     letter-spacing: 0.04em;
   }
-  /* MLB live: sleek red around prices (same language as tennis live rows) */
+  /* MLB live: sleek red around prices - border/fill only, text stays normal (sleek like tennis card, not red text) */
   #market-atlas-sports .market-card.sports-market-card.is-live .market-outcome {
-    border-color: color-mix(in srgb, var(--red) 35%, var(--border));
-    background: color-mix(in srgb, var(--red) 8%, var(--card));
+    border-color: color-mix(in srgb, var(--red) 32%, var(--border));
+    background: color-mix(in srgb, var(--red) 7%, var(--card));
   }
   #market-atlas-sports .market-card.sports-market-card.is-live .outcome-fill {
-    background: color-mix(in srgb, var(--red) 22%, transparent) !important;
-    border-color: color-mix(in srgb, var(--red) 28%, transparent);
-  }
-  #market-atlas-sports .market-card.sports-market-card.is-live .outcome-price {
-    color: var(--red);
-  }
-  #market-atlas-sports .market-card.sports-market-card.is-live .outcome-name {
-    color: var(--red);
-    font-weight: 600;
+    background: color-mix(in srgb, var(--red) 18%, transparent) !important;
+    border-color: color-mix(in srgb, var(--red) 24%, transparent);
   }
 
   #market-atlas-sports .tennis-match-row:hover {
@@ -6152,7 +6145,7 @@ function assertNearTermMarketCoverage(events, {
       if (!event) return false;
       hideMobileMarketBrowser();
       stopMotion();
-      selectEvent(event.id, false, null, true);
+      selectEvent(event.id, false);
       const scale = Math.max(SPORTS_SEARCH_MARKET_SCALE, Math.min(1800, projection.scale()));
       animateView(event.lon, event.lat, scale, 480);
       hideTooltip(true);
