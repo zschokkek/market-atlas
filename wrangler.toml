@@ -49,6 +49,7 @@ KALSHI_MAX_BUSINESS_REFRESHES_PER_RUN = "20"
 KALSHI_MAX_RETRY_ATTEMPTS = "2"
 KALSHI_429_BACKOFF_BASE_MS = "5000"
 KALSHI_FAST_LIVE_POLLING = "false"
+KALSHI_HISTORY_READ_REQUESTS_PER_SECOND = "1"
 
 # Staging gets its own Worker, KV namespace, secrets, cache, and reduced polling
 # budget so validation traffic cannot consume the production read allowance.
@@ -91,6 +92,7 @@ KALSHI_SCHEDULED_READ_REQUESTS_PER_SECOND = "0.20"
 KALSHI_MAX_RETRY_ATTEMPTS = "2"
 KALSHI_429_BACKOFF_BASE_MS = "5000"
 KALSHI_FAST_LIVE_POLLING = "false"
+KALSHI_HISTORY_READ_REQUESTS_PER_SECOND = "0.5"
 
 # Production retains the existing adaptive polling policy and is isolated from
 # staging by both its Worker name and KV binding.
@@ -134,3 +136,4 @@ KALSHI_MAX_BUSINESS_REFRESHES_PER_RUN = "30"
 KALSHI_MAX_RETRY_ATTEMPTS = "2"
 KALSHI_429_BACKOFF_BASE_MS = "5000"
 KALSHI_FAST_LIVE_POLLING = "true"
+KALSHI_HISTORY_READ_REQUESTS_PER_SECOND = "1"

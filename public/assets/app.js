@@ -1,3 +1,52 @@
+// Theme toggle: classic dark (default) ↔ light
+(() => {
+  const STORAGE_KEY = "market-atlas-theme";
+  const html = document.documentElement;
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  const metaScheme = document.querySelector('meta[name="color-scheme"]');
+  function applyTheme(theme) {
+    const t = theme === "light" ? "light" : "dark";
+    html.setAttribute("data-theme", t);
+    if (metaTheme) metaTheme.setAttribute("content", t === "light" ? "#eef2ef" : "#0b110e");
+    if (metaScheme) metaScheme.setAttribute("content", t);
+    try { localStorage.setItem(STORAGE_KEY, t); } catch {}
+    const btn = document.getElementById("theme-toggle");
+    if (btn) {
+      const label = btn.querySelector(".integration-theme-toggle__label");
+      if (label) label.textContent = t === "light" ? "Dark" : "Light";
+      btn.setAttribute("aria-label", t === "light" ? "Switch to classic dark globe" : "Switch to light globe");
+      btn.setAttribute("title", t === "light" ? "Switch to classic dark globe" : "Switch to light globe");
+    }
+    // Force repaint of already-open side windows (they stay mounted) so html[data-theme] CSS recomputes
+    try {
+      document.querySelectorAll('.orbital-panel, .market-detail-panel, .market-filter-panel, .market-timeline-dock, .market-search-panel').forEach(el => {
+        // trigger reflow
+        void el.offsetHeight;
+      });
+      // Also nudge sports inline styles that use light-dark() fallback
+      document.documentElement.style.display='none';
+      void document.documentElement.offsetHeight;
+      document.documentElement.style.display='';
+    } catch {}
+  }
+  function currentTheme() { return html.getAttribute("data-theme") === "light" ? "light" : "dark"; }
+  // init from storage (inline script already did, but sync button label)
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "light" || saved === "dark") applyTheme(saved);
+    else applyTheme("light");
+  } catch { applyTheme("light"); }
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("theme-toggle");
+    if (!btn) return;
+    applyTheme(currentTheme());
+    btn.addEventListener("click", () => applyTheme(currentTheme() === "dark" ? "light" : "dark"));
+  });
+  // expose for tests / console
+  window.__marketAtlasTheme = { applyTheme, currentTheme };
+})();
+
+
 const shell = document.querySelector(".integration-shell");
 const search = document.querySelector(".integration-search input");
 const usesIOSNativePickers = /iP(?:hone|ad|od)/i.test(navigator.userAgent)
@@ -790,10 +839,7 @@ window.__integratedPoliticsView = {
       renderDetail(match);
       openMobileDetail();
     }
-    projection.rotate([-(match?.lon ?? lon), -Math.max(-84, Math.min(84, match?.lat ?? lat)), 0]);
-    projection.scale(Math.max(170, Math.min(4200, Number(result?.scale) || 1050)));
-    hideTooltip();
-    draw();
+    animateToLocation(match?.lon ?? lon, match?.lat ?? lat, Math.max(170, Math.min(4200, Number(result?.scale) || 1050)), 520);
     return true;
   },
   revealMarket(result) {
@@ -807,10 +853,7 @@ window.__integratedPoliticsView = {
     selectedBundleId = bundle.id;
     renderDetail(bundle);
     openMobileDetail();
-    projection.rotate([-bundle.lon, -bundle.lat, 0]);
-    projection.scale(Math.max(420, Math.min(900, projection.scale())));
-    hideTooltip();
-    draw();
+    animateToLocation(bundle.lon, bundle.lat, Math.max(420, Math.min(900, projection.scale())), 480);
     return true;
   }
 };`

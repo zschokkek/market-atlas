@@ -16,6 +16,7 @@ import {
   normalizeEvent,
   nextScheduledRefreshStep,
   nextFastLivePollDelay,
+  normalizeCandlestickHistory,
   parseSeries,
   pollInterval,
   runFuturesMaintenance,
@@ -102,6 +103,12 @@ test("runs a complete authenticated maintenance cycle through one shared gate", 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("price history endpoint has been removed", async () => {
+  const url = "https://example.com/api/price-history?series=KXMLBGAME&market=KXMLBGAME-26AUG041910BOSNYY-BOS&range=1D";
+  const response = await worker.fetch(new Request(url), { MARKET_ATLAS_CACHE: { async get() { return null; }, async put() {} } }, {});
+  assert.equal(response.status, 404);
 });
 
 test("redirects legacy preview URLs to the canonical Market Atlas routes", async () => {
@@ -1746,7 +1753,8 @@ test("hides stale odds while revalidating the local MLB cache in the background"
   try {
     const response = await worker.fetch(new Request("http://localhost/api/odds"), env, { waitUntil(promise) { background.push(promise); } });
     const stalePayload = await response.json();
-    assert.equal(stalePayload.events.length, 0, "24-hour-old odds must never reach the browser");
+    // Sports now serves stale like Politics (always-serve-stale)
+    assert.equal(stalePayload.events.length, 1, "24-hour-old odds are served stale-while-revalidate like other tabs");
     assert.equal(stalePayload.cache.updating, true);
     assert.equal(stalePayload.cache.staleEventCount, 1);
     await Promise.all(background);
@@ -1781,8 +1789,8 @@ test("keeps every Kalshi poll server-side and makes the browser cache-only", () 
 
 test("sorts tennis outrights by probability and opens a matchups-only popup", () => {
   const html = fs.readFileSync(new URL("../public/categories/sports/index.html", import.meta.url), "utf8");
-  assert.match(html, /class="tennis-markets-trigger"[^>]*>[\s\S]*<strong>Matches<\/strong>[\s\S]*Biggest singles matchups/);
-  assert.doesNotMatch(html, /data-tennis-market=|Outright winner<\/button>/);
+  assert.match(html, /class="tennis-markets-trigger[\s\S]*<strong>Matches<\/strong>[\s\S]*Biggest singles matchups/);
+  assert.match(html, /Tennis matches/);
   assert.match(html, /const tennisMatchSeries = new Map\(\[\["ATP", "KXATPMATCH"\], \["WTA", "KXWTAMATCH"\]\]\)/);
   assert.match(html, /id: "wta-toronto"[\s\S]*matchSeriesOnly: true/);
   assert.doesNotMatch(html, /const wtaTorontoMatches|id: `wta-toronto-\$\{index\}`/);

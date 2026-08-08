@@ -28,6 +28,12 @@ async function refresh() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       const warming = response.status === 503 && payload.warming;
+      if (response.status === 429) {
+        const retryAfter = Number(response.headers.get("retry-after") || "5");
+        console.warn(`Kalshi poll failed 429 for /api/odds`, { status: 429, retryAfter });
+        oddsBridge.apply({ events: [], oddsStatus: "warming", cache: { updating: true } });
+        return "warming";
+      }
       oddsBridge.apply({ events: [], oddsStatus: warming ? "warming" : "unavailable", cache: payload.cache || null });
       return warming ? "warming" : "unavailable";
     }
@@ -48,7 +54,8 @@ function schedule(delay = POLL_INTERVAL_MS) {
   clearTimeout(timer);
   timer = setTimeout(async () => {
     const status = await refresh();
-    schedule(status === "warming" ? 2000 : POLL_INTERVAL_MS);
+    const nextDelay = status === "warming" ? 5000 : POLL_INTERVAL_MS;
+    schedule(nextDelay);
   }, delay);
 }
 

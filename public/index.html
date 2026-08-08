@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Explore live Kalshi sports, politics, weather, and business markets on one interactive globe.">
-  <meta name="theme-color" content="#0b110e">
-  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#eef2ef">
+  <meta name="color-scheme" content="light">
   <meta name="application-name" content="Market Atlas">
   <meta name="apple-mobile-web-app-title" content="Market Atlas">
   <meta property="og:type" content="website">
@@ -20,9 +20,25 @@
   <meta name="twitter:description" content="Live sports, politics, weather, and business markets on one interactive globe.">
   <meta name="twitter:image" content="/og.png">
   <title>Market Atlas</title>
-  <link rel="stylesheet" href="/assets/app.css?v=06c2d2fde0a9">
-  <link rel="stylesheet" href="/assets/globe-shell.css?v=1385e53ea1e8">
-  <link rel="stylesheet" href="/assets/search.css?v=10dd60fbdda9">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@700;800&family=Inter:wght@700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css?v=869b045b4432">
+  <link rel="stylesheet" href="/assets/globe-shell.css?v=374b425913a7">
+  <link rel="stylesheet" href="/assets/search.css?v=c9c604b4a3b4">
+  <script>
+    (() => {
+      try {
+        const s = localStorage.getItem('market-atlas-theme');
+        const tt = s === 'light' || s === 'dark' ? s : 'light';
+        document.documentElement.setAttribute('data-theme', tt);
+        const mc = document.querySelector('meta[name="theme-color"]');
+        const cs = document.querySelector('meta[name="color-scheme"]');
+        if (mc) mc.setAttribute('content', tt === 'light' ? '#eef2ef' : '#0b110e');
+        if (cs) cs.setAttribute('content', tt);
+      } catch {}
+    })();
+  </script>
 </head>
 <body class="integration-body">
   <main class="integration-shell" data-active-category="sports">
@@ -74,8 +90,15 @@
       </section>
     </section>
   </main>
+  <div class="integration-utility-bar" role="navigation" aria-label="Market Atlas utilities">
+      <a class="integration-daily-link" href="https://zschokkek.github.io/daily-market/" target="_blank" rel="noopener">Try the KXDAILY →</a>
+      <button id="theme-toggle" class="integration-theme-toggle" type="button" aria-label="Toggle globe style" title="Toggle between classic dark and light globe">
+        <span class="integration-theme-toggle__icon" aria-hidden="true">◐</span>
+        <span class="integration-theme-toggle__label">Dark</span>
+      </button>
+    </div>
 
-  <script type="module" src="/assets/app.js?v=85792f247500"></script>
+  <script type="module" src="/assets/app.js?v=103285c00c7c"></script>
   <script type="module" src="/assets/search.js?v=30e31e760d21"></script>
 </body>
 </html>

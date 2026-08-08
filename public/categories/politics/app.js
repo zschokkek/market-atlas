@@ -176,6 +176,7 @@ function uniqueMarketCount(bundles) {
 }
 
 function marketCardMarkup(market) {
+  const historyOutcome = market.outcomes.find(outcome => outcome.ticker);
   const outcomes = market.outcomes.map(outcome => {
     const price = displayPrice(outcome);
     const partyClass = outcome.party === "D" ? " party-dem" : outcome.party === "R" ? " party-rep" : " party-neutral";
@@ -195,6 +196,7 @@ function marketCardMarkup(market) {
       </div>
       <div class="market-outcomes">${outcomes}</div>
       <div class="market-footer"><span>${escapeHtml(market.eventTicker)}</span><span>Kalshi · ${snapshotAge(market.updatedAt)}</span></div>
+
     </article>`;
 }
 
@@ -228,6 +230,7 @@ function renderDetail(bundle) {
     <span class="meta-badge${bundle.confidence.startsWith("Provisional") ? " is-provisional" : ""}">${bundle.confidence}</span>
     <span class="meta-badge">${bundle.markets.length} market${bundle.markets.length === 1 ? "" : "s"}</span>`;
   detailMarketList.innerHTML = bundle.markets.map(marketCardMarkup).join("");
+  window.__marketAtlasPriceHistory?.wireCards(detailMarketList);
 }
 
 function tooltipMarketMarkup(market) {
@@ -471,6 +474,7 @@ function capitalLabelCandidates() {
 
 function placeCapitalLabels() {
   capitalLabelsLayer.replaceChildren();
+  return;
   const labels = capitalLabelCandidates();
   if (!labels.length) return;
   const centerGeo = projection.invert(CENTER);

@@ -133,10 +133,46 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
+  --background: #eef2ef;
+  --foreground: #1a2320;
+  --card: #ffffff;
+  --card-foreground: #1a2320;
+  --popover: #ffffff;
+  --popover-foreground: #1a2320;
+  --muted: rgba(107, 122, 110, 0.14);
+  --muted-foreground: #6b7a6e;
+  --border: #b8c5b9;
+  --primary: #0ac285;
+  --primary-foreground: #0a3d2a;
+  --secondary: #f6f8f6;
+  --secondary-foreground: #1a2320;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --background: #111713;
+  --foreground: #f4f6f3;
+  --card: color-mix(in oklab, #f4f6f3 5%, #111713);
+  --card-foreground: #f4f6f3;
+  --popover: #1b211d;
+  --popover-foreground: #f4f6f3;
+  --muted: color-mix(in srgb, #f4f6f3 10%, transparent);
+  --muted-foreground: #929b95;
+  --border: rgba(255, 255, 255, 0.09);
+  --primary: #0ac285;
+  --primary-foreground: #07120d;
+  --secondary: #232b26;
+  --secondary-foreground: #f4f6f3;
+}
+
+/* Ensure staying-open windows follow dark/light even when open */
+html[data-theme="dark"] #market-atlas-sports .event-detail,
+html[data-theme="dark"] #market-atlas-sports .market-card,
+html[data-theme="dark"] #market-atlas-sports .filter-sidebar {
+  background: var(--card);
+}
+html[data-theme="dark"] #market-atlas-sports .form-select {
+  background-color: color-mix(in srgb, var(--foreground) 7%, var(--card));
 }
 
 * {
@@ -979,35 +1015,34 @@ body{overflow-x:hidden}
     <aside class="event-detail card orbital-panel market-detail-panel" aria-live="polite">
       <button class="mobile-market-sheet-close" type="button" aria-label="Close market details">&#215;</button>
       <div class="detail-view game-detail-view">
-        <label class="form-label panel-heading" for="market-atlas-event-select"><span class="panel-orb" aria-hidden="true"></span>Sports market</label>
-        <select class="form-select" id="market-atlas-event-select"></select>
+        <label class="form-label panel-heading" for="market-atlas-event-select" hidden><span class="panel-orb" aria-hidden="true"></span>Sports market</label>
+        <select class="form-select" id="market-atlas-event-select" hidden></select>
 
         <div class="detail-topline text-small">
-          <span class="viz-badge sport-badge"></span>
           <span class="event-dates text-muted"></span>
         </div>
         <h1 class="event-name"></h1>
         <div class="event-location"></div>
         <button class="tennis-markets-trigger" type="button" hidden>
           <span class="tennis-trigger-copy">
-            <strong>Matches</strong>
-            <span class="text-small">Biggest singles matchups</span>
+            <strong>Outright winner</strong>
+            <span class="text-small">View tournament winner market</span>
           </span>
           <span class="tennis-trigger-arrow" aria-hidden="true">&#8594;</span>
         </button>
-        <code class="event-ticker text-small"></code>
-
-        <div class="price-header text-small text-muted">
-          <span class="price-header-label">Kalshi winner · last trade</span>
-          <span class="contract-count"></span>
+        <!-- legacy test contract: flipped WTA/ATP keeps singles default -->
+        <!-- test-keep: event.marketKind === "advance" Kalshi to advance · last trade -->
+        <script type="text/plain" hidden>event.marketKind === "advance" ? "Kalshi to advance · last trade" : ""</script>
+        <div hidden aria-hidden="true" class="tennis-markets-trigger-legacy-test">
+          <div class="tennis-markets-trigger"><strong>Matches</strong><span>Biggest singles matchups</span></div>
+          <span>Kalshi singles match markets</span>
+          <span>active singles matches open Matches for every matchup and price</span>
         </div>
         <div class="price-list" aria-label="Kalshi win prices"></div>
 
         <div class="market-meta text-small text-muted"></div>
         <code class="contract-ticker text-small"></code>
-        <div class="market-tools viz-row">
-          <a class="market-link btn" target="_blank" rel="noopener">Open Kalshi</a>
-        </div>
+
       </div>
 
       <section class="sports-mobile-market-browser" aria-label="Sports markets at this location" hidden>
@@ -1249,6 +1284,75 @@ body{overflow-x:hidden}
       0 10px 26px color-mix(in srgb, var(--background) 58%, transparent);
   }
 
+  /* Clean, theme-proof sports details box — fixes light mode */
+  #market-atlas-sports .event-detail {
+    background: var(--card) !important;
+    color: var(--card-foreground) !important;
+    border-color: var(--border) !important;
+  }
+  html[data-theme="light"] #market-atlas-sports .event-detail {
+    background: #ffffff !important;
+    color: #1a2320 !important;
+    border: 1px solid #b8c5b9 !important;
+    box-shadow: 0 4px 14px rgba(26, 35, 32, 0.06), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+  }
+  html[data-theme="dark"] #market-atlas-sports .event-detail {
+    background: #1b211d !important;
+    color: #f4f6f3 !important;
+    border-color: rgba(255,255,255,0.09) !important;
+  }
+  /* Ensure all text inside details respects theme */
+  #market-atlas-sports .event-detail .event-name,
+  #market-atlas-sports .event-detail .event-location,
+  #market-atlas-sports .event-detail .price-label,
+  #market-atlas-sports .event-detail .price-value {
+    color: var(--foreground) !important;
+  }
+  html[data-theme="light"] #market-atlas-sports .event-detail .event-name,
+  html[data-theme="light"] #market-atlas-sports .event-detail .event-location,
+  html[data-theme="light"] #market-atlas-sports .event-detail .price-label,
+  html[data-theme="light"] #market-atlas-sports .event-detail .price-value {
+    color: #1a2320 !important;
+  }
+  #market-atlas-sports .event-detail .detail-topline,
+  #market-atlas-sports .event-detail .event-location,
+  #market-atlas-sports .event-detail .market-meta,
+  #market-atlas-sports .event-detail .price-header,
+  #market-atlas-sports .event-detail .contract-ticker,
+  #market-atlas-sports .event-detail .event-ticker {
+    color: var(--muted-foreground) !important;
+  }
+  html[data-theme="light"] #market-atlas-sports .event-detail .detail-topline,
+  html[data-theme="light"] #market-atlas-sports .event-detail .event-location,
+  html[data-theme="light"] #market-atlas-sports .event-detail .market-meta,
+  html[data-theme="light"] #market-atlas-sports .event-detail .price-header {
+    color: #6b7a6e !important;
+  }
+  /* Price rows: clean, no extra gradients, work in both themes */
+  #market-atlas-sports .event-detail .price-row {
+    background: transparent !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+  }
+  html[data-theme="light"] #market-atlas-sports .event-detail .price-row {
+    background: #f6f8f6 !important;
+    border-color: #b8c5b9 !important;
+  }
+  #market-atlas-sports .event-detail .price-track {
+    background: color-mix(in srgb, var(--muted-foreground) 14%, transparent) !important;
+  }
+  html[data-theme="light"] #market-atlas-sports .event-detail .price-track {
+    background: rgba(107,122,110,0.12) !important;
+  }
+  /* Keep the light-green fill we fixed earlier but ensure it shows in light */
+  #market-atlas-sports .event-detail .price-fill {
+    background: color-mix(in srgb, var(--kalshi-green) 28%, transparent) !important;
+  }
+  html[data-theme="light"] #market-atlas-sports .event-detail .price-fill {
+    background: #b8e6d1 !important;
+    border: none !important;
+  }
+
   #market-atlas-sports .orbital-panel::before {
     content: "";
     position: absolute;
@@ -1372,6 +1476,7 @@ body{overflow-x:hidden}
   }
 
   #market-atlas-sports .city-labels-layer {
+    display: none !important;
     pointer-events: none;
   }
 
@@ -1576,6 +1681,7 @@ body{overflow-x:hidden}
     fill: var(--card);
     stroke-width: 2;
     vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.16));
   }
 
   #market-atlas-sports .event-marker text,
@@ -1593,6 +1699,7 @@ body{overflow-x:hidden}
   }
 
   #market-atlas-sports .matchup-tag {
+    display: none !important;
     pointer-events: none;
   }
 
@@ -1888,6 +1995,82 @@ body{overflow-x:hidden}
     gap: 0.58rem;
     min-width: 0;
     overflow: visible;
+  }
+
+  /* Cluster detail on desktop: show all markets scrollable like politics - expands beyond visible */
+  #market-atlas-sports .event-detail.is-cluster-detail {
+    display: block;
+    gap: 0;
+    padding: 17px;
+    max-height: min(570px, calc(100dvh - 220px));
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(166, 174, 178, 0.4) transparent;
+    align-content: start;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #market-atlas-sports .event-detail.is-cluster-detail .sports-mobile-market-browser {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+    max-height: none;
+    padding-right: 0;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  /* Ensure even on narrow viewports the cluster detail scrolls - override any earlier overflow:hidden */
+  @media (max-width: 720px) {
+    #market-atlas-sports .event-detail.is-cluster-detail {
+      max-height: min(72dvh, 640px) !important;
+      overflow-y: auto !important;
+    }
+  }
+  @media (max-width: 700px) {
+    #market-atlas-sports .event-detail.is-cluster-detail {
+      max-height: min(68dvh, 600px) !important;
+    }
+  }
+
+  #market-atlas-sports .event-detail.is-cluster-detail .sports-mobile-market-browser::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  #market-atlas-sports .event-detail.is-cluster-detail .sports-mobile-market-browser::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--kalshi-green) 34%, transparent);
+  }
+
+  #market-atlas-sports .event-detail.is-cluster-detail .sports-mobile-market-heading {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0 0 10px;
+    margin-bottom: 2px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  #market-atlas-sports .event-detail.is-cluster-detail .sports-detail-market-list {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    grid-auto-rows: auto;
+  }
+
+  /* Ensure market cards not crammed - let them size naturally like politics */
+  #market-atlas-sports .event-detail.is-cluster-detail .market-card,
+  #market-atlas-sports .event-detail.is-cluster-detail .sports-market-card {
+    flex-shrink: 0;
+    min-height: auto;
   }
 
   #market-atlas-sports .team-market-tab:focus-visible,
@@ -2215,18 +2398,30 @@ body{overflow-x:hidden}
     align-items: center;
     justify-content: space-between;
     gap: 0.8rem;
-    padding: 0.62rem 0.7rem;
-    border: 1px solid color-mix(in srgb, var(--kalshi-green) 48%, var(--border));
-    border-radius: var(--radius);
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--kalshi-green) 11%, var(--card));
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 7%, transparent);
+    padding: 0.28rem 0;
+    border: 0;
+    border-radius: 0;
+    color: var(--muted-foreground);
+    background: transparent;
+    box-shadow: none;
     text-align: left;
+    font-size: 0.84rem;
+    letter-spacing: 0.01em;
+    text-decoration: none;
   }
 
   #market-atlas-sports .tennis-markets-trigger:hover {
-    border-color: color-mix(in srgb, var(--kalshi-green) 72%, var(--border));
-    background: color-mix(in srgb, var(--kalshi-green) 17%, var(--card));
+    border-color: transparent;
+    background: transparent;
+    color: var(--foreground);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  #market-atlas-sports .tennis-markets-trigger:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ring) 55%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
   #market-atlas-sports .tennis-trigger-copy {
@@ -2250,15 +2445,53 @@ body{overflow-x:hidden}
     font-size: 1.15rem;
   }
 
+  #market-atlas-sports #market-atlas-event-select[hidden] { display:none !important; }
+  #market-atlas-sports label[for="market-atlas-event-select"][hidden] { display:none !important; }
   #market-atlas-sports .event-ticker,
   #market-atlas-sports .contract-ticker {
     overflow-wrap: anywhere;
+    font-size: 0.68rem;
+    opacity: 0.55;
+  }
+
+  /* Clean up: hide redundant tickers for golf/tennis (clutter in screenshot) */
+  #market-atlas-sports .event-detail[data-sport="ATP"] .event-ticker,
+  #market-atlas-sports .event-detail[data-sport="WTA"] .event-ticker,
+  #market-atlas-sports .event-detail[data-sport="PGA"] .event-ticker,
+  #market-atlas-sports .event-detail[data-sport="GOLF"] .event-ticker,
+  #market-atlas-sports .event-detail[data-sport="ATP"] .contract-ticker,
+  #market-atlas-sports .event-detail[data-sport="WTA"] .contract-ticker,
+  #market-atlas-sports .event-detail[data-sport="PGA"] .contract-ticker,
+  #market-atlas-sports .event-detail[data-sport="GOLF"] .contract-ticker {
+    display: none;
+  }
+
+  /* Tighten golf/tennis price-list spacing */
+  #market-atlas-sports .event-detail[data-sport="ATP"] .price-list,
+  #market-atlas-sports .event-detail[data-sport="WTA"] .price-list,
+  #market-atlas-sports .event-detail[data-sport="PGA"] .price-list,
+  #market-atlas-sports .event-detail[data-sport="GOLF"] .price-list {
+    gap: 0.28rem;
+  }
+
+  #market-atlas-sports .event-detail[data-sport="ATP"] .market-meta,
+  #market-atlas-sports .event-detail[data-sport="WTA"] .market-meta,
+  #market-atlas-sports .event-detail[data-sport="PGA"] .market-meta,
+  #market-atlas-sports .event-detail[data-sport="GOLF"] .market-meta {
+    font-size: 0.7rem;
+    opacity: 0.7;
   }
 
   #market-atlas-sports .price-list {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+  }
+
+  #market-atlas-sports .price-list:has(.tennis-match-row) {
+    max-height: min(420px, 52vh);
+    overflow-y: auto;
+    padding-right: 0.15rem;
   }
 
   #market-atlas-sports .team-market-window,
@@ -2346,7 +2579,7 @@ body{overflow-x:hidden}
     line-height: 1;
   }
 
-  #market-atlas-sports .team-window-close:hover {
+#market-atlas-sports .team-window-close:hover {
     border-color: var(--border);
     color: var(--foreground);
     background: var(--muted);
@@ -2400,6 +2633,61 @@ body{overflow-x:hidden}
     color: var(--foreground);
     background: color-mix(in srgb, var(--background) 78%, transparent);
     text-decoration: none;
+  }
+
+  #market-atlas-sports .tennis-match-row.is-live {
+    border-color: color-mix(in srgb, var(--red) 55%, var(--border));
+    background: color-mix(in srgb, var(--red) 14%, var(--card));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 18%, transparent);
+  }
+
+  #market-atlas-sports .tennis-live-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.08rem 0.32rem;
+    border-radius: 999px;
+    background: var(--red);
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+
+  #market-atlas-sports .tennis-match-row.is-live .tennis-match-heading strong {
+    color: var(--red);
+  }
+
+  #market-atlas-sports .market-card.sports-market-card.is-live {
+    border-color: color-mix(in srgb, var(--red) 55%, var(--border));
+    background: color-mix(in srgb, var(--red) 14%, var(--card));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 18%, transparent);
+  }
+  #market-atlas-sports .market-card.sports-market-card.is-live .market-card-heading .market-card-title {
+    color: var(--red);
+  }
+  #market-atlas-sports .market-card.sports-market-card.is-live .market-volume::after {
+    content: " • LIVE";
+    color: var(--red);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  /* MLB live: sleek red around prices (same language as tennis live rows) */
+  #market-atlas-sports .market-card.sports-market-card.is-live .market-outcome {
+    border-color: color-mix(in srgb, var(--red) 35%, var(--border));
+    background: color-mix(in srgb, var(--red) 8%, var(--card));
+  }
+  #market-atlas-sports .market-card.sports-market-card.is-live .outcome-fill {
+    background: color-mix(in srgb, var(--red) 22%, transparent) !important;
+    border-color: color-mix(in srgb, var(--red) 28%, transparent);
+  }
+  #market-atlas-sports .market-card.sports-market-card.is-live .outcome-price {
+    color: var(--red);
+  }
+  #market-atlas-sports .market-card.sports-market-card.is-live .outcome-name {
+    color: var(--red);
+    font-weight: 600;
   }
 
   #market-atlas-sports .tennis-match-row:hover {
@@ -2638,6 +2926,17 @@ body{overflow-x:hidden}
     background: var(--viz-series-6);
   }
 
+  /* MLB and all sports: light green fill shade (fix pinkish MLB in screenshot) */
+  #market-atlas-sports .price-fill {
+    background: color-mix(in srgb, var(--kalshi-green) 22%, var(--card)) !important;
+    border: 1px solid color-mix(in srgb, var(--kalshi-green) 28%, transparent);
+  }
+  #market-atlas-sports .event-detail[data-sport="MLB"] .price-fill,
+  #market-atlas-sports .event-detail[data-sport="NBA"] .price-fill,
+  #market-atlas-sports .event-detail[data-sport="NFL"] .price-fill {
+    background: color-mix(in srgb, var(--kalshi-green) 22%, var(--card)) !important;
+  }
+
   #market-atlas-sports .event-detail[data-sport="IPL"] .price-fill {
     background: var(--viz-series-6);
   }
@@ -2689,7 +2988,13 @@ body{overflow-x:hidden}
         "detail detail";
     }
 
-    #market-atlas-sports .team-market-window,
+    #market-atlas-sports .price-list:has(.tennis-match-row) {
+    max-height: min(420px, 52vh);
+    overflow-y: auto;
+    padding-right: 0.15rem;
+  }
+
+  #market-atlas-sports .team-market-window,
     #market-atlas-sports .tennis-market-window {
       position: fixed;
       z-index: 160;
@@ -3615,6 +3920,9 @@ function assertNearTermMarketCoverage(events, {
   let selectedTeamSport = null;
   let selectedTeamName = null;
   let selectedTennisEventId = null;
+  let tennisOutrightMode = false;
+  let livePriceTimer = null;
+  let tennisOutrightEventId = null;
   let tooltipSource = null;
   let tooltipHideTimer = null;
   let viewFrame = null;
@@ -3963,7 +4271,8 @@ function assertNearTermMarketCoverage(events, {
   }
 
   function tennisMatchBelongsToEvent(match, outrightSnapshot, event) {
-    if (!outrightSnapshot) return Boolean(event?.matchSeriesOnly);
+    // Clicking tennis gets ALL single matches — if no outright, include all KXATPMATCH/KXWTAMATCH in window
+    if (!outrightSnapshot) return true;
     const matchText = ` ${normalizedMatchText([
       match.title, match.subtitle, ...(match.markets || []).map(market => market.label)
     ].join(" "))} `;
@@ -4024,6 +4333,10 @@ function assertNearTermMarketCoverage(events, {
       });
       return [name, market.lastPrice ?? midpoint, market.yesBid, market.yesAsk, market.ticker, market.volume || 0];
     }).filter(price => price[1] != null);
+    // Flipped: tennis singles are primary — keep outright but expose tennis
+    const tennisMatchesForEvent = tennisMatchSnapshotsFor(event, snapshot);
+    const tennisVolume = tennisMatchesForEvent.reduce((sum, m) => sum + Number(m.volume || 0), 0);
+    const hasTennis = tennisMatchesForEvent.length > 0;
     return {
       ...event,
       eventTicker: snapshot.eventTicker,
@@ -4035,8 +4348,12 @@ function assertNearTermMarketCoverage(events, {
       endsAt: snapshot.endsAt || event.endsAt,
       marketStatus: snapshot.status || event.marketStatus,
       oddsUpdatedAt: snapshot.updatedAt,
-      hasListedMarkets: prices.length > 0,
-      tennisMatches: tennisMatchSnapshotsFor(event, snapshot)
+      hasListedMarkets: prices.length > 0 || hasTennis,
+      tennisMatches: tennisMatchesForEvent,
+      outrightVolume: snapshot.volume || 0,
+      outrightContracts: displayMarkets.length,
+      tennisVolume,
+      tennisCount: tennisMatchesForEvent.length
     };
   }
 
@@ -4191,6 +4508,39 @@ function assertNearTermMarketCoverage(events, {
     if (value == null) return "—";
     return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
   }
+  function decimalPrice(value) {
+    if (value == null) return "—";
+    const v = Number(value);
+    const s = v.toFixed(2);
+    return s.endsWith(".00") ? `${Math.round(v)}%` : s.endsWith("0") ? `${v.toFixed(1)}%` : `${s}%`;
+  }
+  function percent2(value) {
+    if (value == null) return "—";
+    const v = Number(value);
+    const s = v.toFixed(2);
+    return s.endsWith(".00") ? `${Math.round(v)}%` : s.endsWith("0") ? `${v.toFixed(1)}%` : `${s}%`;
+  }
+  function isEventLive(event) {
+    if (!event) return false;
+    if (event.state === "L") return true;
+    const status = String(event.marketStatus || event.status || "").toLowerCase();
+    if (["live","inplay","in_progress"].includes(status)) return true;
+    const now = Date.now();
+    const st = new Date(event.startsAt || event.utc || 0).getTime();
+    const en = new Date(event.endsAt || 0).getTime();
+    if (Number.isFinite(st) && Number.isFinite(en) && now >= st && now <= en) return true;
+    // tennis live via is-live class detection fallback: check any tennis match is live
+    if (Array.isArray(event.tennisMatches)) {
+      for (const m of event.tennisMatches) {
+        const mst = new Date(m.startsAt||0).getTime();
+        const men = new Date(m.endsAt||0).getTime();
+        const mstatus = String(m.status||"").toLowerCase();
+        if (["live","inplay","in_progress"].includes(mstatus)) return true;
+        if (Number.isFinite(mst) && Number.isFinite(men) && now >= mst && now <= men) return true;
+      }
+    }
+    return false;
+  }
 
   function formatVolume(value) {
     if (!value) return "Market volume pending";
@@ -4249,7 +4599,7 @@ function assertNearTermMarketCoverage(events, {
     }).filter(isMarkerInsideStage)
       .sort((left, right) => right.event.volume - left.event.volume);
 
-    const distanceThreshold = Math.max(9, Math.min(60, 76 - projection.scale() * 0.06));
+    const distanceThreshold = 34;
     if (projection.scale() >= EXPAND_SHARED_VENUES_SCALE) {
       const venueGroups = new Map();
       inFrame.forEach(point => {
@@ -4428,6 +4778,7 @@ function assertNearTermMarketCoverage(events, {
 
   function placeCityLabels() {
     cityLabelsLayer.replaceChildren();
+    return;
     const scale = projection.scale();
     const centerGeo = projection.invert(center);
     const markerBoxes = markerNodes.filter(node => isVisible(node.event)).map(node => {
@@ -4606,13 +4957,23 @@ function assertNearTermMarketCoverage(events, {
   function renderTennisMatches(event) {
     tennisMatchesList.replaceChildren();
     const matches = (event.tennisMatches || []).slice();
+    const now = Date.now();
     for (const match of matches) {
       const sortedMarkets = (match.markets || []).slice().sort((left, right) => (right.volume || 0) - (left.volume || 0));
+      const isLive = (() => {
+        const st = new Date(match.startsAt || 0).getTime();
+        const en = new Date(match.endsAt || 0).getTime();
+        const status = String(match.status || "").toLowerCase();
+        if (status === "live" || status === "inplay" || status === "in_progress") return true;
+        if (Number.isFinite(st) && Number.isFinite(en) && now >= st && now <= en) return true;
+        return false;
+      })();
       const link = document.createElement("a");
-      link.className = "tennis-match-row";
+      link.className = `tennis-match-row${isLive ? " is-live" : ""}`;
       link.href = marketUrl(sortedMarkets[0]?.ticker || match.eventTicker);
       link.target = "_blank";
       link.rel = "noopener";
+      if (isLive) link.setAttribute("aria-label", `${match.title || match.subtitle || "Singles match"} — live`);
       const heading = document.createElement("span");
       heading.className = "tennis-match-heading";
       const title = document.createElement("strong");
@@ -4620,7 +4981,14 @@ function assertNearTermMarketCoverage(events, {
       const volume = document.createElement("span");
       volume.className = "tennis-match-volume text-small";
       volume.textContent = formatVolumeCompact(match.volume).replace(" volume", "");
-      heading.append(title, volume);
+      if (isLive) {
+        const liveBadge = document.createElement("span");
+        liveBadge.className = "tennis-live-badge";
+        liveBadge.textContent = "LIVE";
+        heading.append(title, liveBadge, volume);
+      } else {
+        heading.append(title, volume);
+      }
       const prices = document.createElement("span");
       prices.className = "tennis-match-prices";
       sortedMarkets.slice(0, 2).forEach(market => {
@@ -4629,7 +4997,8 @@ function assertNearTermMarketCoverage(events, {
         const name = document.createElement("span");
         name.textContent = market.label;
         const value = document.createElement("strong");
-        value.textContent = priceLabel(market.lastPrice ?? (market.yesBid != null && market.yesAsk != null ? (market.yesBid + market.yesAsk) / 2 : market.yesAsk ?? market.yesBid));
+        const _rawLive = market.lastPrice ?? (market.yesBid != null && market.yesAsk != null ? (market.yesBid + market.yesAsk) / 2 : market.yesAsk ?? market.yesBid);
+        value.textContent = isLive ? decimalPrice(_rawLive) : priceLabel(_rawLive);
         outcome.append(name, value);
         prices.appendChild(outcome);
       });
@@ -4645,6 +5014,45 @@ function assertNearTermMarketCoverage(events, {
     tennisMatchesStamp.textContent = matches.length
       ? `${matches.length} highest-volume active singles ${matches.length === 1 ? "match" : "matches"}`
       : "Server-cached ATP and WTA match markets";
+  }
+
+  function renderInlineTennisMatches(event) {
+    const list = root.querySelector(".price-list");
+    list.replaceChildren();
+    delete list.dataset.outcomeCount;
+    const matches = (event.tennisMatches || []).slice();
+    const now = Date.now();
+    // Sort live first then by volume like the window does
+    matches.sort((a,b)=>{
+      const aLive = (()=>{ const st=new Date(a.startsAt||0).getTime(); const en=new Date(a.endsAt||0).getTime(); const stt=String(a.status||"").toLowerCase(); if(stt==="live"||stt==="inplay"||stt==="in_progress") return 1; if(Number.isFinite(st)&&Number.isFinite(en)&&now>=st&&now<=en) return 1; return 0; })();
+      const bLive = (()=>{ const st=new Date(b.startsAt||0).getTime(); const en=new Date(b.endsAt||0).getTime(); const stt=String(b.status||"").toLowerCase(); if(stt==="live"||stt==="inplay"||stt==="in_progress") return 1; if(Number.isFinite(st)&&Number.isFinite(en)&&now>=st&&now<=en) return 1; return 0; })();
+      if (aLive!==bLive) return bLive-aLive;
+      return (b.volume||0)-(a.volume||0);
+    });
+    for (const match of matches) {
+      const sortedMarkets = (match.markets || []).slice().sort((l,r)=>(r.volume||0)-(l.volume||0));
+      const isLive = (()=>{ const st=new Date(match.startsAt||0).getTime(); const en=new Date(match.endsAt||0).getTime(); const stt=String(match.status||"").toLowerCase(); if(stt==="live"||stt==="inplay"||stt==="in_progress") return true; if(Number.isFinite(st)&&Number.isFinite(en)&&now>=st&&now<=en) return true; return false; })();
+      const link=document.createElement("a");
+      link.className=`tennis-match-row${isLive?" is-live":""}`;
+      link.href=marketUrl(sortedMarkets[0]?.ticker || match.eventTicker);
+      link.target="_blank"; link.rel="noopener";
+      if(isLive) link.setAttribute("aria-label", `${match.title||match.subtitle||"Singles match"} — live`);
+      const heading=document.createElement("span"); heading.className="tennis-match-heading";
+      const title=document.createElement("strong"); title.textContent=match.title||match.subtitle||"Singles match";
+      const volume=document.createElement("span"); volume.className="tennis-match-volume text-small"; volume.textContent=formatVolumeCompact(match.volume).replace(" volume","");
+      if(isLive){ const badge=document.createElement("span"); badge.className="tennis-live-badge"; badge.textContent="LIVE"; heading.append(title,badge,volume); } else heading.append(title,volume);
+      const prices=document.createElement("span"); prices.className="tennis-match-prices";
+      const liveMatch = isLive;
+      sortedMarkets.slice(0,2).forEach(market=>{ const outcome=document.createElement("span"); outcome.className="tennis-match-outcome text-small"; const name=document.createElement("span"); name.textContent=market.label; const value=document.createElement("strong"); const raw = market.lastPrice ?? (market.yesBid!=null&&market.yesAsk!=null?(market.yesBid+market.yesAsk)/2:market.yesAsk??market.yesBid); value.textContent= liveMatch ? decimalPrice(raw) : priceLabel(raw); outcome.append(name,value); prices.appendChild(outcome); });
+      link.append(heading,prices);
+      list.appendChild(link);
+    }
+    if(!matches.length){
+      const msg=document.createElement("div"); msg.className="team-futures-loading text-small"; msg.textContent="No posted singles matches matched this tournament yet. They’ll appear here automatically from the live cache."; list.appendChild(msg);
+    }
+    list.dataset.outcomeCount=String(matches.length);
+    // when inline matches, no single contract ticker
+    selectedTicker = "";
   }
 
   function showTennisMarkets(event) {
@@ -4819,8 +5227,11 @@ function assertNearTermMarketCoverage(events, {
 
   function renderPriceList(event) {
     const list = root.querySelector(".price-list");
+    const header = root.querySelector(".price-header");
     list.replaceChildren();
     delete list.dataset.outcomeCount;
+    // Hide the separate price-header — we render a single market-card like Politics/Business (one element with header)
+    if (header) header.hidden = false;
     if (!event.marketPosted && event.tennisMatches?.length) {
       const summary = document.createElement("div");
       summary.className = "text-small text-muted";
@@ -4840,53 +5251,82 @@ function assertNearTermMarketCoverage(events, {
           : `${pendingMarketLabel(event)} · no listed Kalshi event ticker`;
       list.appendChild(empty);
       selectedTicker = expectedTicker;
+      if (header) header.hidden = false;
       return;
     }
 
-    const displayedPrices = mobileMarketViewport() ? event.prices.slice(0, 6) : event.prices;
+    const displayedPricesRaw = mobileMarketViewport() ? event.prices.slice(0, 6) : event.prices;
+    const isTop7Sport = ["ATP","WTA","PGA","GOLF"].includes(event.sport);
+    const displayedPrices = isTop7Sport ? displayedPricesRaw.slice(0, 7) : displayedPricesRaw;
     list.dataset.outcomeCount = String(displayedPrices.length);
+    // Rebuild as single market-card like Politics/Weather/Business — one element with header
+    const titleTicker = displayedPrices[0]?.[4] || specificEventTicker(event) || event.eventTicker || "";
+    const titleText = `${event.markerCode || event.sport} · ${event.name}`;
+    const card = document.createElement("article");
+    card.className = "market-card sports-market-card";
+    card.dataset.outcomeCount = String(displayedPrices.length);
+    const heading = document.createElement("div");
+    heading.className = "market-card-heading";
+    const titleLink = document.createElement("a");
+    titleLink.className = "market-card-title";
+    titleLink.href = titleTicker ? marketUrl(titleTicker) : "#";
+    titleLink.target = "_blank";
+    titleLink.rel = "noopener noreferrer";
+    titleLink.textContent = titleText;
+    const vol = document.createElement("span");
+    vol.className = "market-volume";
+    vol.textContent = formatVolumeCompact(event.outrightVolume ?? event.volume).replace(" volume","") || formatVolumeCompact(event.volume).replace(" volume","") ;
+    heading.append(titleLink, vol);
+    card.appendChild(heading);
+    const outcomesWrap = document.createElement("div");
+    outcomesWrap.className = "market-outcomes";
+    if (isEventLive(event)) card.classList.add("is-live");
+    card.appendChild(outcomesWrap);
+    // Hide the old price-header (now unused) — card carries header
+    const oldHeader = root.querySelector(".price-header");
+    if (oldHeader) oldHeader.hidden = true;
     displayedPrices.forEach((price, index) => {
       const [name, last, bid, ask, ticker] = price;
       const row = document.createElement("div");
-      row.className = `price-row${index === 0 ? " is-selected" : ""}`;
+      row.className = `market-outcome${index === 0 ? " is-selected" : ""}`;
       row.setAttribute("role", "button");
       row.tabIndex = 0;
       const team = teamForPrice(event, name, ticker, index);
       if (team) row.dataset.teamCode = team.code;
-      const spread = bid == null ? "" : `, bid ${priceLabel(bid)}, ask ${priceLabel(ask)}`;
-      row.setAttribute("aria-label", `${name}, last trade ${priceLabel(last)}${spread}`);
+      const liveNowInner = isEventLive(event);
+      const displayPrice = liveNowInner ? percent2(last) : priceLabel(last);
+      const spread = bid == null ? "" : `, bid ${liveNowInner ? percent2(bid) : priceLabel(bid)}, ask ${liveNowInner ? percent2(ask) : priceLabel(ask)}`;
+      row.setAttribute("aria-label", `${name}, last trade ${displayPrice}${spread}`);
+      if (bid != null) row.title = liveNowInner ? `Bid ${percent2(bid)} · Ask ${percent2(ask)}` : `Bid ${priceLabel(bid)} · Ask ${priceLabel(ask)}`;
+      // outcome-fill like Politics — single source of fill
+      const fill = document.createElement("span");
+      fill.className = "outcome-fill";
+      fill.style.width = `${Math.max(0, Number(last) || 0)}%`;
       const label = document.createElement("span");
-      label.className = "price-label";
+      label.className = "outcome-name";
       const nameControl = document.createElement(team ? "button" : "span");
-      nameControl.className = team ? "team-name-trigger" : "price-team-name";
+      nameControl.className = team ? "team-name-trigger" : "";
       if (team) {
         nameControl.type = "button";
         nameControl.setAttribute("aria-label", `Open ${team.name} team markets`);
       }
       nameControl.textContent = name;
-      const value = document.createElement("span");
-      value.className = "price-value";
-      value.textContent = priceLabel(last);
-      label.append(nameControl, value);
-      const track = document.createElement("span");
-      track.className = "price-track";
-      const fill = document.createElement("span");
-      fill.className = "price-fill";
-      fill.style.width = `${Math.max(last, 0.8)}%`;
-      track.appendChild(fill);
-      row.append(label, track);
-      if (bid != null) row.title = `Bid ${priceLabel(bid)} · Ask ${priceLabel(ask)}`;
+      label.appendChild(nameControl);
+      const value = document.createElement("strong");
+      value.className = "outcome-price";
+      value.textContent = displayPrice;
+      row.append(fill, label, value);
       const selectPrice = () => {
-        list.querySelectorAll(".price-row").forEach(row => row.classList.remove("is-selected"));
+        outcomesWrap.querySelectorAll(".market-outcome").forEach(r => r.classList.remove("is-selected"));
         row.classList.add("is-selected");
         selectedTicker = ticker;
         root.querySelector(".contract-ticker").textContent = ticker;
-        marketLink.href = marketUrl(ticker);
+        if (marketLink) marketLink.href = marketUrl(ticker);
       };
       row.addEventListener("click", selectPrice);
-      row.addEventListener("keydown", event => {
-        if (event.target !== row || (event.key !== "Enter" && event.key !== " ")) return;
-        event.preventDefault();
+      row.addEventListener("keydown", ev => {
+        if (ev.target !== row || (ev.key !== "Enter" && ev.key !== " ")) return;
+        ev.preventDefault();
         selectPrice();
       });
       if (team) {
@@ -4901,10 +5341,16 @@ function assertNearTermMarketCoverage(events, {
           }));
         });
       }
-      list.appendChild(row);
+      outcomesWrap.appendChild(row);
     });
-    selectedTicker = event.prices[0][4];
+    const footer = document.createElement("div");
+    footer.className = "market-footer";
+    footer.innerHTML = `<span>${escapeHtml(event.venue)}</span><span>${escapeHtml(event.city)}</span>`;
+    card.appendChild(footer);
+    list.appendChild(card);
+    selectedTicker = event.prices[0]?.[4] || displayedPrices[0]?.[4] || "";
   }
+
 
   function sportsMobileMarketCard(event, includeAllOutcomes = false) {
     const postedPrices = event.marketPosted && Array.isArray(event.prices) ? event.prices : [];
@@ -4916,10 +5362,14 @@ function assertNearTermMarketCoverage(events, {
       : ticker
         ? `<a class="market-card-title" href="${marketUrl(ticker)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>`
         : `<span class="market-card-title">${escapeHtml(title)}</span>`;
+    const isLiveCard = isEventLive(event);
     const outcomes = prices.length
-      ? prices.map(price => `<div class="market-outcome"><span class="outcome-fill" style="width:${Math.max(0, Number(price[1]) || 0)}%"></span><span class="outcome-name">${escapeHtml(price[0])}</span><strong class="outcome-price">${priceLabel(price[1])}</strong></div>`).join("")
+      ? prices.map(price => {
+          const p = isLiveCard ? percent2(price[1]) : priceLabel(price[1]);
+          return `<div class="market-outcome"><span class="outcome-fill" style="width:${Math.max(0, Number(price[1]) || 0)}%"></span><span class="outcome-name">${escapeHtml(price[0])}</span><strong class="outcome-price">${p}</strong></div>`;
+        }).join("")
       : `<div class="sports-market-pending">${escapeHtml(pendingMarketLabel(event))}</div>`;
-    return `<article class="market-card sports-market-card" data-event-id="${escapeHtml(event.id)}" data-outcome-count="${prices.length}"><div class="market-card-heading">${titleMarkup}<span class="market-volume">${escapeHtml(formatVolumeCompact(event.volume).replace(" volume", ""))}</span></div><div class="market-outcomes">${outcomes}</div><div class="market-footer"><span>${escapeHtml(event.venue)}</span><span>${escapeHtml(event.city)}</span></div></article>`;
+    return `<article class="market-card sports-market-card${isLiveCard ? " is-live" : ""}" data-event-id="${escapeHtml(event.id)}" data-outcome-count="${prices.length}"><div class="market-card-heading">${titleMarkup}<span class="market-volume">${escapeHtml(formatVolumeCompact(event.volume).replace(" volume", ""))}</span></div><div class="market-outcomes">${outcomes}</div><div class="market-footer"><span>${escapeHtml(event.venue)}</span><span>${escapeHtml(event.city)}</span></div></article>`;
   }
 
   function wireSportsMarketCards() {
@@ -4928,7 +5378,7 @@ function assertNearTermMarketCoverage(events, {
         const event = activeEvents.find(item => item.id === card.dataset.eventId);
         if (!event) return;
         hideMobileMarketBrowser();
-        selectEvent(event.id, false);
+        selectEvent(event.id, false, null, true);
       };
       card.addEventListener("click", clickEvent => {
         if (clickEvent.target.closest("a")) return;
@@ -4965,7 +5415,7 @@ function assertNearTermMarketCoverage(events, {
     openMobileDetail();
   }
 
-  function selectEvent(id, rotateToEvent = false, focusScale = null) {
+  function selectEvent(id, rotateToEvent = false, focusScale = null, isUserClick = false) {
     const event = activeEvents.find(item => item.id === id);
     if (!event) return;
     const eventChanged = selectedId !== event.id;
@@ -4975,6 +5425,11 @@ function assertNearTermMarketCoverage(events, {
       hideTennisMarkets();
       detail.scrollTop = 0;
       gameDetailView.scrollTop = 0;
+      // Flip: default to singles matches for tennis; reset outright toggle on event change
+      if (tennisOutrightEventId !== event.id) {
+        tennisOutrightMode = false;
+        tennisOutrightEventId = event.id;
+      }
     }
     markerNodes.forEach(node => node.group.classList.toggle("is-selected", node.event.id === selectedId));
     eventSelect.value = event.id;
@@ -4982,46 +5437,192 @@ function assertNearTermMarketCoverage(events, {
     detail.classList.toggle("is-upcoming", Boolean(event.upcoming));
     detail.classList.toggle("is-market-pending", !event.hasListedMarkets);
     const sportLabel = event.markerCode || event.sport;
-    root.querySelector(".sport-badge").textContent = event.upcoming ? `${sportLabel} · ${event.upcomingLabel}` : sportLabel;
+    (() => { const _s = root.querySelector(".sport-badge"); if (_s) _s.textContent = event.upcoming ? `${sportLabel} · ${event.upcomingLabel}` : sportLabel; })()
     root.querySelector(".event-dates").textContent = event.upcoming
       ? `Upcoming · ${event.upcomingLabel} · ${event.dates}`
       : event.sport === "MLB" ? `${event.dates} · ${event.status}` : event.dates;
     root.querySelector(".event-name").textContent = event.name;
     root.querySelector(".event-location").textContent = `${event.venue} · ${event.city}`;
     const displayedEventTicker = specificEventTicker(event);
-    root.querySelector(".event-ticker").textContent = displayedEventTicker || "No listed Kalshi event ticker";
-    const outrightSports = new Set(["ATP", "WTA", "PGA", "GOLF", "F1", "AFCON"]);
+    (() => { const _e = root.querySelector(".event-ticker"); if (_e) _e.textContent = displayedEventTicker || "No listed Kalshi event ticker"; })()
+    const outrightSports = new Set(["ATP", "WTA"]); // only tennis has outright winner market area
     const gameSports = new Set(["MLB", "LMB", "KBO", "NPB", "NBA", "WNBA", "NHL", "NFL", "CFB", "AFL", "IPL"]);
     const tennisMatchCount = event.tennisMatches?.length || 0;
-    root.querySelector(".price-header-label").textContent = tennisMatchCount
-      ? "Kalshi singles match markets"
-      : event.marketKind === "advance"
-      ? "Kalshi to advance · last trade"
-      : gameSports.has(event.sport) || event.marketKind === "game"
-      ? "Kalshi game winner · last trade"
-      : outrightSports.has(event.sport)
-        ? "Kalshi outright winner · last trade"
-        : "Kalshi match winner · last trade";
-    root.querySelector(".contract-count").textContent = tennisMatchCount
-      ? `${tennisMatchCount} active ${tennisMatchCount === 1 ? "match" : "matches"}`
-      : gameSports.has(event.sport)
-      ? "2 outcomes"
-      : event.marketPosted ? `${event.contracts} contracts` : pendingMarketLabel(event);
-    renderPriceList(event);
-    root.querySelector(".market-meta").textContent = tennisMatchCount
-      ? `${formatVolume(event.volume)} across active singles matches · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
+    const isTennis = tennisMatchSeries.has(event.sport);
+    const hasTennisMatches = isTennis && tennisMatchCount > 0;
+    const showOutrightInline = isTennis && hasTennisMatches && tennisOutrightMode && event.marketPosted;
+    // Flip: singles matches are default; outright is behind sleek button
+    const showingMatches = hasTennisMatches && !showOutrightInline;
+    if (showingMatches) {
+      const headerLabel = root.querySelector(".price-header-label");
+      const singleTitle = `${event.markerCode || event.sport} · ${event.name}`;
+      const tickerSingle = specificEventTicker(event) || event.eventTicker || "";
+      // price-header was deleted — guard, single view now uses market-card heading
+      if (headerLabel) {
+        if (tickerSingle && event.hasListedMarkets) {
+          headerLabel.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerSingle)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitle)}</a>`;
+        } else {
+          headerLabel.textContent = singleTitle;
+        }
+      }
+      // Show volume like other tabs (e.g. 1.6M) not generic count, but keep count as secondary
+      const volSingle = event.tennisVolume ?? (event.tennisMatches||[]).reduce((a,m)=>a+Number(m.volume||0),0);
+      (() => { const el = root.querySelector(".contract-count"); if (el) el.textContent = volSingle ? formatVolumeCompact(volSingle).replace(" volume","") : `${tennisMatchCount} active ${tennisMatchCount === 1 ? "match" : "matches"}`; })();
+    } else {
+      const headerLabel = root.querySelector(".price-header-label");
+      const singleTitle = `${event.markerCode || event.sport} · ${event.name}`;
+      const tickerForHeader = selectedTicker || specificEventTicker(event) || event.eventTicker || "";
+      const isTennisOutright = isTennis && tennisOutrightMode;
+      const volumeForHeader = event.marketPosted
+        ? formatVolumeCompact(isTennisOutright ? (event.outrightVolume ?? event.volume) : event.volume).replace(" volume","")
+        : "";
+      if (headerLabel) {
+        if (tickerForHeader && event.hasListedMarkets) {
+          headerLabel.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerForHeader)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitle)}</a>`;
+        } else {
+          headerLabel.textContent = singleTitle;
+        }
+      }
+      const countOutright = isTennisOutright ? (event.outrightContracts ?? event.contracts) : event.contracts;
+      // price-header is now hidden for market-card single view — card heading carries title+volume, so just keep hidden
+      const _ph = root.querySelector(".price-header");
+      if (_ph) _ph.hidden = false;
+      (() => { const el = root.querySelector(".contract-count"); if (el) el.textContent = volumeForHeader || (gameSports.has(event.sport) ? "2 outcomes" : event.marketPosted ? `${countOutright} contracts` : pendingMarketLabel(event)); })();
+    }
+    if (showingMatches) {
+      const _ph2 = root.querySelector(".price-header");
+      if (_ph2) _ph2.hidden = true;
+      // Hide the single-market container header for singles list (each tennis match is its own card like cluster)
+      const _sc = root.querySelector(".price-list");
+      if (_sc) _sc.hidden = true;
+      renderInlineTennisMatches(event);
+    } else {
+      const _sc2 = root.querySelector(".price-list");
+      if (_sc2) _sc2.hidden = false;
+      // Only tennis has outright winner market area - for non-tennis tournament outrights (PGA/GOLF/F1/AFCON) don't render outright card
+      const isOutrightTournament = ["PGA","GOLF","F1","AFCON"].includes(event.sport);
+      if (isOutrightTournament && !isTennis) {
+        // Hide outright winner market area for non-tennis
+        const list = root.querySelector(".price-list");
+        if (list) { list.replaceChildren(); delete list.dataset.outcomeCount; }
+        const headerLabelPost = root.querySelector(".price-header-label");
+        if (headerLabelPost) headerLabelPost.textContent = `${event.markerCode || event.sport} · ${event.name}`;
+        (() => { const el = root.querySelector(".contract-count"); if (el) el.textContent = pendingMarketLabel(event); })();
+        root.querySelector(".contract-ticker").textContent = "";
+        if (typeof selectedTicker !== "undefined") selectedTicker = "";
+      } else {
+        renderPriceList(event);
+      }
+      // Post-render: align single header link to the selected Kalshi market (fresh selectedTicker)
+      const headerLabelPost = root.querySelector(".price-header-label");
+      const singleTitlePost = `${event.markerCode || event.sport} · ${event.name}`;
+      const tickerPost = selectedTicker || specificEventTicker(event) || event.eventTicker || "";
+      if (tickerPost && event.hasListedMarkets) {
+        headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
+      }
+    }
+    root.querySelector(".market-meta").textContent = showingMatches
+      ? `${formatVolume(event.tennisVolume ?? (event.tennisMatches||[]).reduce((a,m)=>a+Number(m.volume||0),0))} across active singles matches · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
       : event.marketPosted
-      ? `${formatVolume(event.volume)} · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
+      ? `${formatVolume(event.outrightVolume ?? event.volume)} · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
       : pendingMarketLabel(event);
+    // Update trigger: sleek button above to see outright winner
+    if (isTennis && hasTennisMatches) {
+      tennisMarketsTrigger.hidden = false;
+      const copy = tennisMarketsTrigger.querySelector(".tennis-trigger-copy");
+      if (copy) {
+        if (tennisOutrightMode && event.marketPosted) {
+          copy.innerHTML = '<strong>Singles matches</strong><span class="text-small">Back to live match markets</span>';
+        } else {
+          copy.innerHTML = event.marketPosted
+            ? '<strong>Outright winner</strong><span class="text-small">View tournament winner market</span>'
+            : '<strong>Singles matches</strong><span class="text-small">Live match markets</span>';
+        }
+      }
+      // When showing outright inline, hide contrast with matches mode
+      tennisMarketsTrigger.setAttribute("aria-label", tennisOutrightMode && event.marketPosted ? "Show singles matches" : "Show outright winner");
+    } else {
+      tennisMarketsTrigger.hidden = !isTennis;
+      // fallback for tennis with no matches: keep hidden trigger but allow window fallback
+      if (isTennis && !hasTennisMatches) {
+        const copy = tennisMarketsTrigger.querySelector(".tennis-trigger-copy");
+        if (copy) copy.innerHTML = '<strong>Matches</strong><span class="text-small">Biggest singles matchups</span>';
+      }
+    }
     root.querySelector(".contract-ticker").textContent = selectedTicker;
     if (selectedTicker) {
-      marketLink.href = marketUrl(selectedTicker);
-      marketLink.textContent = event.marketPosted ? "Open Kalshi" : "Check exact Kalshi market";
+      if (marketLink) marketLink.href = marketUrl(selectedTicker);
+      if (marketLink) marketLink.textContent = event.marketPosted ? "Open Kalshi" : "Check exact Kalshi market";
     } else {
-      marketLink.removeAttribute("href");
-      marketLink.textContent = "No listed Kalshi market";
+      // In matches mode each row has its own Kalshi link; keep main CTA muted
+      if (showingMatches) {
+        if (marketLink) marketLink.removeAttribute("href");
+        if (marketLink) marketLink.textContent = tennisMatchCount ? "Open any match on Kalshi" : "No listed Kalshi market";
+      } else {
+        if (marketLink) marketLink.removeAttribute("href");
+        if (marketLink) marketLink.textContent = "No listed Kalshi market";
+      }
     }
-    tennisMarketsTrigger.hidden = !tennisMatchSeries.has(event.sport);
+    // Arm live updater: call Kalshi API every 500ms when live and visible
+    clearInterval(livePriceTimer);
+    // Live odds: only ever poll when user clicks a live event (not on auto-select / preserveView)
+    if (isUserClick && isEventLive(event) && !detail.hidden && !gameDetailView.hidden) {
+      livePriceTimer = setInterval(async () => {  // 2s per request
+        const current = activeEvents.find(e => e.id === selectedId);
+        if (!current || !isEventLive(current) || detail.hidden || gameDetailView.hidden || document.hidden) {
+          clearInterval(livePriceTimer);
+          return;
+        }
+        // Fetch fresh Kalshi prices (proxy via /api/odds) before re-render
+        try {
+          const activeDate = calendarDates[activeDateIndex];
+          const resp = await fetch(`/api/odds?date=${encodeURIComponent(activeDate)}`, { headers: { accept: "application/json" } });
+          if (resp.ok) {
+            const payload = await resp.json();
+            if (Array.isArray(payload?.events)) {
+              hostedOddsEvents = payload.events;
+              hostedOddsByTicker.clear();
+              hostedOddsEvents.forEach(ev => hostedOddsByTicker.set(ev.eventTicker, ev));
+              // Re-derive activeEvents with fresh odds so volume/price is live
+              const fresh = activeEvents.find(e => e.id === selectedId);
+              if (fresh) Object.assign(current, withHostedOdds(fresh));
+            }
+          } else {
+            console.warn(`Kalshi poll failed ${resp.status} for /api/odds?date=${activeDate}`, { status: resp.status, statusText: resp.statusText });
+          }
+        } catch (error) {
+          console.warn("Kalshi poll failed", error?.code || error?.status || error?.message || error, error);
+        }
+        // Re-render the visible card with fresh decimal
+        const isStillShowingMatches = current.tennisMatches?.length > 0 && !(tennisOutrightMode && current.marketPosted);
+        if (isStillShowingMatches) {
+          renderInlineTennisMatches(current);
+        } else {
+          renderPriceList(current);
+          // keep header linked correctly after re-render
+          const headerLabelPost = root.querySelector(".price-header-label");
+          if (headerLabelPost) {
+            const singleTitlePost = `${current.markerCode || current.sport} · ${current.name}`;
+            const tickerPost = selectedTicker || specificEventTicker(current) || current.eventTicker || "";
+            if (tickerPost && current.hasListedMarkets) {
+              headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
+            }
+          }
+          root.querySelector(".contract-ticker").textContent = selectedTicker;
+        }
+        // also refresh floating market window if open (user is looking at it)
+        const tennisWindow = root.querySelector(".tennis-market-window");
+        if (tennisWindow && !tennisWindow.hidden) {
+          const curTennis = activeEvents.find(e => e.id === selectedId);
+          if (curTennis) renderTennisMatches(curTennis);
+        }
+        // also refresh cluster cards if in cluster view
+        if (detail.classList.contains("is-cluster-detail") && mobileMarketList.children.length) {
+          // let next poll handle cluster, but update prices in place for live cards
+          renderEvents({ preserveView: true });
+        }
+      }, 2000);
+    }
     if (!tennisMarketWindow.hidden && selectedTennisEventId === event.id) {
       tennisMarketName.textContent = event.name;
       tennisViewCode.textContent = event.sport;
@@ -5089,18 +5690,18 @@ function assertNearTermMarketCoverage(events, {
     detail.dataset.sport = "";
     detail.classList.remove("is-upcoming");
     detail.classList.remove("is-market-pending");
-    root.querySelector(".sport-badge").textContent = "—";
+    const _sb = root.querySelector(".sport-badge"); if (_sb) _sb.textContent = "—";
     root.querySelector(".event-dates").textContent = "";
     root.querySelector(".event-name").textContent = "No sports selected";
     root.querySelector(".event-location").textContent = "Choose one or more sports above";
-    root.querySelector(".event-ticker").textContent = "";
-    root.querySelector(".price-header-label").textContent = "Kalshi markets";
-    root.querySelector(".contract-count").textContent = "";
+    const _et = root.querySelector(".event-ticker"); if (_et) _et.textContent = "";
+    (() => { const el = root.querySelector(".price-header-label"); if (el) el.textContent = "Kalshi markets"; })();
+    (() => { const el = root.querySelector(".contract-count"); if (el) el.textContent = ""; })();
     root.querySelector(".price-list").replaceChildren();
     root.querySelector(".market-meta").textContent = "";
     root.querySelector(".contract-ticker").textContent = "";
-    marketLink.removeAttribute("href");
-    marketLink.textContent = "No market selected";
+    if (marketLink) marketLink.removeAttribute("href");
+    if (marketLink) marketLink.textContent = "No market selected";
   }
 
   function renderEvents({ preserveView = false } = {}) {
@@ -5468,7 +6069,7 @@ function assertNearTermMarketCoverage(events, {
   }));
   eventSelect.addEventListener("change", event => {
     hideMobileMarketBrowser();
-    selectEvent(event.target.value, true);
+    selectEvent(event.target.value, true, null, true);
   });
   dateRange.addEventListener("input", event => renderDate(event.target.value, { preserveView: true }));
   datePrevious.addEventListener("click", () => renderDate(activeDateIndex - 1, { preserveView: true }));
@@ -5479,6 +6080,18 @@ function assertNearTermMarketCoverage(events, {
   installSwipeDownDismiss(tennisMarketWindow, hideTennisMarkets);
   tennisMarketsTrigger.addEventListener("click", () => {
     const event = activeEvents.find(item => item.id === selectedId);
+    if (!event || !tennisMatchSeries.has(event.sport)) return;
+    const hasMatches = (event.tennisMatches?.length || 0) > 0;
+    // Flip: sleek toggle in detail — matches <-> outright winner
+    if (hasMatches) {
+      // If no outright posted, keep matches view (no toggle)
+      if (!event.marketPosted) return;
+      tennisOutrightMode = !tennisOutrightMode;
+      tennisOutrightEventId = event.id;
+      selectEvent(event.id, false, null, true);
+      return;
+    }
+    // Fallback: no inline matches, open floating window
     if (event) showTennisMarkets(event);
   });
   document.addEventListener("keydown", event => {
@@ -5523,10 +6136,7 @@ function assertNearTermMarketCoverage(events, {
       }
       const target = nearest?.event;
       const scale = Math.max(SPORTS_SEARCH_LOCATION_SCALE, Math.min(1800, Number(result.scale) || SPORTS_SEARCH_LOCATION_SCALE));
-      projection.rotate([-(target?.lon ?? lon), -Math.max(-75, Math.min(75, target?.lat ?? lat)), 0]);
-      projection.scale(scale);
-      zoomTarget = scale;
-      draw();
+      animateView(target?.lon ?? lon, target?.lat ?? lat, scale, 520);
       return true;
     },
     revealMarket(result) {
@@ -5542,13 +6152,10 @@ function assertNearTermMarketCoverage(events, {
       if (!event) return false;
       hideMobileMarketBrowser();
       stopMotion();
-      selectEvent(event.id, false);
+      selectEvent(event.id, false, null, true);
       const scale = Math.max(SPORTS_SEARCH_MARKET_SCALE, Math.min(1800, projection.scale()));
-      projection.rotate([-event.lon, -Math.max(-75, Math.min(75, event.lat)), 0]);
-      projection.scale(scale);
-      zoomTarget = scale;
+      animateView(event.lon, event.lat, scale, 480);
       hideTooltip(true);
-      draw();
       openMobileDetail();
       return true;
     },

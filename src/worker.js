@@ -317,6 +317,16 @@ function marketVolume(market) {
   return number(market.volume_fp ?? market.volume, 0);
 }
 
+export function normalizeCandlestickHistory(payload, metadata = {}) {
+  // price history removed - stub for backward compat
+  return { seriesTicker: metadata?.seriesTicker || "", marketTicker: metadata?.marketTicker || "", range: metadata?.range || "1D", points: [] };
+}
+
+function validKalshiTicker(value, maximumLength = 128) {
+  const ticker = String(value || "").trim().toUpperCase();
+  return ticker.length >= 2 && ticker.length <= maximumLength && /^[A-Z0-9._:-]+$/.test(ticker) ? ticker : null;
+}
+
 const TICKER_MONTHS = new Map([
   ["JAN", 0], ["FEB", 1], ["MAR", 2], ["APR", 3], ["MAY", 4], ["JUN", 5],
   ["JUL", 6], ["AUG", 7], ["SEP", 8], ["OCT", 9], ["NOV", 10], ["DEC", 11]
@@ -450,7 +460,10 @@ export function pollInterval(snapshot, now = Date.now()) {
     if (now >= start - 24 * 60 * 60 * 1000 && now < start) return 2 * 60 * 1000;
     return 10 * 60 * 1000;
   }
+  const LOW_PRIORITY_LIVE_SERIES = new Set(["KXLOLGAME","KXCS2GAME","KXVALORANTGAME"]);
   if (now >= start && now <= liveEnd && !terminal) {
+    const lowPriority = LOW_PRIORITY_LIVE_SERIES.has(String(snapshot.seriesTicker || "").toUpperCase());
+    if (lowPriority && number(snapshot.volume, 0) < 50000) return BASE_INTERVAL_MS;
     if (!isFastLiveSportsEvent(snapshot)) return LIVE_INTERVAL_MS;
     const ticker = String(snapshot.seriesTicker || "").toUpperCase();
     return PREMIER_LIVE_SERIES.has(ticker) || number(snapshot.volume, 0) >= MAJOR_LIVE_VOLUME
@@ -531,11 +544,18 @@ export function scheduledRefreshStepForTime(now = Date.now()) {
   return SCHEDULED_REFRESH_STEPS[Math.floor(now / 60_000) % SCHEDULED_REFRESH_STEPS.length];
 }
 
+const kalshiEtagCache = new Map();
 async function kalshiFetch(env, pathname, gate, attempt = 0) {
   await gate();
   const url = `${env.KALSHI_API_ORIGIN || API_ORIGIN}${pathname}`;
   const headers = await authHeaders(env, "GET", url);
+  const cachedEtag = kalshiEtagCache.get(pathname);
+  if (cachedEtag) headers.set("if-none-match", cachedEtag);
   const response = await fetch(url, { headers });
+  if (response.status === 304 && cachedEtag) {
+    const cached = kalshiEtagCache.get(pathname + ":body");
+    if (cached) return JSON.parse(JSON.stringify(cached));
+  }
   const retryLimit = Math.max(0, number(env.KALSHI_MAX_RETRY_ATTEMPTS, 2));
   if ((response.status === 429 || response.status >= 500) && attempt < retryLimit) {
     const base = response.status === 429
@@ -551,7 +571,10 @@ async function kalshiFetch(env, pathname, gate, attempt = 0) {
     throw error;
   }
   if (!response.ok) throw new Error(`Kalshi ${response.status} for ${pathname}`);
-  return response.json();
+  const etag = response.headers.get("etag");
+  const body = await response.json();
+  if (etag) { kalshiEtagCache.set(pathname, etag); kalshiEtagCache.set(pathname + ":body", body); }
+  return body;
 }
 
 async function discoverSeries(env, seriesTicker, gate, now) {
@@ -1351,7 +1374,7 @@ async function mapWithConcurrency(items, concurrency, operation) {
       try {
         results.push(await operation(item));
       } catch (error) {
-        console.warn("Kalshi poll failed", item, error?.message || error);
+        console.warn("Kalshi poll failed", item, error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status });
         if (error?.code === "KALSHI_RATE_LIMITED") {
           rateLimited = true;
           queue.length = 0;
@@ -2220,7 +2243,7 @@ function removeStaleEvents(payload, now = Date.now()) {
       ? { ...cachedSnapshot, status: "active" }
       : cachedSnapshot;
     const updatedAt = new Date(snapshot.updatedAt || 0).getTime();
-    const maximumAge = Math.max(5 * 60 * 1000, 3 * pollInterval(snapshot, now));
+    const maximumAge = Math.max(30 * 60 * 1000, 3 * pollInterval(snapshot, now));
     if (Number.isFinite(updatedAt) && now - updatedAt <= maximumAge) fresh.push(snapshot);
     else stale.push(snapshot);
   }
@@ -2335,10 +2358,10 @@ async function handleRequest(request, env, ctx) {
             await poll;
             payload = await env.MARKET_ATLAS_CACHE.get(POLITICS_PUBLIC_KEY, "json");
           } catch (error) {
-            console.warn("Initial local Politics poll failed", error?.message || error);
+            console.warn("Initial local Politics poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status });
           }
         } else if (ctx) {
-          ctx.waitUntil(poll.catch(error => console.warn("Local Politics poll failed", error?.message || error)));
+          ctx.waitUntil(poll.catch(error => console.warn("Local Politics poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status })));
         }
       }
     }
@@ -2374,10 +2397,10 @@ async function handleRequest(request, env, ctx) {
             await poll;
             payload = await env.MARKET_ATLAS_CACHE.get(WEATHER_PUBLIC_KEY, "json");
           } catch (error) {
-            console.warn("Initial local Weather poll failed", error?.message || error);
+            console.warn("Initial local Weather poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status });
           }
         } else if (ctx) {
-          ctx.waitUntil(poll.catch(error => console.warn("Local Weather poll failed", error?.message || error)));
+          ctx.waitUntil(poll.catch(error => console.warn("Local Weather poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status })));
         }
       }
     }
@@ -2411,10 +2434,10 @@ async function handleRequest(request, env, ctx) {
             await poll;
             payload = await env.MARKET_ATLAS_CACHE.get(BUSINESS_PUBLIC_KEY, "json");
           } catch (error) {
-            console.warn("Initial local Business poll failed", error?.message || error);
+            console.warn("Initial local Business poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status });
           }
         } else if (ctx) {
-          ctx.waitUntil(poll.catch(error => console.warn("Local Business poll failed", error?.message || error)));
+          ctx.waitUntil(poll.catch(error => console.warn("Local Business poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status })));
         }
       }
     }
@@ -2590,10 +2613,10 @@ async function handleRequest(request, env, ctx) {
           await poll;
           payload = await env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json");
         } catch (error) {
-          console.warn("Initial local Kalshi poll failed", error?.message || error);
+          console.warn("Initial local Kalshi poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status });
         }
       } else if (ctx) {
-        ctx.waitUntil(poll.catch(error => console.warn("Local Kalshi poll failed", error?.message || error)));
+        ctx.waitUntil(poll.catch(error => console.warn("Local Kalshi poll failed", error?.code || error?.status || error?.message || error, { code: error?.code, status: error?.status })));
       }
     }
   }
@@ -2603,13 +2626,46 @@ async function handleRequest(request, env, ctx) {
   if (cached) return cached;
 
   if (!payload) {
-    warmHostedCache(env, ctx, "sports");
-    return json({ generatedAt: null, eventCount: 0, events: [], warming: true }, {
-      status: 503,
-      headers: { "cache-control": "no-store", "retry-after": "30" }
-    });
+    // Cold start: sports is the only tab that can be 0 while others have bundles because geographic runs first.
+    // Try immediate poll even in production (not just localhost) to populate PUBLIC_KEY without waiting for next 45s tick.
+    try {
+      const state = await env.MARKET_ATLAS_CACHE.get(STATE_KEY, "json");
+      const lastRun = Number(state?.lastRunAt || 0);
+      // If never run or >30s ago, do a direct poll (bypass Durable Object cooldown)
+      if (!lastRun || Date.now() - lastRun > 30_000) {
+        await startLocalPoll(env, Date.now());
+        const freshPayload = await env.MARKET_ATLAS_CACHE.get(PUBLIC_KEY, "json");
+        if (freshPayload) {
+          payload = freshPayload;
+        }
+      }
+    } catch {}
+    if (!payload) {
+      warmHostedCache(env, ctx, "sports");
+      return json({ generatedAt: null, eventCount: 0, events: [], warming: true }, {
+        status: 503,
+        headers: { "cache-control": "no-store", "retry-after": "5" }
+      });
+    }
   }
-  const filtered = removeStaleEvents(filterForDate(payload, date));
+  // Sports now behaves like Politics/Weather/Business: always serve stale with updating:true (no hide)
+  const filteredByDate = filterForDate(payload, date);
+  const staleCheck = removeStaleEvents(filteredByDate);
+  // Repair legacy outright status (e.g., KXWTA finalized but still has active market) like removeStaleEvents does
+  const repairedEvents = filteredByDate.events.map(cachedSnapshot => {
+    const marketStatuses = (cachedSnapshot.markets || []).map(market => String(market.status || "").toLowerCase());
+    return marketStatuses.some(value => value === "active" || value === "open") ? { ...cachedSnapshot, status: "active" } : cachedSnapshot;
+  });
+  let filtered = { ...filteredByDate, events: repairedEvents, eventCount: repairedEvents.length };
+  if (staleCheck.cache?.staleEventCount || staleCheck.events.length !== filteredByDate.events.length) {
+    warmHostedCache(env, ctx, "sports");
+    filtered = {
+      ...filtered,
+      cache: { ...(filteredByDate.cache || {}), ...staleCheck.cache, updating: true, staleEventCount: staleCheck.cache?.staleEventCount || 0 }
+    };
+  } else {
+    filtered = { ...filtered, cache: { ...(filteredByDate.cache || {}), ...staleCheck.cache } };
+  }
   const etag = `W/\"${Date.parse(payload.generatedAt).toString(36)}-${filtered.eventCount}-${filtered.cache?.staleEventCount || 0}\"`;
   if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
   const response = json(filtered, {

@@ -22,6 +22,7 @@ test("Wrangler isolates staging and production resources and polling budgets", a
   assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_MAX_EVENT_REFRESHES_PER_RUN = "60"/);
   assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_MAX_RETRY_ATTEMPTS = "2"/);
   assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_FAST_LIVE_POLLING = "true"/);
+  assert.match(config, /\[env\.production\.vars\][\s\S]*KALSHI_HISTORY_READ_REQUESTS_PER_SECOND = "1"/);
   assert.match(config, /\[env\.staging\.vars\][\s\S]*KALSHI_FAST_LIVE_POLLING = "false"/);
   assert.match(config, /compatibility_date = "2026-08-02"/);
   assert.match(config, /compatibility_flags = \["nodejs_compat"\]/);

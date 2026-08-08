@@ -58,15 +58,15 @@ test("Sports uses canonical team names without changing compact map markers", as
   assert.match(names, /LAD: \["Los Angeles Dodgers"/);
 });
 
-test("geographic search jumps instantly and selects the destination detail market", async () => {
+test("geographic search animates sleek globe pan and zoom and selects the destination detail market", async () => {
   const shell = await read("public/assets/app.js");
   const sports = await read("public/categories/sports/index.html");
   const weather = await read("public/categories/weather/app.js");
-  assert.match(shell, /const candidates = activeBundles\.length \? activeBundles : electionBundles;[\s\S]*selectedBundleId = match\.id;[\s\S]*renderDetail\(match\);[\s\S]*projection\.rotate\(\[-\(match\?\.lon \?\? lon\)/);
+  assert.match(shell, /const candidates = activeBundles\.length \? activeBundles : electionBundles;[\s\S]*selectedBundleId = match\.id;[\s\S]*renderDetail\(match\);[\s\S]*animateToLocation\(match\?\.lon \?\? lon/);
   assert.match(shell, /pending\.type === "location"[\s\S]*revealLocation\?\.\(pending\)/);
-  assert.match(weather, /revealLocation\(result\) \{[\s\S]*selectedId = bundle\.id;[\s\S]*renderDetail\(bundle\);[\s\S]*projection\.rotate\(\[-\(bundle\?\.lon \?\? lon\)/);
-  assert.match(sports, /revealLocation\(result\) \{[\s\S]*showClusterDetail\(localEvents\)[\s\S]*selectEvent\(nearest\.event\.id, false\)[\s\S]*projection\.rotate\(\[-\(target\?\.lon \?\? lon\)/);
-  assert.match(sports, /revealMarket\(result\) \{[\s\S]*selectEvent\(event\.id, false\);[\s\S]*projection\.rotate\(\[-event\.lon/);
+  assert.match(weather, /revealLocation\(result\) \{[\s\S]*selectedId = bundle\.id;[\s\S]*renderDetail\(bundle\);[\s\S]*animateToLocation\(bundle\?\.lon \?\? lon/);
+  assert.match(sports, /revealLocation\(result\) \{[\s\S]*showClusterDetail\(localEvents\)[\s\S]*selectEvent\(nearest\.event\.id, false\)[\s\S]*animateView\(target\?\.lon \?\? lon/);
+  assert.match(sports, /revealMarket\(result\) \{[\s\S]*selectEvent\(event\.id, false\);[\s\S]*animateView\(event\.lon/);
   assert.match(sports, /SPORTS_SEARCH_LOCATION_SCALE = 1400/);
   assert.match(sports, /SPORTS_SEARCH_MARKET_SCALE = 1500/);
   assert.match(sports, /revealLocation\(result\) \{[\s\S]*Math\.max\(SPORTS_SEARCH_LOCATION_SCALE/);
@@ -350,7 +350,7 @@ test("Weather matches the shared deep-zoom transition and restrained marker syst
   assert.match(source, /--map-ocean-opacity/);
   assert.match(source, /--map-rim-opacity/);
   assert.match(source, /--weather-marker-reveal/);
-  assert.match(css, /\.weather-app \.event-marker \.marker-core[\s\S]*var\(--weather-marker-reveal\)[\s\S]*stroke-width: 2/);
+  assert.match(css, /\.weather-app \.event-marker \.marker-core[\s\S]*fill: #ffffff;[\s\S]*stroke-width: 1\.4/);
   assert.match(css, /\.weather-app \.event-marker \.marker-halo[\s\S]*fill: none/);
 });
 
@@ -398,6 +398,23 @@ test("Sports uses the shared restrained marker scale without automatic matchup p
   assert.match(sports, /const radius = volumeRadius\(largestMarketVolume\);/);
   assert.doesNotMatch(sports, /Bubble size = volume/);
   assert.match(shell, /#market-atlas-sports\.market-globe-shell \.event-marker > text[\s\S]*font-size: 7\.25px/);
+});
+
+test("price history has been removed from all surfaces", async () => {
+  const [shell, sports, politics, weather] = await Promise.all([
+    read("public/assets/app.js"),
+    read("public/categories/sports/index.html"),
+    read("public/categories/politics/app.js"),
+    read("public/categories/weather/app.js")
+  ]);
+  assert.doesNotMatch(shell, /priceHistory|price-history/);
+  assert.doesNotMatch(sports, /price-history|Price history|preparePriceHistory/);
+  assert.doesNotMatch(politics, /price-history|Price history/);
+  assert.doesNotMatch(weather, /price-history|Price history/);
+  // Ensure file no longer exists
+  let historyMissing = false;
+  try { await read("public/assets/price-history.js"); } catch { historyMissing = true; }
+  assert.equal(historyMissing, true);
 });
 
 test("desktop Sports clusters load every underlying market into the scrollable detail panel", async () => {
@@ -466,10 +483,10 @@ test("Sports embeds the complete MLS calendar and resolves its cached Kalshi gam
 
 test("Politics markers match the Sports dark-core construction and retain count badges", async () => {
   const css = await read("public/assets/app.css");
-  assert.match(css, /\.politics-app \.event-marker \.marker-core[\s\S]*--politics-party-fill[\s\S]*--politics-party-reveal[\s\S]*stroke-width: 2/);
-  assert.match(css, /\.event-marker\.leader-dem \.marker-core[\s\S]*stroke: var\(--dem-blue-soft\)/);
-  assert.match(css, /\.event-marker\.leader-rep \.marker-core[\s\S]*stroke: var\(--rep-red-soft\)/);
-  assert.match(css, /\.politics-app \.event-marker \.market-count[\s\S]*fill: var\(--shared-globe-background\)/);
+  assert.match(css, /\.politics-app \.event-marker \.marker-core[\s\S]*fill: #ffffff;[\s\S]*stroke-width: 1\.4/);
+  assert.match(css, /\.event-marker\.leader-dem \.marker-core[\s\S]*stroke: #6b8db5/);
+  assert.match(css, /\.event-marker\.leader-rep \.marker-core[\s\S]*stroke: #b56b66/);
+  assert.match(css, /\.politics-app \.event-marker \.market-count[\s\S]*fill: #ffffff;/);
 });
 
 test("every visible Business marker carries a spaced collision-aware company label", async () => {
@@ -489,7 +506,7 @@ test("every visible Business marker carries a spaced collision-aware company lab
   assert.doesNotMatch(source, /horizonRoom \/ \.08/);
   assert.match(source, /nameLabel\.style\.textAnchor = placement\.anchor/);
   assert.match(source, /if \(namedMarkerLabels\) return;/);
-  assert.match(css, /\.business-app \.event-marker \.marker-name-label[\s\S]*font-size:7\.25px[\s\S]*paint-order:stroke/);
+  assert.match(css, /\.business-app \.event-marker \.marker-name-label[\s\S]*font-size:6\.5px[\s\S]*paint-order:stroke/);
 });
 
 test("all four globes share deterministic zoom, pan, edge, and diagnostic rules", async () => {
@@ -577,7 +594,7 @@ test("U.S. political fills return progressively at regional zoom with probabilit
   assert.match(source, /partyFillStrength = 32 \+ \(\(leaderPrice - 50\) \/ 50\) \* 48/);
   assert.match(source, /projection\.scale\(\) - 380/);
   assert.match(source, /--politics-party-reveal/);
-  assert.match(css, /leader-dem \.marker-core[\s\S]*var\(--dem-blue\) var\(--party-fill-strength/);
-  assert.match(css, /leader-rep \.marker-core[\s\S]*var\(--rep-red\) var\(--party-fill-strength/);
-  assert.match(css, /event-marker\.is-global \.marker-core[\s\S]*fill: var\(--shared-globe-background\)/);
+  assert.match(css, /leader-dem \.marker-core[\s\S]*fill: #ffffff;/);
+  assert.match(css, /leader-rep \.marker-core[\s\S]*fill: #ffffff;/);
+  assert.match(css, /event-marker\.is-global \.marker-core[\s\S]*fill: #ffffff;/);
 });

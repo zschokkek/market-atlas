@@ -1,3 +1,4 @@
+.capital-labels-layer { display: none !important; }
 .weather-app {
   --temperature: #f0a15f;
   --precipitation: #74b9dc;
@@ -140,3 +141,104 @@
     display: none;
   }
 }
+
+
+/* === LIGHT THEME (toggle) === */
+html[data-theme="light"] .weather-app{
+  --temperature: #e07a2a;
+  --precipitation: #3a8bc2;
+  --hurricane: #9b7edc;
+  --hazard: #d04a3a;
+  --climate: #2e9d6a;
+  --map-ocean-opacity: 1;
+  --map-rim-opacity: 1;
+  --map-grid-opacity: 1;
+  --weather-marker-reveal: 0%;
+}html[data-theme="light"] .weather-app .globe-ocean{
+  fill: url(#weather-ocean-gradient);
+  fill-opacity: var(--map-ocean-opacity);
+  stroke-opacity: var(--map-rim-opacity);
+}html[data-theme="light"] .weather-app .globe-shadow{
+  opacity: var(--map-rim-opacity);
+}html[data-theme="light"] .weather-app .globe-graticule{
+  opacity: var(--map-grid-opacity);
+}html[data-theme="light"] .weather-app .weather-kind-list{
+  gap: 3px;
+}html[data-theme="light"] .weather-app .event-marker.kind-temperature{
+  --weather-marker: var(--temperature);
+}html[data-theme="light"] .weather-app .event-marker.kind-rain-snow{
+  --weather-marker: var(--precipitation);
+}html[data-theme="light"] .weather-app .event-marker.kind-hurricanes{
+  --weather-marker: var(--hurricane);
+}html[data-theme="light"] .weather-app .event-marker.kind-natural-disasters{
+  --weather-marker: var(--hazard);
+}html[data-theme="light"] .weather-app .event-marker.kind-climate-change{
+  --weather-marker: var(--climate);
+}html[data-theme="light"] .weather-app .event-marker .marker-core{
+  fill: #ffffff;
+  stroke: var(--weather-marker, var(--political-neutral));
+  stroke-width: 2px;
+  /* removed heavy drop-shadow for faster globe paint */
+}html[data-theme="light"] .weather-app .event-marker .marker-halo{
+  fill: none;
+  stroke: color-mix(in srgb, var(--weather-marker, var(--political-neutral)) 35%, transparent);
+  stroke-width: 1.4;
+}html[data-theme="light"] .weather-app .event-marker.is-selected .marker-halo{
+  fill: none;
+  stroke: var(--green-soft);
+}html[data-theme="light"] .weather-app .event-marker text{
+  fill: #1a2320;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 0.28px;
+}html[data-theme="light"] .weather-app .weather-detail .detail-code{
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}html[data-theme="light"] .weather-app .detail-location, html[data-theme="light"] .weather-app .check-option small, html[data-theme="light"] .weather-app .market-volume, html[data-theme="light"] .weather-app .market-footer, html[data-theme="light"] .weather-app .timeline-eyebrow, html[data-theme="light"] .weather-app .timeline-activity, html[data-theme="light"] .weather-app .filter-summary-copy, html[data-theme="light"] .weather-app .tooltip-subtitle, html[data-theme="light"] .weather-app .tooltip-stamp{
+  color: #6b7a6e;
+}html[data-theme="light"] .weather-app .meta-badge{
+  color: #6b7a6e;
+}html[data-theme="light"] .weather-app .weather-category-badge{
+  color: #1a2320;
+}html[data-theme="light"] .weather-app .weather-outcome .outcome-fill{
+  background: linear-gradient(90deg, rgba(10, 194, 133, 0.19), rgba(10, 194, 133, 0.025));
+}html[data-theme="light"] .weather-app .weather-category-badge{
+  color: var(--foreground);
+}html[data-theme="light"] .weather-app .weather-category-badge::before{
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--weather-accent, var(--green));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--weather-accent, var(--green)) 55%, transparent);
+}html[data-theme="light"] .weather-app .tooltip-heading .weather-category-badge{
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}html[data-theme="light"] .weather-app .market-card{
+  --weather-accent: var(--climate);
+}html[data-theme="light"] .weather-app .market-card-heading{
+  border-left: 2px solid var(--weather-accent);
+}html[data-theme="light"] .weather-app .timeline-readout{
+  min-width: 180px;
+}
+
+@media (max-width: 1120px) {html[data-theme="light"] .weather-app .check-option small{
+    display: none;
+  }
+}
+
+/* category side-window light fix */
+html[data-theme="light"] .orbital-panel { background: #ffffff !important; border-color: #b8c5b9 !important; }
+html[data-theme="light"] .market-detail-panel { background: #ffffff !important; }
+html[data-theme="light"] .market-filter-panel { background: #f6f8f6 !important; border-color: #b8c5b9 !important; }
+html[data-theme="light"] .timeline-dock, html[data-theme="light"] .market-timeline-dock { background: #ffffff !important; border-color: #b8c5b9 !important; }
+

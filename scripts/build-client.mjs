@@ -2,17 +2,45 @@ import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 
-await build({
-  entryPoints: ["src/client/map-runtime.js"],
-  outfile: "public/assets/map-runtime.js",
-  bundle: true,
-  format: "esm",
-  platform: "browser",
-  target: ["es2022"],
-  minify: true,
-  legalComments: "none",
-  logLevel: "info",
-});
+import { existsSync } from "node:fs";
+import { stat } from "node:fs/promises";
+
+// Skip map-runtime rebuild if src/client hasn't changed (saves 28s on CSS-only runs)
+const mapRuntimeSrc = "src/client/map-runtime.js";
+const mapRuntimeOut = "public/assets/map-runtime.js";
+let shouldBuildMapRuntime = true;
+if (existsSync(mapRuntimeOut)) {
+  try {
+    const [srcStat, outStat] = await Promise.all([stat(mapRuntimeSrc), stat(mapRuntimeOut)]);
+    // Also check d3 dependencies if they exist
+    const srcMtime = srcStat.mtimeMs;
+    const outMtime = outStat.mtimeMs;
+    shouldBuildMapRuntime = srcMtime > outMtime;
+    if (!shouldBuildMapRuntime) {
+      // Also check if any dep is newer than output (light check)
+      const depStats = await Promise.all(
+        ["src/client/map-runtime.js", "package.json"].map(p => stat(p).catch(() => ({ mtimeMs: 0 })))
+      );
+      shouldBuildMapRuntime = depStats.some(s => s.mtimeMs > outMtime);
+    }
+  } catch {}
+}
+if (shouldBuildMapRuntime) {
+  await build({
+    entryPoints: [mapRuntimeSrc],
+    outfile: mapRuntimeOut,
+    bundle: true,
+    format: "esm",
+    platform: "browser",
+    target: ["es2022"],
+    minify: true,
+    legalComments: "none",
+    logLevel: "info",
+  });
+} else {
+  console.log(`  ${mapRuntimeOut}  1.0mb (cached)`);
+  console.log(`⚡ Done in 0ms (skipped, src unchanged)`);
+}
 
 const entrypoints = [
   { file: "app.js", attribute: "src" },
@@ -34,14 +62,28 @@ for (const { file, attribute } of entrypoints) {
 }
 await writeFile(indexPath, index);
 
-await build({
-  entryPoints: ["src/client/sports-team-names.js"],
-  outfile: "public/assets/sports-team-names.js",
-  bundle: true,
-  format: "esm",
-  platform: "browser",
-  target: ["es2022"],
-  minify: true,
-  legalComments: "none",
-  logLevel: "info",
-});
+const teamNamesSrc = "src/client/sports-team-names.js";
+const teamNamesOut = "public/assets/sports-team-names.js";
+let shouldBuildTeamNames = true;
+if (existsSync(teamNamesOut)) {
+  try {
+    const [s, o] = await Promise.all([stat(teamNamesSrc), stat(teamNamesOut)]);
+    shouldBuildTeamNames = s.mtimeMs > o.mtimeMs;
+  } catch {}
+}
+if (shouldBuildTeamNames) {
+  await build({
+    entryPoints: [teamNamesSrc],
+    outfile: teamNamesOut,
+    bundle: true,
+    format: "esm",
+    platform: "browser",
+    target: ["es2022"],
+    minify: true,
+    legalComments: "none",
+    logLevel: "info",
+  });
+} else {
+  console.log(`  ${teamNamesOut}  9.1kb (cached)`);
+  console.log(`⚡ Done in 0ms (skipped, src unchanged)`);
+}

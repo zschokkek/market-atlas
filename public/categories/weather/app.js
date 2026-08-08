@@ -180,7 +180,9 @@ function outcomeMarkup(outcome, tooltipMode = false) {
 function marketMarkup(market, kind, tooltipMode = false) {
   const color = accents[kind];
   if (tooltipMode) return `<section class="tooltip-market" style="--weather-accent:${color}"><a class="tooltip-market-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a>${market.outcomes.slice(0, 6).map(item => outcomeMarkup(item, true)).join("")}<div class="tooltip-stamp">${compactVolume(market.volume)} contracts · ${escapeHtml(market.eventTicker)}</div></section>`;
-  return `<article class="market-card" data-outcome-count="${market.outcomes.length}" style="--weather-accent:${color}"><div class="market-card-heading"><a class="market-card-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a><span class="market-volume">${compactVolume(market.volume)} vol</span></div><div class="market-outcomes">${market.outcomes.map(item => outcomeMarkup(item)).join("")}</div><div class="market-footer"><span>${escapeHtml(market.eventTicker)}</span><span>Kalshi · ${market.updatedAt ? `cached ${snapshotAge(market.updatedAt)}` : "verified fallback"}</span></div></article>`;
+  const historyOutcome = market.outcomes.find(outcome => outcome.ticker);
+  const history = "";
+  return `<article class="market-card" data-outcome-count="${market.outcomes.length}" style="--weather-accent:${color}"><div class="market-card-heading"><a class="market-card-title" href="${market.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(market.title)}</a><span class="market-volume">${compactVolume(market.volume)} vol</span></div><div class="market-outcomes">${market.outcomes.map(item => outcomeMarkup(item)).join("")}</div><div class="market-footer"><span>${escapeHtml(market.eventTicker)}</span><span>Kalshi · ${market.updatedAt ? `cached ${snapshotAge(market.updatedAt)}` : "verified fallback"}</span></div>${history}</article>`;
 }
 
 let renderedDetailId = null;
@@ -197,11 +199,15 @@ function resetDetailScroll(bundle) {
 function renderDetail(bundle) {
   resetDetailScroll(bundle);
   if (!bundle) {
-    detailName.textContent = "No weather markets";
+    // Sleek empty state — same card language as Politics/Business single view (one element with header)
+    const isBusiness = app.classList.contains("business-app");
+    detailName.textContent = isBusiness ? "No business markets" : "No weather markets";
     detailCode.textContent = "—";
-    detailLocation.textContent = "Change the market type or horizon filters.";
-    detailMeta.replaceChildren();
-    detailList.innerHTML = '<div class="empty-detail">No markets match this view.</div>';
+    detailLocation.textContent = isBusiness
+      ? "No markets match these filters — try a different kind or horizon, or clear filters."
+      : "Change the market type or horizon filters.";
+    detailMeta.innerHTML = `<span class="meta-badge">0 markets</span>`;
+    detailList.innerHTML = `<article class="market-card" style="--weather-accent:${isBusiness ? "var(--consumer, #d8a66c)" : (accents["Temperature"]||"#f0a15f")}"><div class="market-card-heading"><span class="market-card-title">Nothing to show</span><span class="market-volume">—</span></div><div class="market-outcomes"><div class="market-outcome" style="opacity:.72"><span class="outcome-name">Adjust filters or check back — live markets appear here.</span><strong class="outcome-price">—</strong></div></div><div class="market-footer"><span>${isBusiness ? "Business" : "Weather"} · cached</span><span>Kalshi</span></div></article>`;
     return;
   }
   detailName.textContent = bundle.name;
@@ -209,6 +215,7 @@ function renderDetail(bundle) {
   detailLocation.textContent = bundle.location;
   detailMeta.innerHTML = `<span class="meta-badge weather-category-badge" style="--weather-accent:${accents[bundle.kind]}">${bundle.kind}</span><span class="meta-badge">${bundle.horizon}</span><span class="meta-badge">${bundle.markets.length} market${bundle.markets.length === 1 ? "" : "s"}</span>`;
   detailList.innerHTML = bundle.markets.map(market => marketMarkup(market, market.kind || bundle.kind)).join("");
+  window.__marketAtlasPriceHistory?.wireCards(detailList);
 }
 
 function cancelTooltipHide() { clearTimeout(tooltipTimer); tooltipTimer = null; }
@@ -446,6 +453,7 @@ function preferredMarketZoomAnchor() {
 
 function placeLabels() {
   labelLayer.replaceChildren();
+  return;
   if (namedMarkerLabels) return;
   if (projection.scale() < 760) return;
   const center = projection.invert(CENTER);
@@ -657,14 +665,12 @@ window.__integratedWeatherView = {
     const bundle = ranked[0]?.distance <= 5 ? ranked[0].bundle : null;
     if (drawFrame) cancelAnimationFrame(drawFrame); if (zoomFrame) cancelAnimationFrame(zoomFrame); drawFrame = null; zoomFrame = null;
     if (bundle) { app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); }
-    projection.rotate([-(bundle?.lon ?? lon), -Math.max(-84, Math.min(84, bundle?.lat ?? lat)), 0]);
-    projection.scale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, Number(result?.scale) || 1050)));
-    hideTooltip(); draw(); return true;
+    animateToLocation(bundle?.lon ?? lon, bundle?.lat ?? lat, Math.max(MIN_SCALE, Math.min(MAX_SCALE, Number(result?.scale) || 1050)), 520); return true;
   },
   revealMarket(result) {
     const bundle = visibleBundles().find(item => item.id === result?.bundleId || item.memberIds?.includes(result?.bundleId))
       || visibleBundles().find(item => item.markets.some(market => market.eventTicker === result?.eventTicker));
     if (!bundle) return false;
-    app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); projection.rotate([-bundle.lon, -bundle.lat, 0]); projection.scale(Math.max(420, Math.min(900, projection.scale()))); draw(); return true;
+    app.dataset.searchSelectedId = bundle.id; pinnedSearchId = bundle.id; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); animateToLocation(bundle.lon, bundle.lat, Math.max(420, Math.min(900, projection.scale())), 480); return true;
   }
 };

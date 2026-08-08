@@ -2295,3 +2295,1719 @@ body.integration-body {
     animation-duration: 1.6s;
   }
 }
+
+
+/* === LIGHT THEME (toggle) === */
+html[data-theme="light"]{
+  color-scheme: light;
+  --integration-background: #eef2ef;
+  --integration-surface: #ffffff;
+  --integration-surface-strong: #f6f8f6;
+  --integration-surface-soft: #e8ede8;
+  --integration-foreground: #1a2320;
+  --integration-muted: #6b7a6e;
+  --integration-muted-soft: #8a9a8f;
+  --integration-border: #b8c5b9;
+  --integration-green-border: #a8b8a9;
+  --integration-green: #0ac285;
+  --integration-green-ink: #0a3d2a;
+  --integration-radius: 10px;
+  --integration-font: "Libre Franklin", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --integration-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --shared-globe-background: #eef2ef;
+  --shared-globe-foreground: #1a2320;
+  --shared-globe-card: #ffffff;
+  --shared-globe-accent: #6a9f85;
+  --shared-globe-muted: rgba(107, 122, 110, 0.14);
+  --shared-globe-muted-foreground: #6b7a6e;
+  --shared-globe-border: #c8d5c8;
+  --shared-globe-ocean-light: #dde7de;
+  --shared-globe-ocean-dark: #eef2ef;
+  --shared-globe-land: #d5ddd5;
+  --shared-globe-rim: #b8c9b8;
+  --shared-globe-grid: rgba(107, 122, 110, 0.16);
+  --shared-globe-state: rgba(107, 122, 110, 0.24);
+  --shared-globe-shadow: rgba(26, 35, 32, 0.06);
+  background: var(--integration-background);
+}html[data-theme="light"] *{
+  box-sizing: border-box;
+}html[data-theme="light"] html, html[data-theme="light"] body.integration-body{
+  width: 100%;
+  min-width: 320px;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0 !important;
+  overflow: hidden;
+  background: var(--integration-background) !important;
+}html[data-theme="light"] body.integration-body{
+  color: var(--integration-foreground);
+  font-family: var(--integration-font);
+}html[data-theme="light"] .integration-shell{
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100dvh;
+  min-height: 620px;
+  overflow: hidden;
+  background: var(--integration-background);
+}html[data-theme="light"] .integration-header{
+  position: relative;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto minmax(260px, 1fr);
+  align-items: center;
+  min-height: 64px;
+  padding: 0 16px;
+  border-bottom: 1px solid #a8b8a9;
+  background: #ffffff;
+  box-shadow: 0 1px 0 #e8ede8, 0 4px 16px rgba(26, 35, 32, 0.04);
+}html[data-theme="light"] .integration-brand, html[data-theme="light"] .integration-lockup, html[data-theme="light"] .integration-tabs, html[data-theme="light"] .integration-search{
+  display: flex;
+  align-items: center;
+}html[data-theme="light"] .integration-brand{
+  justify-self: start;
+  gap: 9px;
+}html[data-theme="light"] .integration-powered{
+  color: #6b7a6e;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}html[data-theme="light"] .integration-lockup{
+  gap: 7px;
+}html[data-theme="light"] .integration-kalshi-mark{
+  width: 30px;
+  height: 30px;
+  flex: none;
+}html[data-theme="light"] .integration-wordmark{
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #1a2320;
+}html[data-theme="light"] .integration-tabs{
+  position: relative;
+  justify-content: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #b8c5b9;
+  border-radius: 10px;
+  background: #f6f8f6;
+}html[data-theme="light"] .integration-tab{
+  min-width: 76px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #6b7a6e;
+  background: transparent;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}html[data-theme="light"] .integration-tab:hover:not([aria-disabled="true"]){
+  color: #1a2320;
+  background: #e8ede8;
+}html[data-theme="light"] .integration-tab:focus-visible{
+  outline: 2px solid #121213;
+  outline-offset: 2px;
+}html[data-theme="light"] .integration-tab.is-active{
+  color: #ffffff;
+  background: #1a2320;
+  box-shadow: 0 1px 6px rgba(26, 35, 32, 0.14);
+}html[data-theme="light"] .integration-tab[aria-disabled="true"]{
+  cursor: default;
+  opacity: 0.48;
+}html[data-theme="light"] .integration-search{
+  justify-self: end;
+  width: min(100%, 288px);
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #b8c5b9;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 0 #e8ede8;
+}html[data-theme="light"] .integration-search > svg{
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: var(--integration-muted);
+  stroke-linecap: round;
+  stroke-width: 1.7;
+}html[data-theme="light"] .integration-search input{
+  min-width: 0;
+  height: 40px;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: #1a2320;
+  background: transparent;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}html[data-theme="light"] .integration-search input::placeholder{
+  color: #9ca3af;
+  font-weight: 500;
+  opacity: 1;
+}html[data-theme="light"] .integration-search kbd{
+  padding: 2px 5px;
+  border: 1px solid #d3d6da;
+  border-radius: 0;
+  color: #787c7e;
+  background: #f9fafb;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+}html[data-theme="light"] .integration-sr-only{
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}html[data-theme="light"] .integration-stage{
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--integration-background);
+}html[data-theme="light"] .mobile-filter-toggle{
+  display: none;
+}html[data-theme="light"] .mobile-filter-content{
+  display: contents;
+}html[data-theme="light"] .category-view{
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(6px) scale(0.998);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}html[data-theme="light"] .category-view.is-active{
+  z-index: 2;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}html[data-theme="light"] .category-loading{
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--integration-muted);
+  background: var(--integration-background);
+  font-size: 13px;
+  letter-spacing: 0.025em;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
+}html[data-theme="light"] .category-view.is-ready .category-loading{
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}html[data-theme="light"] .category-loading-orb{
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(10, 194, 133, 0.26);
+  border-top-color: var(--integration-green);
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(10, 194, 133, 0.24);
+  animation: integration-orbit 800ms linear infinite;
+}html[data-theme="light"] .category-loading.is-error{
+  color: #e5b2ad;
+}html[data-theme="light"] .category-loading.is-error .category-loading-orb{
+  border-color: #a65b57;
+  animation: none;
+}@keyframes integration-orbit{
+  to { transform: rotate(360deg); }html[data-theme="light"] }
+
+/* Sports — sage off-white, html[data-theme="light"] soft green-grey. */
+html[data-theme="light"] [data-category-view="sports"] > #market-atlas-sports{
+  --background: #eef2ef;
+  --surface: #ffffff;
+  --surface-strong: #f6f8f6;
+  --surface-soft: #e8ede8;
+  --foreground: #1a2320;
+  --muted: #6b7a6e;
+  --muted-soft: #8a9a8f;
+  --muted-foreground: #6b7a6e;
+  --card: #ffffff;
+  --border: #b8c5b9;
+  --border-green: #a8b8a9;
+  --green: #6a9f85;
+  --kalshi-green: #0ac285;
+  --green-soft: #a8cdb8;
+  --green-dark: #1a4030;
+  --green-ink: #0a3d2a;
+  --radius: 10px;
+  height: 100%;
+  padding: 5px;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--background);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports > .sports-app-header{
+  display: none !important;
+}/* Politics, Weather, Business — sage off-white, warmer party tones. */
+html[data-theme="light"] [data-category-view="politics"] .politics-app,
+html[data-theme="light"] [data-category-view="weather"] .weather-app ,
+html[data-theme="light"] [data-category-view="business"] .business-app{
+  --background: #eef2ef;
+  --surface: #ffffff;
+  --surface-strong: #f6f8f6;
+  --surface-soft: #e8ede8;
+  --foreground: #1a2320;
+  --muted: #6b7a6e;
+  --muted-soft: #8a9a8f;
+  --muted-foreground: #6b7a6e;
+  --card: #ffffff;
+  --sports-map-muted: rgba(107, 122, 110, 0.14);
+  --viz-series-1: #6a9f85;
+  --map-ocean-opacity: 1;
+  --map-rim-opacity: 1;
+  --map-grid-opacity: 1;
+  --politics-party-reveal: 0%;
+  --weather-marker-reveal: 0%;
+  --business-marker-reveal: 0%;
+  --border: #b8c5b9;
+  --border-green: #a8b8a9;
+  --green: #6a9f85;
+  --green-soft: #a8cdb8;
+  --green-dark: #1a4030;
+  --green-ink: #0a3d2a;
+  --warning: #c9b458;
+  --dem-blue: #6b8db5;
+  --dem-blue-soft: #a8c0d6;
+  --rep-red: #b56b66;
+  --rep-red-soft: #d8a8a3;
+  --political-neutral: #8a9a8f;
+  --radius: 10px;
+  --font-sans: "Libre Franklin", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 5px;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--background);
+}html[data-theme="light"] [data-category-view="politics"] .politics-layout, html[data-theme="light"] [data-category-view="weather"] .politics-layout, html[data-theme="light"] [data-category-view="business"] .politics-layout{
+  width: 100%;
+  height: 100%;
+}/* Shared material — sage off-white cards, soft border, gentle shadow. */
+html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .orbital-panel,
+html[data-theme="light"] [data-category-view="politics"] .politics-app .orbital-panel,
+html[data-theme="light"] [data-category-view="weather"] .weather-app .orbital-panel ,
+html[data-theme="light"] [data-category-view="business"] .business-app .orbital-panel{
+  border: 1px solid #b8c5b9;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(26, 35, 32, 0.06), 0 1px 0 #e8ede8;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .orbital-panel::before, html[data-theme="light"] [data-category-view="politics"] .politics-app .orbital-panel::before, html[data-theme="light"] [data-category-view="weather"] .weather-app .orbital-panel::before, html[data-theme="light"] [data-category-view="business"] .business-app .orbital-panel::before{
+  border-color: color-mix(in srgb, var(--green) 15%, transparent);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .filter-sidebar, html[data-theme="light"] [data-category-view="politics"] .politics-app .filter-sidebar, html[data-theme="light"] [data-category-view="weather"] .weather-app .filter-sidebar, html[data-theme="light"] [data-category-view="business"] .business-app .filter-sidebar{
+  gap: 10px;
+  padding: 12px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .check-list, html[data-theme="light"] [data-category-view="politics"] .politics-app .check-list, html[data-theme="light"] [data-category-view="weather"] .weather-app .check-list, html[data-theme="light"] [data-category-view="business"] .business-app .check-list{
+  gap: 3px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .check-option, html[data-theme="light"] [data-category-view="politics"] .politics-app .check-option, html[data-theme="light"] [data-category-view="weather"] .weather-app .check-option, html[data-theme="light"] [data-category-view="business"] .business-app .check-option{
+  gap: 7px;
+  padding: 4px 5px;
+  border-radius: 9px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .check-option:hover, html[data-theme="light"] [data-category-view="politics"] .politics-app .check-option:hover, html[data-theme="light"] [data-category-view="weather"] .weather-app .check-option:hover, html[data-theme="light"] [data-category-view="business"] .business-app .check-option:hover{
+  background: color-mix(in srgb, var(--green) 6%, transparent);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .panel-heading, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .team-view-kicker, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .date-kicker, html[data-theme="light"] [data-category-view="politics"] .politics-app .panel-heading, html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-kicker, html[data-theme="light"] [data-category-view="politics"] .politics-app .timeline-kicker, html[data-theme="light"] [data-category-view="weather"] .weather-app .panel-heading, html[data-theme="light"] [data-category-view="business"] .business-app .panel-heading, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-kicker, html[data-theme="light"] [data-category-view="business"] .business-app .detail-kicker, html[data-theme="light"] [data-category-view="weather"] .weather-app .timeline-kicker, html[data-theme="light"] [data-category-view="business"] .business-app .timeline-kicker{
+  color: #6b7a6e;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .panel-orb, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .date-orb, html[data-theme="light"] [data-category-view="politics"] .politics-app .feed-status-orb, html[data-theme="light"] [data-category-view="politics"] .politics-app .panel-orb, html[data-theme="light"] [data-category-view="politics"] .politics-app .timeline-orb, html[data-theme="light"] [data-category-view="weather"] .weather-app .feed-status-orb, html[data-theme="light"] [data-category-view="business"] .business-app .feed-status-orb, html[data-theme="light"] [data-category-view="weather"] .weather-app .panel-orb, html[data-theme="light"] [data-category-view="business"] .business-app .panel-orb, html[data-theme="light"] [data-category-view="weather"] .weather-app .timeline-orb, html[data-theme="light"] [data-category-view="business"] .business-app .timeline-orb{
+  width: 10px;
+  height: 10px;
+  border: 1px solid color-mix(in srgb, var(--green) 78%, var(--foreground));
+  background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--foreground) 48%, var(--green)), var(--green) 48%, color-mix(in srgb, var(--green) 32%, var(--background)) 100%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 11%, transparent), 0 0 16px color-mix(in srgb, var(--green) 48%, transparent);
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .election-detail, html[data-theme="light"] [data-category-view="weather"] .weather-app .election-detail, html[data-theme="light"] [data-category-view="business"] .business-app .election-detail{
+  padding: 0;
+  border: 1px solid #b8c5b9;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(26, 35, 32, 0.06);
+  overflow: hidden;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .date-dock, html[data-theme="light"] [data-category-view="politics"] .politics-app .timeline-dock, html[data-theme="light"] [data-category-view="weather"] .weather-app .timeline-dock, html[data-theme="light"] [data-category-view="business"] .business-app .timeline-dock{
+  padding: 8px 12px 6px;
+  border-radius: calc(var(--radius) * 1.05) calc(var(--radius) * 1.05) 5px 5px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .zoom-in, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .zoom-out, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .date-step, html[data-theme="light"] [data-category-view="politics"] .politics-app .zoom-button, html[data-theme="light"] [data-category-view="politics"] .politics-app .timeline-step, html[data-theme="light"] [data-category-view="weather"] .weather-app .zoom-button, html[data-theme="light"] [data-category-view="business"] .business-app .zoom-button, html[data-theme="light"] [data-category-view="weather"] .weather-app .timeline-step, html[data-theme="light"] [data-category-view="business"] .business-app .timeline-step{
+  border-color: color-mix(in srgb, var(--green) 28%, var(--border));
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .zoom-in:hover, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .zoom-out:hover, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .date-step:hover, html[data-theme="light"] [data-category-view="politics"] .politics-app .zoom-button:hover, html[data-theme="light"] [data-category-view="politics"] .politics-app .timeline-step:hover, html[data-theme="light"] [data-category-view="weather"] .weather-app .zoom-button:hover, html[data-theme="light"] [data-category-view="business"] .business-app .zoom-button:hover, html[data-theme="light"] [data-category-view="weather"] .weather-app .timeline-step:hover, html[data-theme="light"] [data-category-view="business"] .business-app .timeline-step:hover{
+  border-color: color-mix(in srgb, var(--green) 54%, var(--border));
+  background: color-mix(in srgb, var(--green) 15%, var(--card));
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .ocean-light{
+  stop-color: color-mix(in srgb, var(--viz-series-1) 18%, var(--card));
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .ocean-dark{
+  stop-color: color-mix(in srgb, var(--viz-series-1) 5%, var(--background));
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .globe-shadow{
+  fill: color-mix(in srgb, var(--foreground) 10%, transparent);
+  opacity: var(--map-rim-opacity);
+  transform: translateY(13px) scale(0.98);
+  transform-origin: 310px 280px;
+  filter: blur(10px);
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .globe-ocean{
+  fill: url(#politics-ocean-gradient);
+  fill-opacity: var(--map-ocean-opacity);
+  stroke: color-mix(in srgb, var(--viz-series-1) 36%, var(--border));
+  stroke-opacity: var(--map-rim-opacity);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .globe-graticule{
+  opacity: var(--map-grid-opacity);
+  stroke: color-mix(in srgb, var(--muted-foreground) 20%, transparent);
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .country{
+  fill: color-mix(in srgb, var(--sports-map-muted) 78%, var(--card));
+  stroke: var(--border);
+  stroke-width: 0.9;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .country.is-usa{
+  fill: color-mix(in srgb, var(--sports-map-muted) 78%, var(--card));
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .state-boundary{
+  stroke: color-mix(in srgb, var(--muted-foreground) 48%, transparent);
+  stroke-width: 0.65;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .map-tooltip, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .market-card, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .tooltip-market, html[data-theme="light"] [data-category-view="politics"] .politics-app .map-tooltip, html[data-theme="light"] [data-category-view="politics"] .politics-app .market-card, html[data-theme="light"] [data-category-view="politics"] .politics-app .tooltip-market, html[data-theme="light"] [data-category-view="weather"] .weather-app .map-tooltip, html[data-theme="light"] [data-category-view="business"] .business-app .map-tooltip, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-card, html[data-theme="light"] [data-category-view="business"] .business-app .market-card, html[data-theme="light"] [data-category-view="weather"] .weather-app .tooltip-market, html[data-theme="light"] [data-category-view="business"] .business-app .tooltip-market{
+  border-color: color-mix(in srgb, var(--green) 17%, var(--border));
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+}@keyframes price-history-pulse{
+  to { opacity: 0.35; transform: scale(0.72); }html[data-theme="light"] }
+
+.market-card > html[data-theme="light"] .market-card > /* Sports detail — sleek sage card, soft border. */
+html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail{
+  gap: 0;
+  padding: 0;
+  border: 1px solid #b8c5b9;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(26, 35, 32, 0.06);
+  overflow: hidden;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .game-detail-view{
+  gap: 0;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail > .detail-view > .panel-heading{
+  margin: 0;
+  padding: 11px 14px 9px;
+  color: #6b7a6e;
+  background: #f6f8f6;
+  border-bottom: 1px solid #e8ede8;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail .form-select{
+  height: 40px;
+  margin: 10px 12px 12px;
+  padding-inline: 11px 34px;
+  border: 2px solid #d3d6da;
+  border-radius: 0;
+  color: #121213;
+  background: #ffffff;
+  box-shadow: none;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-weight: 700;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .detail-topline{
+  min-height: 30px;
+  margin-bottom: 4px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sport-badge{
+  padding: 4px 9px;
+  font-size: calc(var(--font-size-base) * 0.78);
+  font-weight: 600;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-dates{
+  font-size: calc(var(--font-size-base) * 0.82);
+  font-weight: 500;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-name{
+  margin: 4px 0 0;
+  padding: 0 12px;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #121213;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .team-view-kicker{
+  color: var(--muted-foreground);
+  font-weight: 500;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .team-futures-name, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .tennis-market-name{
+  font-weight: 600;
+  letter-spacing: normal;
+  line-height: 1.12;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-location{
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 0;
+  color: #787c7e;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-ticker{
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  margin: 12px 12px 0;
+  padding: 4px 8px;
+  border: 1px solid #d3d6da;
+  border-radius: 0;
+  color: #787c7e;
+  background: #f9fafb;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-header{
+  min-height: 40px;
+  margin: 16px 12px 0;
+  padding: 8px 12px;
+  border: 1px solid #d3d6da;
+  border-bottom: 1px solid #d3d6da;
+  border-radius: 0;
+  color: #121213;
+  background: #f9fafb;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 11px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-header-label{
+  font-size: calc(var(--font-size-base) * 0.88);
+  font-weight: 600;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .contract-count{
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: calc(var(--font-size-base) * 0.72);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-list{
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--kalshi-green) 20%, var(--border));
+  border-top: 0;
+  border-radius: 0 0 13px 13px;
+  background: color-mix(in srgb, var(--background) 56%, transparent);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-row{
+  position: relative;
+  min-height: 43px;
+  padding: 9px 12px;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 0;
+  background: transparent;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-row:last-child{
+  border-bottom: 0;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-row:hover, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-row.is-selected{
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--foreground) 2.5%, transparent);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-label{
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  font-size: calc(var(--font-size-base) * 0.94);
+  font-weight: 500;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-value{
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-weight: 650;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-track{
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-fill{
+  height: 100%;
+  border-radius: 0;
+  opacity: 0.12;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .market-meta{
+  margin-top: 13px;
+  padding: 0;
+  border: 0;
+  color: var(--muted-foreground);
+  font-size: calc(var(--font-size-base) * 0.78);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .contract-ticker{
+  margin-top: 7px;
+  padding: 0;
+  color: var(--muted-foreground);
+  background: transparent;
+  font-size: calc(var(--font-size-base) * 0.7);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .market-tools{
+  margin-top: 10px;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .market-link{
+  min-height: 32px;
+  padding-inline: 11px;
+  border-color: color-mix(in srgb, var(--kalshi-green) 18%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--foreground) 7%, var(--card));
+}/* One authoritative globe palette. Both renderers consume these exact values. */
+.integration-stage,
+html[data-theme="light"] [data-category-view="sports"],
+html[data-theme="light"] [data-category-view="politics"],
+html[data-theme="light"] [data-category-view="weather"],
+html[data-theme="light"] [data-category-view="business"],
+html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports,
+html[data-theme="light"] [data-category-view="politics"] .politics-app,
+html[data-theme="light"] [data-category-view="weather"] .weather-app ,
+html[data-theme="light"] [data-category-view="business"] .business-app{
+  background-color: var(--shared-globe-background);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .ocean-light, html[data-theme="light"] [data-category-view="politics"] .politics-app .ocean-light, html[data-theme="light"] [data-category-view="weather"] .weather-app .ocean-light, html[data-theme="light"] [data-category-view="business"] .business-app .ocean-light{
+  stop-color: var(--shared-globe-ocean-light);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .ocean-dark, html[data-theme="light"] [data-category-view="politics"] .politics-app .ocean-dark, html[data-theme="light"] [data-category-view="weather"] .weather-app .ocean-dark, html[data-theme="light"] [data-category-view="business"] .business-app .ocean-dark{
+  stop-color: var(--shared-globe-ocean-dark);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .globe-shadow, html[data-theme="light"] [data-category-view="politics"] .politics-app .globe-shadow, html[data-theme="light"] [data-category-view="weather"] .weather-app .globe-shadow, html[data-theme="light"] [data-category-view="business"] .business-app .globe-shadow{
+  fill: var(--shared-globe-shadow);
+  opacity: var(--map-rim-opacity);
+  filter: blur(10px);
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .globe-ocean, html[data-theme="light"] [data-category-view="politics"] .politics-app .globe-ocean, html[data-theme="light"] [data-category-view="weather"] .weather-app .globe-ocean, html[data-theme="light"] [data-category-view="business"] .business-app .globe-ocean{
+  fill-opacity: var(--map-ocean-opacity);
+  stroke: var(--shared-globe-rim);
+  stroke-opacity: var(--map-rim-opacity);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .globe-graticule, html[data-theme="light"] [data-category-view="politics"] .politics-app .globe-graticule, html[data-theme="light"] [data-category-view="weather"] .weather-app .globe-graticule, html[data-theme="light"] [data-category-view="business"] .business-app .globe-graticule{
+  opacity: var(--map-grid-opacity);
+  stroke: var(--shared-globe-grid);
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .country, html[data-theme="light"] [data-category-view="politics"] .politics-app .country, html[data-theme="light"] [data-category-view="politics"] .politics-app .country.is-usa, html[data-theme="light"] [data-category-view="weather"] .weather-app .country, html[data-theme="light"] [data-category-view="business"] .business-app .country, html[data-theme="light"] [data-category-view="weather"] .weather-app .country.is-usa, html[data-theme="light"] [data-category-view="business"] .business-app .country.is-usa{
+  fill: var(--shared-globe-land);
+  stroke: var(--shared-globe-border);
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .state, html[data-theme="light"] [data-category-view="politics"] .politics-app .state-boundary, html[data-theme="light"] [data-category-view="weather"] .weather-app .state-boundary, html[data-theme="light"] [data-category-view="business"] .business-app .state-boundary{
+  fill: none;
+  stroke: var(--shared-globe-state);
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-globe, html[data-theme="light"] [data-category-view="politics"] .politics-app .politics-globe, html[data-theme="light"] [data-category-view="weather"] .weather-app .weather-globe, html[data-theme="light"] [data-category-view="business"] .business-app .weather-globe{
+  background: transparent;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .politics-globe, html[data-theme="light"] [data-category-view="weather"] .weather-app .weather-globe, html[data-theme="light"] [data-category-view="business"] .business-app .weather-globe{
+  -webkit-mask-image: none;
+  mask-image: none;
+}/* Politics — Apple minimal: white disc, thin muted ring, no glow. */
+html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker .marker-halo{
+  fill: none;
+  stroke: rgba(107, 122, 110, 0.18);
+  stroke-width: 1;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker .marker-core, html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.leader-neutral .marker-core{
+  fill: #ffffff;
+  stroke: #8a9a8f;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 1px 4px rgba(26, 35, 32, 0.06));
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.leader-dem .marker-core{
+  fill: #ffffff;
+  stroke: #6b8db5;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 1px 4px rgba(26, 35, 32, 0.06));
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.leader-rep .marker-core{
+  fill: #ffffff;
+  stroke: #b56b66;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 1px 4px rgba(26, 35, 32, 0.06));
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.is-global .marker-core{
+  fill: #ffffff;
+  stroke: #8a9a8f;
+  stroke-width: 1.4;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.is-selected .marker-halo{
+  fill: none;
+  stroke: #1a2320;
+  stroke-width: 1.4;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.is-house-race .marker-core{
+  stroke-width: 1.4;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker .market-count{
+  fill: #ffffff;
+  stroke: #b8c5b9;
+  stroke-width: 1;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker .market-count-text{
+  fill: #1a2320;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-weight: 700;
+  font-size: 6px;
+}/* Politics inner labels — minimal Apple indication: dark text, party tint via subtle ring + colored abbreviation */
+html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker text{
+  fill: #1a2320;
+  font-family: "Inter", sans-serif;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.leader-dem text{ fill: #3a5a7a; }html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.leader-rep text{ fill: #7a3a36; }html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.leader-neutral text, html[data-theme="light"] [data-category-view="politics"] .politics-app .event-marker.is-global text{ fill: #1a2320; }/* Weather/Business — Apple minimal: white disc + thin tinted ring. */
+html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker.kind-temperature{ --weather-marker: #e07a2a; }html[data-theme="light"] [data-category-view="business"] .business-app .event-marker.kind-temperature{ --weather-marker: #e07a2a; }html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker.kind-rain-snow{ --weather-marker: #3a8bc2; }html[data-theme="light"] [data-category-view="business"] .business-app .event-marker.kind-rain-snow{ --weather-marker: #3a8bc2; }html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker.kind-hurricanes{ --weather-marker: #9b7edc; }html[data-theme="light"] [data-category-view="business"] .business-app .event-marker.kind-hurricanes{ --weather-marker: #9b7edc; }html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker.kind-natural-disasters{ --weather-marker: #d04a3a; }html[data-theme="light"] [data-category-view="business"] .business-app .event-marker.kind-natural-disasters{ --weather-marker: #d04a3a; }html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker.kind-climate-change{ --weather-marker: #2e9d6a; }html[data-theme="light"] [data-category-view="business"] .business-app .event-marker.kind-climate-change{ --weather-marker: #2e9d6a; }html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker .marker-halo, html[data-theme="light"] [data-category-view="business"] .business-app .event-marker .marker-halo{
+  fill: none;
+  stroke: rgba(107, 122, 110, 0.14);
+  stroke-width: 1;
+}html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker .marker-core, html[data-theme="light"] [data-category-view="business"] .business-app .event-marker .marker-core{
+  fill: #ffffff;
+  stroke: var(--weather-marker, #8a9a8f);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 1px 4px rgba(26, 35, 32, 0.06));
+}html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker.is-selected .marker-halo, html[data-theme="light"] [data-category-view="business"] .business-app .event-marker.is-selected .marker-halo{
+  fill: none;
+  stroke: #6b7a6e;
+  stroke-width: 1.6;
+}html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker .market-count, html[data-theme="light"] [data-category-view="business"] .business-app .event-marker .market-count{
+  fill: #ffffff;
+  stroke: #b8c5b9;
+  stroke-width: 1;
+}html[data-theme="light"] [data-category-view="weather"] .weather-app .event-marker .market-count-text, html[data-theme="light"] [data-category-view="business"] .business-app .event-marker .market-count-text{
+  fill: #1a2320;
+  font-family: "Libre Franklin", Inter, sans-serif;
+  font-weight: 700;
+  font-size: 7px;
+}
+
+@media (min-width: 701px) {html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser{
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 9px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser[hidden], html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .game-detail-view[hidden]{
+    display: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading{
+    position: sticky;
+    z-index: 2;
+    top: -14px;
+    display: flex;
+    min-height: 42px;
+    margin: -14px -14px 0;
+    padding: 14px 14px 8px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--integration-border);
+    background: color-mix(in srgb, var(--card) 96%, var(--integration-green) 4%);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading strong{
+    font-size: 17px;
+    font-weight: 650;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-count{
+    color: var(--integration-muted);
+    font-size: 11px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-detail-market-list{
+    display: grid;
+    min-height: 0;
+    gap: 10px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card{
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 22%, var(--integration-border));
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--integration-surface) 94%, transparent);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-heading{
+    display: flex;
+    min-height: 42px;
+    padding: 9px 10px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--integration-border);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-title{
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    color: var(--integration-foreground);
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.25;
+    text-align: left;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card button.market-card-title{
+    cursor: pointer;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card button.market-card-title:hover{
+    color: color-mix(in srgb, var(--integration-green) 76%, white);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-volume{
+    flex: none;
+    color: var(--integration-muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcomes{
+    display: grid;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcome{
+    position: relative;
+    display: flex;
+    min-height: 34px;
+    padding: 7px 10px;
+    overflow: hidden;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    font-size: 12px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-fill{
+    position: absolute;
+    z-index: 0;
+    inset: 0 auto 0 0;
+    background: color-mix(in srgb, var(--integration-green) 13%, transparent);
+    pointer-events: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card :is(.outcome-name, html[data-theme="light"] .outcome-price){
+    position: relative;
+    z-index: 1;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-name{
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-price{
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-footer{
+    display: flex;
+    padding: 7px 10px;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--integration-muted);
+    font-size: 10px;
+  }
+}html[data-theme="light"] .mobile-calendar-picker{
+  display: none;
+}html[data-theme="light"] .mobile-market-sheet-close{
+  display: none;
+}html[data-theme="light"] .mobile-market-carousel-nav{
+  display: none;
+}
+
+@media (max-width: 900px) {html[data-theme="light"] .integration-header{
+    grid-template-columns: 1fr minmax(14rem, 0.8fr);
+    row-gap: 7px;
+  }html[data-theme="light"] .integration-tabs{
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+  }html[data-theme="light"] .integration-stage, html[data-theme="light"] .category-view{
+    overflow: auto;
+  }
+}
+
+@media (max-width: 700px) {html[data-theme="light"] html, html[data-theme="light"] body.integration-body, html[data-theme="light"] .integration-shell{
+  grid-template-rows: auto auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }html[data-theme="light"] .category-view.is-active{
+    transform: none;
+  }html[data-theme="light"] body.sports-market-sheet-open .integration-stage{
+    z-index: 200;
+    overflow: visible;
+  }html[data-theme="light"] body.sports-market-sheet-open .category-view.is-active{
+    overflow: visible;
+  }html[data-theme="light"] .integration-shell{
+  grid-template-rows: auto auto minmax(0, 1fr);
+    display: grid;
+    height: 100dvh;
+    grid-template-rows: auto minmax(0, 1fr);
+  }html[data-theme="light"] .integration-header{
+    position: relative;
+    top: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 6px 8px;
+    min-height: 0;
+    padding: 6px 8px 7px;
+  }html[data-theme="light"] .integration-brand{
+    grid-column: 1;
+    grid-row: 1;
+    gap: 0;
+  }html[data-theme="light"] .integration-powered, html[data-theme="light"] .integration-wordmark{
+    display: none;
+  }html[data-theme="light"] .integration-kalshi-mark{
+    width: 38px;
+    height: 38px;
+  }html[data-theme="light"] .integration-search-shell{
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    max-width: none;
+  }html[data-theme="light"] .integration-search{
+    width: 100%;
+    max-width: none;
+    min-height: 42px;
+  }html[data-theme="light"] .integration-search input{
+    height: 42px;
+    font-size: 16px;
+  }html[data-theme="light"] .integration-search kbd{
+    display: none;
+  }html[data-theme="light"] .integration-tabs{
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    padding: 3px;
+    justify-self: stretch;
+    overflow: hidden;
+  }html[data-theme="light"] .integration-tab{
+    min-width: 0;
+    min-height: 32px;
+    flex: 1;
+    padding: 7px 5px;
+    font-size: 12px;
+    touch-action: manipulation;
+  }html[data-theme="light"] .integration-stage{
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }html[data-theme="light"] .category-view{
+    min-height: 0;
+    overflow: visible;
+  }html[data-theme="light"] [data-category-view="sports"] > #market-atlas-sports{
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }html[data-theme="light"] .category-view .sports-layout, html[data-theme="light"] .category-view .politics-layout{
+    position: relative;
+  }html[data-theme="light"] .category-view .globe-stage{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: min(70dvh, 34rem);
+    min-height: min(70dvh, 34rem);
+  }html[data-theme="light"] .category-view .sports-globe, html[data-theme="light"] .category-view .politics-globe{
+    max-width: 100%;
+    max-height: 100%;
+    margin: auto;
+  }html[data-theme="light"] .category-view .globe-hud{
+    display: none !important;
+  }html[data-theme="light"] .category-view .mobile-filter-dropdown{
+    position: absolute !important;
+    z-index: 46;
+    top: 8px;
+    left: 8px;
+    display: block !important;
+    width: calc(50% - 12px);
+    height: 44px;
+    min-width: 0;
+    max-height: calc(100% - 7.5rem);
+    padding: 0 !important;
+    align-self: auto !important;
+    overflow: hidden !important;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border)) !important;
+    border-radius: 13px !important;
+    background: color-mix(in srgb, var(--integration-surface) 95%, var(--integration-green) 5%) !important;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36) !important;
+  }html[data-theme="light"] .category-view .mobile-filter-dropdown::before{
+    display: none;
+  }html[data-theme="light"] .mobile-filter-toggle{
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 12px;
+    grid-template-rows: 1fr;
+    align-items: center;
+    align-content: center;
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+    gap: 8px;
+    padding: 0 11px;
+    border: 0;
+    color: var(--integration-foreground);
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+  }html[data-theme="light"] .mobile-filter-label{
+    display: flex;
+    align-items: center;
+    height: 18px;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 18px;
+  }html[data-theme="light"] .mobile-filter-summary{
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 18px;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--integration-muted);
+    font-size: 12px;
+    line-height: 18px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] .mobile-filter-chevron{
+    width: 8px;
+    height: 8px;
+    border-right: 1.5px solid var(--integration-muted);
+    border-bottom: 1.5px solid var(--integration-muted);
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform 140ms ease;
+  }html[data-theme="light"] .mobile-filter-dropdown.is-open .mobile-filter-chevron{
+    transform: translateY(2px) rotate(225deg);
+  }html[data-theme="light"] .mobile-filter-content{
+    display: none;
+    max-height: min(26rem, calc(100dvh - 12rem));
+    padding: 4px 9px 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }html[data-theme="light"] .mobile-filter-dropdown.is-open .mobile-filter-content{
+    display: grid;
+    gap: 8px;
+    border-top: 1px solid var(--integration-border);
+  }html[data-theme="light"] .category-view .mobile-filter-dropdown.is-open{
+    height: auto;
+  }html[data-theme="light"] .mobile-calendar-picker{
+    position: absolute;
+    z-index: 47;
+    top: 8px;
+    right: 8px;
+    display: block;
+    width: calc(50% - 12px);
+  }html[data-theme="light"] .mobile-calendar-picker.is-open{
+    z-index: 90;
+  }html[data-theme="light"] .mobile-calendar-toggle{
+    display: grid;
+    grid-template-columns: 15px minmax(0, 1fr) 12px;
+    grid-template-rows: 1fr;
+    align-items: center;
+    align-content: center;
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+    gap: 8px;
+    padding: 0 11px;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border));
+    border-radius: 13px;
+    color: var(--integration-foreground);
+    background: color-mix(in srgb, var(--integration-surface) 95%, var(--integration-green) 5%);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
+    font: inherit;
+    text-align: left;
+    touch-action: manipulation;
+  }html[data-theme="light"] .mobile-calendar-value{
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 18px;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--integration-foreground);
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 18px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] .mobile-calendar-icon{
+    position: relative;
+    width: 14px;
+    height: 13px;
+    border: 1.5px solid var(--integration-green);
+    border-radius: 3px;
+  }html[data-theme="light"] .mobile-calendar-icon::before{
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: -1.5px;
+    left: -1.5px;
+    border-top: 1.5px solid var(--integration-green);
+  }html[data-theme="light"] .mobile-calendar-icon::after{
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: 3px;
+    width: 6px;
+    height: 4px;
+    border-right: 1.5px solid var(--integration-green);
+    border-left: 1.5px solid var(--integration-green);
+  }html[data-theme="light"] .mobile-calendar-chevron{
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid var(--integration-muted);
+    border-bottom: 1.5px solid var(--integration-muted);
+    transform: translateY(-2px) rotate(45deg);
+    pointer-events: none;
+    transition: transform 160ms ease;
+  }html[data-theme="light"] .ios-native-controls .mobile-native-filter-select, html[data-theme="light"] .ios-native-controls .mobile-native-calendar-select{
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0.001;
+    font-size: 16px;
+    cursor: pointer;
+    -webkit-appearance: menulist;
+    appearance: auto;
+  }html[data-theme="light"] .ios-native-controls .mobile-native-filter-select{
+    border-radius: 13px;
+  }html[data-theme="light"] .mobile-calendar-picker.is-open .mobile-calendar-chevron{
+    transform: translateY(2px) rotate(225deg);
+  }html[data-theme="light"] .mobile-calendar-backdrop{
+    position: fixed;
+    z-index: 0;
+    inset: 0;
+    background: rgba(3, 8, 5, 0.58);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }html[data-theme="light"] .mobile-calendar-sheet{
+    position: fixed;
+    z-index: 1;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    max-height: min(64dvh, 34rem);
+    padding: 9px 10px max(12px, env(safe-area-inset-bottom));
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 26%, var(--integration-border));
+    border-bottom: 0;
+    border-radius: 22px 22px 0 0;
+    color: var(--integration-foreground);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, #242b27 96%, var(--integration-green) 4%), #171d19 44%);
+    box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }html[data-theme="light"] .mobile-calendar-backdrop[hidden], html[data-theme="light"] .mobile-calendar-sheet[hidden]{
+    display: none;
+  }html[data-theme="light"] .mobile-calendar-handle{
+    width: 38px;
+    height: 5px;
+    margin: 0 auto 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--integration-muted) 52%, transparent);
+  }html[data-theme="light"] .mobile-calendar-sheet-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 42px;
+    padding: 0 5px 8px 8px;
+    border-bottom: 1px solid var(--integration-border);
+  }html[data-theme="light"] .mobile-calendar-sheet-header strong{
+    font-size: 16px;
+    font-weight: 680;
+  }html[data-theme="light"] .mobile-calendar-done{
+    min-width: 62px;
+    min-height: 34px;
+    padding: 6px 13px;
+    border: 0;
+    border-radius: 999px;
+    color: #03130d;
+    background: var(--integration-green);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+  }html[data-theme="light"] .mobile-calendar-menu{
+    min-height: 0;
+    padding: 8px 3px 2px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: color-mix(in srgb, var(--integration-green) 44%, transparent) transparent;
+  }html[data-theme="light"] .mobile-calendar-month{
+    position: sticky;
+    z-index: 1;
+    top: -8px;
+    padding: 11px 11px 7px;
+    color: var(--integration-muted);
+    background: #181e1a;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }html[data-theme="light"] .mobile-calendar-option{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20px;
+    align-items: center;
+    width: 100%;
+    min-height: 46px;
+    padding: 9px 12px;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--integration-border) 72%, transparent);
+    border-radius: 10px;
+    color: var(--integration-foreground);
+    background: transparent;
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+  }html[data-theme="light"] .mobile-calendar-option.is-selected{
+    color: #d9fff2;
+    background: color-mix(in srgb, var(--integration-green) 18%, transparent);
+  }html[data-theme="light"] .mobile-calendar-check{
+    width: 9px;
+    height: 15px;
+    margin: 0 auto;
+    border-right: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    transform: translateY(-2px) rotate(45deg);
+  }html[data-theme="light"] .mobile-calendar-option.is-selected .mobile-calendar-check{
+    border-color: var(--integration-green);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .date-dock, html[data-theme="light"] [data-category-view="politics"] .politics-app .timeline-dock, html[data-theme="light"] [data-category-view="weather"] .weather-app .timeline-dock, html[data-theme="light"] [data-category-view="business"] .business-app .timeline-dock{
+    display: none !important;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-layout{
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "globe"
+      "detail";
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .globe-stage{
+    width: 100%;
+    max-width: none;
+    min-height: min(70dvh, 34rem);
+    margin-inline: 0;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .politics-layout, html[data-theme="light"] [data-category-view="weather"] .weather-app .politics-layout, html[data-theme="light"] [data-category-view="business"] .business-app .politics-layout{
+    grid-template-rows: min(70dvh, 34rem) auto;
+    grid-template-areas:
+      "globe"
+      "detail";
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .filter-sidebar, html[data-theme="light"] [data-category-view="weather"] .weather-app .filter-sidebar, html[data-theme="light"] [data-category-view="business"] .business-app .filter-sidebar{
+    grid-template-columns: 1fr;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .election-detail, html[data-theme="light"] [data-category-view="weather"] .weather-app .election-detail, html[data-theme="light"] [data-category-view="business"] .business-app .election-detail{
+    position: fixed;
+    z-index: 44;
+    right: 5px;
+    bottom: 5px;
+    left: 5px;
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    width: auto;
+    height: auto;
+    max-height: min(42dvh, 22rem);
+    padding: 14px;
+    overflow: hidden;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-market-list, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-market-list, html[data-theme="light"] [data-category-view="business"] .business-app .detail-market-list{
+    display: grid;
+    grid-auto-columns: 100%;
+    grid-auto-flow: column;
+    align-items: start;
+    height: var(--mobile-market-card-height, auto);
+    min-height: 0;
+    gap: 10px;
+    margin-top: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    transition: height 160ms ease;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-market-list::-webkit-scrollbar, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-market-list::-webkit-scrollbar, html[data-theme="light"] [data-category-view="business"] .business-app .detail-market-list::-webkit-scrollbar{
+    display: none;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-market-list > .market-card, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-market-list > .market-card, html[data-theme="light"] [data-category-view="business"] .business-app .detail-market-list > .market-card{
+    min-width: 0;
+    height: 100%;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    scrollbar-color: color-mix(in srgb, var(--integration-green) 35%, transparent) transparent;
+  }html[data-theme="light"] .mobile-market-carousel-nav{
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding-top: 7px;
+  }html[data-theme="light"] .mobile-market-carousel-nav[hidden]{
+    display: none;
+  }html[data-theme="light"] .mobile-market-carousel-step{
+    width: 38px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 42%, var(--integration-border));
+    border-radius: 999px;
+    color: var(--integration-foreground);
+    background: color-mix(in srgb, var(--integration-surface) 92%, var(--integration-green) 8%);
+    font: inherit;
+    font-size: 23px;
+    line-height: 1;
+    touch-action: manipulation;
+  }html[data-theme="light"] .mobile-market-carousel-step:disabled{
+    opacity: 0.32;
+  }html[data-theme="light"] .mobile-market-carousel-status{
+    color: var(--integration-muted);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.035em;
+    text-align: center;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app{
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }/* Mobile markets are click-only, compact bottom sheets. The page itself never scrolls. */
+  .integration-stage,
+  .category-view{
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }html[data-theme="light"] [data-category-view="sports"] > #market-atlas-sports, html[data-theme="light"] [data-category-view="politics"] .politics-app, html[data-theme="light"] [data-category-view="weather"] .weather-app, html[data-theme="light"] [data-category-view="business"] .business-app{
+    height: 100%;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-layout, html[data-theme="light"] [data-category-view="politics"] .politics-app .politics-layout, html[data-theme="light"] [data-category-view="weather"] .weather-app .politics-layout, html[data-theme="light"] [data-category-view="business"] .business-app .politics-layout{
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    grid-template-areas: "globe" !important;
+    gap: 0;
+    overflow: hidden;
+  }html[data-theme="light"] .category-view .globe-stage, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .globe-stage{
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+  }html[data-theme="light"] .category-view .sports-globe, html[data-theme="light"] .category-view .politics-globe{
+    width: 100%;
+    height: 100%;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-globe{
+    height: 100% !important;
+    max-height: none !important;
+    margin: 0;
+  }html[data-theme="light"] .category-view .map-tooltip, html[data-theme="light"] .category-view .globe-hint{
+    display: none !important;
+  }html[data-theme="light"] .mobile-market-sheet-close{
+    display: none !important;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail, html[data-theme="light"] [data-category-view="politics"] .politics-app .election-detail, html[data-theme="light"] [data-category-view="weather"] .weather-app .election-detail, html[data-theme="light"] [data-category-view="business"] .business-app .election-detail{
+    position: fixed !important;
+    z-index: 70;
+    top: auto !important;
+    right: 6px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    left: 6px;
+    width: auto;
+    min-height: 0;
+    max-height: min(38dvh, 17rem);
+    margin: 0;
+    padding: 10px 11px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border));
+    border-radius: 17px;
+    background: linear-gradient(180deg, color-mix(in srgb, #242b27 97%, var(--integration-green) 3%), #171c19);
+    box-shadow: 0 -18px 52px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(calc(100% + 16px));
+    transition: transform 180ms ease, opacity 150ms ease, visibility 0s linear 180ms;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail.is-mobile-open, html[data-theme="light"] [data-category-view="politics"] .politics-app .election-detail.is-mobile-open, html[data-theme="light"] [data-category-view="weather"] .weather-app .election-detail.is-mobile-open, html[data-theme="light"] [data-category-view="business"] .business-app .election-detail.is-mobile-open{
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition-delay: 0s;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail{
+    display: flex;
+    max-height: min(40dvh, 17rem);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail > .detail-view > .panel-heading, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail .form-select, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-ticker, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .contract-ticker{
+    display: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .game-detail-view{
+    width: 100%;
+    gap: 3px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .detail-topline{
+    min-height: 20px;
+    margin: 0;
+    padding-right: 34px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sport-badge{
+    padding: 2px 6px;
+    font-size: 10px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-dates{
+    max-width: 72%;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-name{
+    display: -webkit-box;
+    margin: 1px 0 0;
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 1.15;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-location{
+    margin: 2px 0 4px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-header{
+    min-height: 28px;
+    margin-top: 2px;
+    padding: 5px 8px;
+    border-radius: 9px 9px 0 0;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-header-label, html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .contract-count{
+    font-size: 10px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-list{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 0 0 9px 9px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-list[data-outcome-count="2"]{
+    grid-template-columns: minmax(0, 1fr);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-row{
+    min-height: 31px;
+    padding: 5px 7px;
+    border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .price-label{
+    gap: 5px;
+    font-size: 11px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .market-meta{
+    margin-top: 4px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail.is-market-pending .market-meta{
+    display: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .market-tools{
+    margin-top: 3px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .market-link{
+    min-height: 28px;
+    padding: 4px 9px;
+    font-size: 10px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser{
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-browser[hidden], html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .game-detail-view[hidden]{
+    display: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading{
+    display: flex;
+    min-height: 28px;
+    padding: 0 2px 4px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-heading strong{
+    font-size: 16px;
+    line-height: 1.15;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-mobile-market-count{
+    color: var(--integration-muted);
+    font-size: 10px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-detail-market-list{
+    display: grid;
+    height: var(--mobile-market-card-height, auto);
+    min-height: 0;
+    margin-top: 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: start;
+    gap: 7px;
+    grid-auto-columns: 100%;
+    grid-auto-flow: column;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    transition: height 160ms ease;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-detail-market-list::-webkit-scrollbar{
+    display: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card{
+    min-width: 0;
+    height: auto;
+    max-height: none;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--integration-green) 24%, var(--integration-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--integration-surface) 94%, transparent);
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-heading{
+    display: flex;
+    min-height: 34px;
+    padding: 6px 7px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-card-title{
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--integration-foreground);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.2;
+    text-decoration: none;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-volume{
+    flex: none;
+    color: var(--integration-muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcomes{
+    display: grid;
+    border-top: 1px solid var(--integration-border);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card[data-outcome-count="2"] .market-outcomes{
+    grid-template-columns: minmax(0, 1fr);
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-outcome{
+    position: relative;
+    display: flex;
+    min-height: 27px;
+    padding: 4px 7px;
+    overflow: hidden;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-right: 1px solid rgba(255, 255, 255, 0.055);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    font-size: 10.5px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card[data-outcome-count="2"] .market-outcome{
+    border-right: 0;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-fill{
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--integration-green) 20%, transparent), transparent);
+    pointer-events: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card :is(.outcome-name, html[data-theme="light"] .outcome-price){
+    position: relative;
+    z-index: 1;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-name{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .outcome-price{
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-card .market-footer{
+    display: none;
+  }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .sports-market-pending{
+    grid-column: 1 / -1;
+    padding: 12px 8px;
+    color: var(--integration-muted);
+    font-size: 11px;
+    text-align: center;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .election-detail, html[data-theme="light"] [data-category-view="weather"] .weather-app .election-detail, html[data-theme="light"] [data-category-view="business"] .business-app .election-detail{
+    display: grid;
+    grid-template-rows: auto auto auto;
+    height: auto;
+    max-height: min(40dvh, 17rem);
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-heading-row, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-heading-row, html[data-theme="light"] [data-category-view="business"] .business-app .detail-heading-row{
+    min-height: 30px;
+    padding-right: 35px;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-kicker, html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-code, html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-location, html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-meta, html[data-theme="light"] [data-category-view="politics"] .politics-app .market-footer, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-kicker, html[data-theme="light"] [data-category-view="business"] .business-app .detail-kicker, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-code, html[data-theme="light"] [data-category-view="business"] .business-app .detail-code, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-location, html[data-theme="light"] [data-category-view="business"] .business-app .detail-location, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-meta, html[data-theme="light"] [data-category-view="business"] .business-app .detail-meta, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-footer, html[data-theme="light"] [data-category-view="business"] .business-app .market-footer{
+    display: none;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-jurisdiction, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-jurisdiction, html[data-theme="light"] [data-category-view="business"] .business-app .detail-jurisdiction{
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-market-list, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-market-list, html[data-theme="light"] [data-category-view="business"] .business-app .detail-market-list{
+    gap: 7px;
+    margin-top: 5px;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .detail-market-list > .market-card, html[data-theme="light"] [data-category-view="weather"] .weather-app .detail-market-list > .market-card, html[data-theme="light"] [data-category-view="business"] .business-app .detail-market-list > .market-card{
+    height: auto;
+    max-height: none;
+    overflow: hidden;
+    border-radius: 10px;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-card-heading, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-card-heading, html[data-theme="light"] [data-category-view="business"] .business-app .market-card-heading{
+    padding: 6px 7px;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-card-title, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-card-title, html[data-theme="light"] [data-category-view="business"] .business-app .market-card-title{
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.2;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-volume, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-volume, html[data-theme="light"] [data-category-view="business"] .business-app .market-volume{
+    font-size: 9px;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-outcomes, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-outcomes, html[data-theme="light"] [data-category-view="business"] .business-app .market-outcomes{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-card[data-outcome-count="2"] .market-outcomes, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcomes, html[data-theme="light"] [data-category-view="business"] .business-app .market-card[data-outcome-count="2"] .market-outcomes{
+    grid-template-columns: minmax(0, 1fr);
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-outcome, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-outcome, html[data-theme="light"] [data-category-view="business"] .business-app .market-outcome{
+    min-height: 27px;
+    padding: 4px 7px;
+    border-right: 1px solid rgba(255, 255, 255, 0.055);
+    font-size: 10.5px;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-card[data-outcome-count="2"] .market-outcome, html[data-theme="light"] [data-category-view="weather"] .weather-app .market-card[data-outcome-count="2"] .market-outcome, html[data-theme="light"] [data-category-view="business"] .business-app .market-card[data-outcome-count="2"] .market-outcome{
+    border-right: 0;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .market-outcome:nth-child(n + 9), html[data-theme="light"] [data-category-view="weather"] .weather-app .market-outcome:nth-child(n + 9), html[data-theme="light"] [data-category-view="business"] .business-app .market-outcome:nth-child(n + 9){
+    display: none;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .outcome-price, html[data-theme="light"] [data-category-view="weather"] .weather-app .outcome-price, html[data-theme="light"] [data-category-view="business"] .business-app .outcome-price{
+    font-size: 10.5px;
+  }html[data-theme="light"] [data-category-view="politics"] .politics-app .party-badge{
+    width: 15px;
+    height: 15px;
+    font-size: 8px;
+  }html[data-theme="light"] .mobile-market-carousel-nav{
+    min-height: 30px;
+    padding-top: 3px;
+    grid-template-columns: 30px minmax(0, 1fr) 30px;
+  }html[data-theme="light"] .mobile-market-carousel-step{
+    width: 30px;
+    height: 28px;
+    font-size: 18px;
+  }html[data-theme="light"] .integration-search-shell .market-search-panel{
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-height: calc(100dvh - 7rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {html[data-theme="light"] .integration-tab, html[data-theme="light"] .category-view, html[data-theme="light"] .category-loading{
+    transition: none;
+  }html[data-theme="light"] .category-loading-orb{
+    animation-duration: 1.6s;
+  }
+}
+
+/* Minimalist header controls — no heavy background */
+.integration-theme-toggle,
+.integration-daily-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--integration-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+.integration-theme-toggle:hover,
+.integration-daily-link:hover {
+  opacity: 1;
+  color: var(--integration-foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.integration-theme-toggle:focus-visible,
+.integration-daily-link:focus-visible {
+  outline: 2px solid var(--integration-green);
+  outline-offset: 2px;
+}
+html[data-theme="light"] .integration-theme-toggle,
+html[data-theme="light"] .integration-daily-link {
+  color: #6b7a6e;
+}
+html[data-theme="light"] .integration-theme-toggle:hover,
+html[data-theme="light"] .integration-daily-link:hover {
+  color: #1a2320;
+}
+.integration-theme-toggle__icon { font-size: 11px; line-height: 1; opacity: 0.9; }
+@media (max-width: 1100px) {
+  .integration-daily-link { display: none; }
+}
+
+
+/* Dark overrides for staying-open windows that were stuck white */
+html[data-theme="dark"] [data-category-view="sports"] #market-atlas-sports .event-detail {
+  background: radial-gradient(circle at 50% -17%, color-mix(in srgb, var(--kalshi-green) 15%, transparent), transparent 49%), linear-gradient(112deg, color-mix(in srgb, var(--card) 95%, var(--kalshi-green) 5%), var(--card)) !important;
+  border-color: color-mix(in srgb, var(--kalshi-green) 24%, var(--border)) !important;
+}
+html[data-theme="dark"] [data-category-view="sports"] #market-atlas-sports .market-card,
+html[data-theme="dark"] [data-category-view="politics"] .politics-app .market-card,
+html[data-theme="dark"] [data-category-view="weather"] .weather-app .market-card,
+html[data-theme="dark"] [data-category-view="business"] .business-app .market-card {
+  background: color-mix(in srgb, var(--card) 94%, transparent) !important;
+  border-color: color-mix(in srgb, var(--green) 17%, var(--border)) !important;
+}
+html[data-theme="dark"] [data-category-view="sports"] #market-atlas-sports .filter-sidebar,
+html[data-theme="dark"] [data-category-view="politics"] .politics-app .filter-sidebar,
+html[data-theme="dark"] [data-category-view="weather"] .weather-app .filter-sidebar,
+html[data-theme="dark"] [data-category-view="business"] .business-app .filter-sidebar {
+  background: transparent !important;
+}
+html[data-theme="dark"] #market-atlas-sports .form-select,
+html[data-theme="dark"] [data-category-view="sports"] #market-atlas-sports .event-detail .form-select {
+  background-color: color-mix(in srgb, var(--foreground) 7%, var(--card)) !important;
+  color: var(--foreground) !important;
+  border-color: color-mix(in srgb, var(--kalshi-green) 14%, var(--border)) !important;
+}
+html[data-theme="dark"] [data-category-view="sports"] #market-atlas-sports .timeline-dock,
+html[data-theme="dark"] [data-category-view="politics"] .politics-app .timeline-dock,
+html[data-theme="dark"] [data-category-view="weather"] .weather-app .timeline-dock,
+html[data-theme="dark"] [data-category-view="business"] .business-app .timeline-dock {
+  background: var(--card) !important;
+  border-color: color-mix(in srgb, var(--green) 24%, var(--border)) !important;
+}
+
+/* Utility bar outside header — holds KXDAILY + toggle, desktop-only minimalist */
+.integration-utility-bar {
+  position: fixed;
+  right: 16px;
+  top: 70px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 40;
+  padding: 6px 10px;
+  border: 1px solid var(--integration-border);
+  border-radius: 10px;
+  background: var(--integration-surface);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+html[data-theme="light"] .integration-utility-bar {
+  background: #ffffff;
+  border-color: #b8c5b9;
+  box-shadow: 0 4px 12px rgba(26,35,32,0.06);
+}
+@media (max-width: 1100px) {
+  .integration-utility-bar { display: none; }
+}
+
+/* Ensure side windows (left/right of globe) + search dropdown follow data-theme */
+html[data-theme="light"] .orbital-panel,
+html[data-theme="light"] .market-detail-panel,
+html[data-theme="light"] .market-filter-panel,
+html[data-theme="light"] .market-timeline-dock {
+  background: #ffffff !important;
+  border-color: #b8c5b9 !important;
+  color: #1a2320 !important;
+}
+html[data-theme="light"] .market-search-panel {
+  background: #ffffff !important;
+  border-color: #b8c5b9 !important;
+  color: #1a2320 !important;
+  box-shadow: 0 8px 24px rgba(26,35,32,0.10), 0 1px 0 #e8ede8 !important;
+}
+
