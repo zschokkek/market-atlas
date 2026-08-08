@@ -1706,6 +1706,21 @@ body{overflow-x:hidden}
       width: 28px !important;
       height: 28px !important;
     }
+    #market-atlas-sports .event-marker text {
+      font-size: 1.0675em;
+    }
+    #market-atlas-sports .event-cluster text {
+      font-size: 1.365em;
+    }
+  }
+  /* Cluster swipe cards: title is now <a> like single-detail — neutralize any button reset that painted black bar */
+  #market-atlas-sports button.market-card-title {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
   }
 
   #market-atlas-sports .matchup-tag {
@@ -4744,6 +4759,7 @@ function assertNearTermMarketCoverage(events, {
       core.setAttribute("r", String(radius));
       const label = document.createElementNS(ns, "text");
       label.textContent = String(events.length);
+      label.style.fontSize = `${(window.matchMedia('(max-width: 768px)').matches ? 1.08 : 0.62) + radius * 0.02}em`;
       group.append(hit, halo, track, price, core, label);
       clustersLayer.appendChild(group);
 
@@ -4885,6 +4901,7 @@ function assertNearTermMarketCoverage(events, {
     core.setAttribute("r", String(radius));
     const label = document.createElementNS(ns, "text");
     label.textContent = event.markerCode || (event.sport === "GOLF" ? "GLF" : event.sport);
+    label.style.fontSize = `${(window.matchMedia('(max-width: 768px)').matches ? 0.85 : 0.48) + radius * 0.018}em`;
 
     let matchupTag = null;
     let matchupTagWidth = 0;
@@ -5361,9 +5378,7 @@ function assertNearTermMarketCoverage(events, {
     const prices = includeAllOutcomes ? postedPrices : postedPrices.slice(0, 6);
     const ticker = prices[0]?.[4] || specificEventTicker(event) || event.eventTicker || event.expectedEventTicker || "";
     const title = `${event.markerCode || event.sport} · ${event.name}`;
-    const titleMarkup = includeAllOutcomes
-      ? `<button class="market-card-title" type="button">${escapeHtml(title)}</button>`
-      : ticker
+    const titleMarkup = ticker
         ? `<a class="market-card-title" href="${marketUrl(ticker)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>`
         : `<span class="market-card-title">${escapeHtml(title)}</span>`;
     const isLiveCard = isEventLive(event);
