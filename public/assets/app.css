@@ -4034,6 +4034,9 @@ html[data-theme="light"] .integration-utility-bar {
   .integration-daily-link { display: inline-flex !important; }
   .integration-daily-link .daily-prefix,
   .integration-daily-link .daily-arrow { display: none; }
+  body:has(.event-detail.is-mobile-open, .election-detail.is-mobile-open) .integration-utility-bar {
+    display: none !important;
+  }
 }
 
 /* Ensure side windows (left/right of globe) + search dropdown follow data-theme */
