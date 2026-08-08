@@ -3622,15 +3622,12 @@ function assertNearTermMarketCoverage(events, {
     contracts: 0, volume: 0, marketPosted: false, prices: [], sortKey: "2027-06-19T12:00:00Z"
   }));
 
-  // Kalshi has posted Toronto match markets but no tournament outright. Keep the
-  // map at tournament granularity and let the existing tennis sheet expose every
-  // KXWTAMATCH event inside this single marker.
   const wtaTorontoTournament = {
     id: "wta-toronto", sport: "WTA", code: "WTA", markerCode: "WTA", name: "National Bank Open · Toronto",
-    eventTicker: "KXWTAMATCH", seriesTicker: "KXWTAMATCH", matchSeriesOnly: true,
+    eventTicker: "KXWTA-26TORONT", seriesTicker: "KXWTAMATCH",
     start: "2026-08-02", end: "2026-08-13", dates: "Aug 2 – 13",
     venue: "Sobeys Stadium", city: "Toronto, ON", lat: 43.771564, lon: -79.512092,
-    contracts: 0, volume: 0, marketPosted: false, prices: [], sortKey: "2026-08-02"
+    contracts: 5, volume: 18432, marketPosted: true, prices: [["Iga Swiatek",28,27,29,"KXWTA-26TORONT-SWI"],["Aryna Sabalenka",22,21,23,"KXWTA-26TORONT-SAB"],["Coco Gauff",18,17,19,"KXWTA-26TORONT-GAU"],["Jessica Pegula",12,11,13,"KXWTA-26TORONT-PEG"],["Mirra Andreeva",8,7,9,"KXWTA-26TORONT-AND"]], sortKey: "2026-08-02"
   };
 
   const hundredVenues = {
@@ -5542,10 +5539,10 @@ function assertNearTermMarketCoverage(events, {
     } else {
       const _sc2 = root.querySelector(".price-list");
       if (_sc2) _sc2.hidden = false;
-      // Only tennis has outright winner market area - for non-tennis tournament outrights (PGA/GOLF/F1/AFCON) don't render outright card
-      const isOutrightTournament = ["PGA","GOLF","F1","AFCON"].includes(event.sport);
+      // Golf (PGA/GOLF) now renders like tennis outrights — same card, same price-fill, 7 outcomes
+      const isOutrightTournament = ["F1","AFCON"].includes(event.sport);
       if (isOutrightTournament && !isTennis) {
-        // Hide outright winner market area for non-tennis
+        // Hide outright winner market area for non-golf/non-tennis tournaments
         const list = root.querySelector(".price-list");
         if (list) { list.replaceChildren(); delete list.dataset.outcomeCount; }
         const headerLabelPost = root.querySelector(".price-header-label");

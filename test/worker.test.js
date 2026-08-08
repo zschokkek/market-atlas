@@ -1792,7 +1792,7 @@ test("sorts tennis outrights by probability and opens a matchups-only popup", ()
   assert.match(html, /class="tennis-markets-trigger[\s\S]*<strong>Matches<\/strong>[\s\S]*Biggest singles matchups/);
   assert.match(html, /Tennis matches/);
   assert.match(html, /const tennisMatchSeries = new Map\(\[\["ATP", "KXATPMATCH"\], \["WTA", "KXWTAMATCH"\]\]\)/);
-  assert.match(html, /id: "wta-toronto"[\s\S]*matchSeriesOnly: true/);
+  assert.match(html, /id: "wta-toronto"[\s\S]*eventTicker: "KXWTA-26TORONT"/);
   assert.doesNotMatch(html, /const wtaTorontoMatches|id: `wta-toronto-\$\{index\}`/);
   assert.match(html, /tennisMatchBelongsToEvent\(snapshot, outrightSnapshot, event\)/);
   assert.match(html, /const activeMarkets = snapshot\.markets\.filter\(market => !completedMarketStatuses\.has/);
