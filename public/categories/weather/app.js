@@ -310,11 +310,12 @@ function makeMarker(bundle) {
   const hit = appendSvg(group, "circle", "marker-hit"); hit.setAttribute("r", String(radius + 9));
   const halo = appendSvg(group, "circle", "marker-halo"); halo.setAttribute("r", String(radius + 3));
   const core = appendSvg(group, "circle", "marker-core"); core.setAttribute("r", String(radius));
-  const label = appendSvg(group, "text"); label.textContent = bundle.code; { const isMobile = window.matchMedia('(max-width: 768px)').matches; const isWeather = !app.classList.contains("business-app"); if (isWeather && isMobile) label.style.fontSize = `${0.7225 + radius * 0.0153}em`; else label.style.fontSize = `${(isMobile ? 0.85 : 0.48) + radius * 0.018}em`; }
+  const label = appendSvg(group, "text"); label.textContent = bundle.code; { const isMobile = window.matchMedia('(max-width: 768px)').matches; const isWeather = !app.classList.contains("business-app"); if (isWeather && isMobile) label.style.fontSize = `${0.7225 + radius * 0.0153}em`; else if (!isWeather) label.style.fontSize = `${(isMobile ? 0.68 : 0.38) + radius * 0.014}em`; else label.style.fontSize = `${(isMobile ? 0.85 : 0.48) + radius * 0.018}em`; }
   let nameLabel = null;
   if (namedMarkerLabels) {
     nameLabel = appendSvg(group, "text", "marker-name-label");
     nameLabel.textContent = bundle.name;
+    { const isMobile = window.matchMedia('(max-width: 768px)').matches; nameLabel.style.fontSize = `${(isMobile ? 0.68 : 0.40) + radius * 0.014}em`; }
   }
   if (bundle.markets.length > 1) {
     const count = appendSvg(group, "circle", "market-count"); count.setAttribute("cx", String(radius)); count.setAttribute("cy", String(-radius)); count.setAttribute("r", "5.3");
@@ -341,7 +342,10 @@ function markerPoint(bundle) {
 function markerSpacing() {
   const scale = projection.scale();
   const base = scale < 320 ? 30 : scale < 520 ? 24 : scale < 900 ? 18 : 10;
-  return window.matchMedia('(max-width: 768px)').matches ? base * 1.75 : base;
+  if (!window.matchMedia('(max-width: 768px)').matches) return base;
+  // Business dense metros need even more aggressive clustering on mobile than Weather
+  const isBusiness = app.classList.contains("business-app");
+  return base * (isBusiness ? 2.35 : 1.75);
 }
 
 function boxesOverlap(left, right, gap = 3) {

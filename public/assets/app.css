@@ -1820,28 +1820,7 @@ body.integration-body {
   }
 
   .mobile-market-sheet-close {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 2;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--integration-surface, #1a1f1c) 82%, transparent);
-    color: var(--integration-muted, #8a9a8f);
-    font-size: 18px;
-    line-height: 1;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
-  }
-  .mobile-market-sheet-close:active {
-    transform: scale(0.96);
+    display: none !important;
   }
   .mobile-sheet-handle {
     display: block;
@@ -3627,23 +3606,7 @@ html[data-theme="light"] [data-category-view="weather"] .weather-app .event-mark
   }html[data-theme="light"] .category-view .map-tooltip, html[data-theme="light"] .category-view .globe-hint{
     display: none !important;
   }html[data-theme="light"] .mobile-market-sheet-close{
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 2;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--integration-surface, #ffffff) 88%, transparent);
-    color: var(--integration-muted, #6b7a6e);
-    font-size: 18px;
-    line-height: 1;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    display: none !important;
   }html[data-theme="light"] [data-category-view="sports"] #market-atlas-sports .event-detail, html[data-theme="light"] [data-category-view="politics"] .politics-app .election-detail, html[data-theme="light"] [data-category-view="weather"] .weather-app .election-detail, html[data-theme="light"] [data-category-view="business"] .business-app .election-detail{
     position: fixed !important;
     z-index: 70;
