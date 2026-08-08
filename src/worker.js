@@ -2632,14 +2632,14 @@ async function handleRequest(request, env, ctx) {
       headers: { "cache-control": "no-store", "retry-after": "2" }
     });
   }
-  // Exactly like Politics/Weather/Business: no filterForDate, no hide — just serve the cached snapshot
-  // Repair legacy outright status and compute stale-while-revalidate cache like Politics does via staleCheck
-  const staleCheck = removeStaleEvents(payload);
-  const repairedEvents = payload.events.map(cachedSnapshot => {
+  // Fast like before, but never hide: filter by date like original, but always serve stale-while-revalidate (like Politics)
+  const filteredByDate = filterForDate(payload, date);
+  const staleCheck = removeStaleEvents(filteredByDate);
+  const repairedEvents = filteredByDate.events.map(cachedSnapshot => {
     const marketStatuses = (cachedSnapshot.markets || []).map(market => String(market.status || "").toLowerCase());
     return marketStatuses.some(value => value === "active" || value === "open") ? { ...cachedSnapshot, status: "active" } : cachedSnapshot;
   });
-  const filtered = { ...payload, events: repairedEvents, eventCount: repairedEvents.length, cache: { ...(payload.cache || {}), ...staleCheck.cache, updating: !!staleCheck.cache?.staleEventCount } };
+  let filtered = { ...filteredByDate, events: repairedEvents, eventCount: repairedEvents.length, cache: { ...(filteredByDate.cache || {}), ...staleCheck.cache, updating: !!staleCheck.cache?.staleEventCount } };
   if (staleCheck.cache?.staleEventCount) warmHostedCache(env, ctx, "sports");
   const etag = `W/\"${Date.parse(payload.generatedAt).toString(36)}-${filtered.eventCount}-${filtered.cache?.staleEventCount || 0}\"`;
   if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: { etag } });
