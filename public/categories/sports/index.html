@@ -1698,6 +1698,16 @@ body{overflow-x:hidden}
     font-size: 0.78em;
   }
 
+  @media (max-width: 768px) {
+    #market-atlas-sports .market-card.sports-market-card.is-live .market-card-heading .market-card-title {
+      color: white;
+    }
+    #market-atlas-sports svg.lucide {
+      width: 28px !important;
+      height: 28px !important;
+    }
+  }
+
   #market-atlas-sports .matchup-tag {
     display: none !important;
     pointer-events: none;
@@ -2665,7 +2675,7 @@ body{overflow-x:hidden}
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 18%, transparent);
   }
   #market-atlas-sports .market-card.sports-market-card.is-live .market-card-heading .market-card-title {
-    color: var(--red);
+    color: black;
   }
   #market-atlas-sports .market-card.sports-market-card.is-live .market-volume::after {
     content: " • LIVE";
@@ -4551,7 +4561,8 @@ function assertNearTermMarketCoverage(events, {
 
   function volumeRadius(value) {
     const normalized = Math.max(0, Math.log10(Math.max(1000, value)) - 3);
-    return Math.max(7, Math.min(15, 6.5 + normalized * 2.75));
+    const base = Math.max(7, Math.min(15, 6.5 + normalized * 2.75));
+    return window.matchMedia('(max-width: 768px)').matches ? base * 1.75 : base;
   }
 
   function marketUrl(ticker) {
@@ -4592,7 +4603,7 @@ function assertNearTermMarketCoverage(events, {
     }).filter(isMarkerInsideStage)
       .sort((left, right) => right.event.volume - left.event.volume);
 
-    const distanceThreshold = 34;
+    const distanceThreshold = window.matchMedia('(max-width: 768px)').matches ? 58 : 34;
     if (projection.scale() >= EXPAND_SHARED_VENUES_SCALE) {
       const venueGroups = new Map();
       inFrame.forEach(point => {
@@ -5520,7 +5531,7 @@ function assertNearTermMarketCoverage(events, {
       ? `${formatVolume(event.tennisVolume ?? (event.tennisMatches||[]).reduce((a,m)=>a+Number(m.volume||0),0))} across active singles matches · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
       : event.marketPosted
       ? `${formatVolume(event.outrightVolume ?? event.volume)} · ${cacheTimestampLabel(event.oddsUpdatedAt)}`
-      : pendingMarketLabel(event);
+      : pendingMarketLabel(event); }
     // Update trigger: sleek button above to see outright winner
     if (isTennis && hasTennisMatches) {
       tennisMarketsTrigger.hidden = false;
@@ -5600,7 +5611,7 @@ function assertNearTermMarketCoverage(events, {
             const singleTitlePost = `${current.markerCode || current.sport} · ${current.name}`;
             const tickerPost = selectedTicker || specificEventTicker(current) || current.eventTicker || "";
             if (tickerPost && current.hasListedMarkets) {
-              headerLabelPost2.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
+              headerLabelPost.innerHTML = `<a class="market-card-title" href="${marketUrl(tickerPost)}" target="_blank" rel="noopener noreferrer">${escapeHtml(singleTitlePost)}</a>`;
             }
           }
           { const _ct = root.querySelector(".contract-ticker"); if (_ct) _ct.textContent = selectedTicker; }

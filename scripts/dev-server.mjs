@@ -184,7 +184,7 @@ const server = createServer(async (incoming, outgoing) => {
 });
 
 function startListening() {
-  server.listen(listenPort, "127.0.0.1");
+  server.listen(listenPort, "0.0.0.0");
 }
 
 server.on("listening", () => {
