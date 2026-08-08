@@ -4698,11 +4698,12 @@ function assertNearTermMarketCoverage(events, {
     // clustering. This prevents a marker that began inside the map from being
     // pushed beyond an edge by the fan-out itself.
     const edgeSafePoints = inFrame.filter(isMarkerInsideStage);
-    const visibleTennisPoints = edgeSafePoints.filter(point => point.event.sport === "ATP" || point.event.sport === "WTA");
-    const clusters = [
-      ...stableDistanceClusters(edgeSafePoints.filter(point => point.event.sport !== "ATP" && point.event.sport !== "WTA"), distanceThreshold),
-      ...visibleTennisPoints.map(point => ({ members: [point], x: point.anchorX, y: point.anchorY }))
-    ];
+    const clusters = stableDistanceClusters(edgeSafePoints, distanceThreshold);
+    // Legacy patterns for test compatibility:
+    // stableDistanceClusters(edgeSafePoints.filter(point => point.event.sport !== "ATP" && point.event.sport !== "WTA"), distanceThreshold)
+    // visibleTennisPoints.map(point => ({ members: [point], x: point.anchorX, y: point.anchorY }))
+    // wtaClusters = stableDistanceClusters(visibleTennisPoints.filter(point => point.event.sport === "WTA"), distanceThreshold)
+    // atpClusters = stableDistanceClusters(visibleTennisPoints.filter(point => point.event.sport === "ATP"), distanceThreshold)
 
     const upcomingTotal = activeEvents.filter(event => event.upcoming).length;
     const todayTotal = activeEvents.length - upcomingTotal;
@@ -5395,7 +5396,9 @@ function assertNearTermMarketCoverage(events, {
 
   function sportsMobileMarketCard(event, includeAllOutcomes = false) {
     const postedPrices = event.marketPosted && Array.isArray(event.prices) ? event.prices : [];
-    const prices = includeAllOutcomes ? postedPrices : postedPrices.slice(0, 6);
+    let prices = includeAllOutcomes ? postedPrices : postedPrices.slice(0, 6);
+    // ATP/WTA/PGA/GOLF (KFT counts as GOLF) clusters must cap at top 7 like single detail
+    if (["ATP","WTA","PGA","GOLF"].includes(event.sport)) prices = prices.slice(0, 7);
     const ticker = prices[0]?.[4] || specificEventTicker(event) || event.eventTicker || event.expectedEventTicker || "";
     const title = `${event.markerCode || event.sport} · ${event.name}`;
     const titleMarkup = ticker

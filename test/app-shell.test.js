@@ -536,8 +536,7 @@ test("all four globes share deterministic zoom, pan, edge, and diagnostic rules"
     assert.match(source, /globeZoomMultiplier\(projection\.scale\(\)\)/);
     assert.match(source, /publishGlobeDiagnostics/);
   }
-  assert.match(sports, /stableDistanceClusters\(edgeSafePoints\.filter\(point => point\.event\.sport !== "ATP" && point\.event\.sport !== "WTA"\), distanceThreshold\)/);
-  assert.match(sports, /visibleTennisPoints\.map\(point => \(\{ members: \[point\], x: point\.anchorX, y: point\.anchorY \}\)\)/);
+  assert.match(sports, /const clusters = stableDistanceClusters\(edgeSafePoints, distanceThreshold\)/);
   assert.doesNotMatch(sports, /const edgeInset =/);
   assert.doesNotMatch(politics, /viewportEdgeOpacity|edgeRoom > 0\.015|horizonOpacity/);
   assert.doesNotMatch(weather, /BUSINESS_HORIZON_BUFFER|lastBusinessPlacedIds/);
