@@ -1,5 +1,7 @@
 .capital-labels-layer { display: none !important; }
 .weather-app {
+  --font-sans: "Libre Franklin", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --temperature: #f0a15f;
   --precipitation: #74b9dc;
   --hurricane: #b7a4e4;
@@ -70,6 +72,15 @@
   font-family: var(--font-mono);
   font-size: 6.65px;
   letter-spacing: -0.02em;
+}
+@media (max-width: 768px) {
+  .weather-app .event-marker text {
+    font-size: 9.89px;
+  }
+  .business-app .event-marker text,
+  .business-app .event-marker .marker-name-label {
+    font-size: 12.69px;
+  }
 }
 
 .weather-app .weather-detail .detail-code {

@@ -94,10 +94,8 @@
   --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
 
   /* Internal implementation variables; not part of the agent contract. */
-  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
-  --font-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
-    monospace;
+  --font-sans: "Libre Franklin", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --font-size-normal: max(11px, var(--font-size-base));
   --font-size-tooltip: calc(var(--font-size-base) - 1px);
   --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
@@ -1013,6 +1011,7 @@ body{overflow-x:hidden}
     </div>
 
     <aside class="event-detail card orbital-panel market-detail-panel" aria-live="polite">
+      <div class="mobile-sheet-handle" aria-hidden="true"></div>
       <button class="mobile-market-sheet-close" type="button" aria-label="Close market details">&#215;</button>
       <div class="detail-view game-detail-view">
         <label class="form-label panel-heading" for="market-atlas-event-select" hidden><span class="panel-orb" aria-hidden="true"></span>Sports market</label>
@@ -4067,6 +4066,30 @@ function assertNearTermMarketCoverage(events, {
     hideMobileMarketBrowser();
   }
   mobileDetailClose.addEventListener("click", closeMobileDetail);
+  // Swipe down to close — matches politics/weather sleek handler
+  (() => {
+    const panel = detail;
+    if (!panel) return;
+    let startY = 0, deltaY = 0, dragging = false;
+    const threshold = 64;
+    panel.addEventListener("touchstart", e => {
+      if (!panel.classList.contains("is-mobile-open")) return;
+      const t = e.touches[0]; if (!t) return;
+      const rect = panel.getBoundingClientRect();
+      const atTop = panel.scrollTop <= 1;
+      const nearTop = t.clientY - rect.top < 48 || e.target.closest(".mobile-sheet-handle");
+      if (!atTop && !nearTop) return;
+      startY = t.clientY; deltaY = 0; dragging = true;
+    }, { passive: true });
+    panel.addEventListener("touchmove", e => {
+      if (!dragging) return;
+      const t = e.touches[0]; if (!t) return;
+      deltaY = t.clientY - startY;
+      if (deltaY > 6) { panel.classList.add("is-dragging"); panel.style.transform = `translateY(${Math.min(deltaY,180)}px)`; if (e.cancelable) e.preventDefault(); }
+    }, { passive: false });
+    const end = () => { if (!dragging) return; dragging=false; panel.classList.remove("is-dragging"); panel.style.transform=""; if (deltaY>threshold) closeMobileDetail(); deltaY=0; };
+    panel.addEventListener("touchend", end); panel.addEventListener("touchcancel", end);
+  })();
 
   function compactTeamCode(name) {
     const cleaned = String(name || "").replace(/[^A-Za-z0-9 ]+/g, " ").trim();

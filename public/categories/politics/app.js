@@ -75,6 +75,47 @@ function closeMobileDetail() {
   detailPanel?.classList.remove("is-mobile-open");
 }
 mobileDetailClose?.addEventListener("click", closeMobileDetail);
+// Swipe down to close — sleek minimalist: drag handle or sheet
+(() => {
+  const panel = detailPanel;
+  if (!panel) return;
+  let startY = 0, deltaY = 0, dragging = false;
+  const threshold = 64;
+  panel.addEventListener("touchstart", e => {
+    if (!panel.classList.contains("is-mobile-open")) return;
+    const t = e.touches[0];
+    if (!t) return;
+    // Only start drag from handle area or top 48px, or when scrolled to top
+    const rect = panel.getBoundingClientRect();
+    const atTop = panel.scrollTop <= 1;
+    const nearTop = t.clientY - rect.top < 48 || e.target.closest(".mobile-sheet-handle");
+    if (!atTop && !nearTop) return;
+    startY = t.clientY; deltaY = 0; dragging = true;
+  }, { passive: true });
+  panel.addEventListener("touchmove", e => {
+    if (!dragging) return;
+    const t = e.touches[0];
+    if (!t) return;
+    deltaY = t.clientY - startY;
+    if (deltaY > 6) {
+      panel.classList.add("is-dragging");
+      panel.style.transform = `translateY(${Math.min(deltaY, 180)}px)`;
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove("is-dragging");
+    panel.style.transform = "";
+    if (deltaY > threshold) closeMobileDetail();
+    deltaY = 0;
+  };
+  panel.addEventListener("touchend", end);
+  panel.addEventListener("touchcancel", end);
+  // Backdrop tap to close
+  panel.addEventListener("click", e => { if (e.target === panel) closeMobileDetail(); });
+})();
 
 function renderTimelineStops() {
   timelineStopLayer.replaceChildren();
@@ -149,7 +190,8 @@ function bundleVolume(bundle) {
 
 function volumeRadius(value) {
   const normalized = Math.max(0, Math.log10(Math.max(1000, value)) - 3);
-  return Math.max(7, Math.min(15, 6.5 + normalized * 2.75));
+  const base = Math.max(7, Math.min(15, 6.5 + normalized * 2.75));
+  return window.matchMedia('(max-width: 768px)').matches ? base * 1.75 : base;
 }
 
 function currentGeographies() {
@@ -341,6 +383,7 @@ function createMarker(bundle) {
   core.setAttribute("r", String(radius));
   const label = svgElement("text");
   label.textContent = isHouseRace ? bundle.code.replace(/^[A-Z]{2}/, "") : bundle.code;
+  label.style.fontSize = `${(window.matchMedia('(max-width: 768px)').matches ? 0.85 : 0.48) + radius * 0.018}em`;
   group.append(hit, halo, core, label);
 
   if (bundle.markets.length > 1) {
@@ -391,11 +434,8 @@ function overlap(left, right, padding = 0) {
 
 function markerSpacing() {
   const scale = projection.scale();
-  if (scale < 320) return 31;
-  if (scale < 520) return 26;
-  if (scale < 900) return 20;
-  if (scale < 1500) return 14;
-  return 8;
+  const base = scale < 320 ? 31 : scale < 520 ? 26 : scale < 900 ? 20 : scale < 1500 ? 14 : 8;
+  return window.matchMedia('(max-width: 768px)').matches ? base * 1.75 : base;
 }
 
 function placeMarkers() {

@@ -75,7 +75,30 @@ const preciseHoverViewport = () => window.matchMedia("(hover: hover) and (pointe
 function openMobileDetail() { if (mobileMarketViewport()) detailPanel?.classList.add("is-mobile-open"); }
 function closeMobileDetail() { detailPanel?.classList.remove("is-mobile-open"); }
 mobileDetailClose?.addEventListener("click", closeMobileDetail);
-
+// Swipe down to close — same sleek handler as politics/sports
+(() => {
+  const panel = detailPanel;
+  if (!panel) return;
+  let startY = 0, deltaY = 0, dragging = false;
+  const threshold = 64;
+  panel.addEventListener("touchstart", e => {
+    if (!panel.classList.contains("is-mobile-open")) return;
+    const t = e.touches[0]; if (!t) return;
+    const rect = panel.getBoundingClientRect();
+    const atTop = panel.scrollTop <= 1;
+    const nearTop = t.clientY - rect.top < 48 || e.target.closest(".mobile-sheet-handle");
+    if (!atTop && !nearTop) return;
+    startY = t.clientY; deltaY = 0; dragging = true;
+  }, { passive: true });
+  panel.addEventListener("touchmove", e => {
+    if (!dragging) return;
+    const t = e.touches[0]; if (!t) return;
+    deltaY = t.clientY - startY;
+    if (deltaY > 6) { panel.classList.add("is-dragging"); panel.style.transform = `translateY(${Math.min(deltaY,180)}px)`; if (e.cancelable) e.preventDefault(); }
+  }, { passive: false });
+  const end = () => { if (!dragging) return; dragging=false; panel.classList.remove("is-dragging"); panel.style.transform=""; if (deltaY>threshold) closeMobileDetail(); deltaY=0; };
+  panel.addEventListener("touchend", end); panel.addEventListener("touchcancel", end);
+})();
 function appendSvg(parent, name, className = "") {
   const node = document.createElementNS(NS, name);
   if (className) node.setAttribute("class", className);
@@ -102,7 +125,8 @@ function bundleVolume(bundle) {
 }
 
 function volumeRadius(volume) {
-  return Math.max(7, Math.min(15, 6.5 + (Math.log10(Math.max(1000, volume)) - 3) * 2.75));
+  const base = Math.max(7, Math.min(15, 6.5 + (Math.log10(Math.max(1000, volume)) - 3) * 2.75));
+  return window.matchMedia('(max-width: 768px)').matches ? base * 1.75 : base;
 }
 
 function activeKinds() {
@@ -157,10 +181,11 @@ function visibleBundles() {
       const marketHorizon = market.horizon || bundle.horizon;
       return kinds.has(marketKind) && (horizon === "All" || marketHorizon === horizon);
     });
-    const representative = markets.slice().sort((left, right) => right.volume - left.volume)[0];
+    const sorted = sortWeatherMarkets(markets);
+    const representative = sorted[0] || markets.slice().sort((left, right) => right.volume - left.volume)[0];
     return {
       ...bundle,
-      markets,
+      markets: sorted,
       kind: representative?.kind || bundle.kind,
       horizon: representative?.horizon || bundle.horizon,
       code: bundle.isMetroCluster ? bundle.code : marketCode(representative, bundle.code)
@@ -170,6 +195,16 @@ function visibleBundles() {
 
 function uniqueMarketCount(bundles) {
   return new Set(bundles.flatMap(bundle => bundle.markets.map(market => market.id))).size;
+}
+function sortWeatherMarkets(markets) {
+  // Weather tab: default preview is Temperature if present — most relevant
+  if (namedMarkerLabels) return markets;
+  return [...markets].sort((a, b) => {
+    const aTemp = (a.kind || "") === "Temperature" ? 0 : 1;
+    const bTemp = (b.kind || "") === "Temperature" ? 0 : 1;
+    if (aTemp !== bTemp) return aTemp - bTemp;
+    return (b.volume || 0) - (a.volume || 0);
+  });
 }
 
 function outcomeMarkup(outcome, tooltipMode = false) {
@@ -214,7 +249,7 @@ function renderDetail(bundle) {
   detailCode.textContent = bundle.code;
   detailLocation.textContent = bundle.location;
   detailMeta.innerHTML = `<span class="meta-badge weather-category-badge" style="--weather-accent:${accents[bundle.kind]}">${bundle.kind}</span><span class="meta-badge">${bundle.horizon}</span><span class="meta-badge">${bundle.markets.length} market${bundle.markets.length === 1 ? "" : "s"}</span>`;
-  detailList.innerHTML = bundle.markets.map(market => marketMarkup(market, market.kind || bundle.kind)).join("");
+  detailList.innerHTML = sortWeatherMarkets(bundle.markets).map(market => marketMarkup(market, market.kind || bundle.kind)).join("");
   window.__marketAtlasPriceHistory?.wireCards(detailList);
 }
 
@@ -257,7 +292,7 @@ function showTooltip(bundle, point) {
   if (!preciseHoverViewport()) return;
   cancelTooltipHide();
   tooltipId = bundle.id;
-  tooltip.innerHTML = `<div class="tooltip-heading"><div><div class="tooltip-title">${escapeHtml(bundle.name)}</div><div class="tooltip-subtitle">${escapeHtml(bundle.location)} · ${bundle.horizon}</div></div><span class="weather-category-badge" style="--weather-accent:${accents[bundle.kind]}">${escapeHtml(bundle.kind)}</span></div><div class="tooltip-market-list">${bundle.markets.map(market => marketMarkup(market, market.kind || bundle.kind, true)).join("")}</div>`;
+  tooltip.innerHTML = `<div class="tooltip-heading"><div><div class="tooltip-title">${escapeHtml(bundle.name)}</div><div class="tooltip-subtitle">${escapeHtml(bundle.location)} · ${bundle.horizon}</div></div><span class="weather-category-badge" style="--weather-accent:${accents[bundle.kind]}">${escapeHtml(bundle.kind)}</span></div><div class="tooltip-market-list">${sortWeatherMarkets(bundle.markets).map(market => marketMarkup(market, market.kind || bundle.kind, true)).join("")}</div>`;
   tooltip.hidden = false;
   positionTooltip(point);
 }
@@ -275,7 +310,7 @@ function makeMarker(bundle) {
   const hit = appendSvg(group, "circle", "marker-hit"); hit.setAttribute("r", String(radius + 9));
   const halo = appendSvg(group, "circle", "marker-halo"); halo.setAttribute("r", String(radius + 3));
   const core = appendSvg(group, "circle", "marker-core"); core.setAttribute("r", String(radius));
-  const label = appendSvg(group, "text"); label.textContent = bundle.code;
+  const label = appendSvg(group, "text"); label.textContent = bundle.code; { const isMobile = window.matchMedia('(max-width: 768px)').matches; const isWeather = !app.classList.contains("business-app"); if (isWeather && isMobile) label.style.fontSize = `${0.7225 + radius * 0.0153}em`; else label.style.fontSize = `${(isMobile ? 0.85 : 0.48) + radius * 0.018}em`; }
   let nameLabel = null;
   if (namedMarkerLabels) {
     nameLabel = appendSvg(group, "text", "marker-name-label");
@@ -305,10 +340,8 @@ function markerPoint(bundle) {
 
 function markerSpacing() {
   const scale = projection.scale();
-  if (scale < 320) return 30;
-  if (scale < 520) return 24;
-  if (scale < 900) return 18;
-  return 10;
+  const base = scale < 320 ? 30 : scale < 520 ? 24 : scale < 900 ? 18 : 10;
+  return window.matchMedia('(max-width: 768px)').matches ? base * 1.75 : base;
 }
 
 function boxesOverlap(left, right, gap = 3) {
