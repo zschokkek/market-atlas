@@ -1239,6 +1239,19 @@ body.integration-body {
     font-size: 12px;
     touch-action: manipulation;
   }
+  html[data-theme="dark"] .integration-tab {
+    font-family: "Libre Franklin", Inter, sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #e8ede8;
+  }
+  html[data-theme="dark"] .integration-tab.is-active {
+    color: var(--integration-green-ink);
+    background: var(--integration-green);
+    box-shadow: 0 0 18px rgba(10, 194, 133, 0.23);
+  }
 
   .integration-stage {
     min-height: 0;
@@ -4005,6 +4018,22 @@ html[data-theme="light"] .integration-utility-bar {
 }
 @media (max-width: 1100px) {
   .integration-utility-bar { display: none; }
+}
+@media (max-width: 700px) {
+  .integration-utility-bar {
+    display: inline-flex !important;
+    left: auto;
+    right: 6px;
+    top: auto;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: auto;
+    justify-content: flex-end;
+    gap: 14px;
+    padding: 6px 10px;
+  }
+  .integration-daily-link { display: inline-flex !important; }
+  .integration-daily-link .daily-prefix,
+  .integration-daily-link .daily-arrow { display: none; }
 }
 
 /* Ensure side windows (left/right of globe) + search dropdown follow data-theme */

@@ -401,6 +401,7 @@ function createMarker(bundle) {
   markersLayer.appendChild(group);
 
   const activate = () => {
+    hideTooltip();
     selectedBundleId = bundle.id;
     renderDetail(bundle);
     openMobileDetail();

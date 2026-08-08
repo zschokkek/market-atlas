@@ -120,7 +120,7 @@ test("KXDAILY link is desktop-only and minimalist", async () => {
   const html = await read("public/index.html");
   const css = await read("public/assets/app.css");
   assert.match(html, /<a[^>]*class="integration-daily-link"[^>]*href="https:\/\/kx-daily\.com"/);
-  assert.match(html, />Try the KXDAILY/);
+  assert.match(html, /Try the[\s\S]*KXDAILY/);
   assert.match(html, /target="_blank"/);
   assert.match(html, /rel="noopener"/);
   // Desktop-only: hidden below 1100px

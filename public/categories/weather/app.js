@@ -321,7 +321,7 @@ function makeMarker(bundle) {
     const count = appendSvg(group, "circle", "market-count"); count.setAttribute("cx", String(radius)); count.setAttribute("cy", String(-radius)); count.setAttribute("r", "5.3");
     const countText = appendSvg(group, "text", "market-count-text"); countText.setAttribute("x", String(radius)); countText.setAttribute("y", String(-radius)); countText.textContent = String(bundle.markets.length);
   }
-  const select = () => { pinnedSearchId = null; delete app.dataset.searchSelectedId; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); draw(); };
+  const select = () => { hideTooltip(); pinnedSearchId = null; delete app.dataset.searchSelectedId; selectedId = bundle.id; renderDetail(bundle); openMobileDetail(); draw(); };
   group.addEventListener("pointerdown", event => event.stopPropagation());
   group.addEventListener("mouseenter", () => { if (!preciseHoverViewport()) return; const point = markerPoint(bundle); if (point) showTooltip(bundle, point); });
   group.addEventListener("mouseleave", scheduleTooltipHide);
