@@ -5510,8 +5510,8 @@ function assertNearTermMarketCoverage(events, {
 
     let displayedPrices = event.prices.slice();
     // Golf (PGA/KFT/LIV all map to PGA/GOLF) — cap on mobile to avoid overflow, desktop shows all
-    if (mobileMarketViewport() && ["PGA","GOLF"].includes(event.sport)) {
-      displayedPrices = displayedPrices.slice(0, 8);
+    if (mobileMarketViewport() && ["PGA","GOLF","ATP","WTA"].includes(event.sport)) {
+      displayedPrices = displayedPrices.slice(0, 7);
     }
     list.dataset.outcomeCount = String(displayedPrices.length);
     // Rebuild as single market-card like Politics/Weather/Business — one element with header
@@ -5611,8 +5611,8 @@ function assertNearTermMarketCoverage(events, {
     const postedPrices = event.marketPosted && Array.isArray(event.prices) ? event.prices : [];
     let prices = postedPrices.slice();
     // Golf mobile overflow: cap KFT/LIV/PGA (all GOLF/PGA) like detail
-    if (!includeAllOutcomes && ["PGA","GOLF"].includes(event.sport)) {
-      prices = prices.slice(0, 8);
+    if (!includeAllOutcomes && ["PGA","GOLF","ATP","WTA"].includes(event.sport)) {
+      prices = prices.slice(0, 7);
     }
     const ticker = prices[0]?.[4] || specificEventTicker(event) || event.eventTicker || event.expectedEventTicker || "";
     const title = `${event.markerCode || event.sport} · ${event.name}`;
